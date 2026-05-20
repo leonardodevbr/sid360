@@ -8,6 +8,8 @@ import {
   BuildingOffice2Icon,
   Squares2X2Icon,
   UsersIcon,
+  UserGroupIcon,
+  CurrencyDollarIcon,
   Cog6ToothIcon,
 } from '@heroicons/vue/24/outline';
 
@@ -55,6 +57,13 @@ const menuGroups = computed(() => {
       ],
     },
     {
+      title: 'Comercial',
+      items: [
+        { name: 'Clientes', to: { name: 'clients.index' }, icon: UserGroupIcon, permission: 'clients.view' },
+        { name: 'Vendas', to: { name: 'sales.index' }, icon: CurrencyDollarIcon, permission: 'sales.view' },
+      ],
+    },
+    {
       title: 'Sistema',
       items: [
         { name: 'Usuários', to: { name: 'users.index' }, icon: UsersIcon, permission: 'users.view' },
@@ -99,8 +108,9 @@ function handleClick() {
       'translate-x-0': isOpen,
     }"
   >
-    <div class="flex h-16 items-center gap-2 border-b border-slate-200 bg-slate-50/80 px-4">
-      <AppLogo icon-class="h-6 w-6" text-class="text-lg" :light="false" />
+    <div class="flex h-16 items-center gap-3 border-b border-[rgba(28,10,6,0.08)] bg-white px-4">
+      <AppLogo height-class="h-10" />
+      <span class="text-[11px] font-bold uppercase tracking-[0.18em] text-sid-secondary">Gestão</span>
     </div>
 
     <nav class="flex-1 space-y-1 py-4 text-sm">
@@ -119,12 +129,12 @@ function handleClick() {
             :key="item.name"
             :to="item.to"
             class="group flex items-center gap-3 rounded-md border-l-4 border-transparent px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-            :class="isActive(item) ? 'border-emerald-500 bg-emerald-50 text-slate-900' : ''"
+            :class="isActive(item) ? 'border-sid-accent bg-primary-50 text-sid-dark' : ''"
             @click="handleClick"
           >
             <component
               :is="item.icon"
-              :class="['h-5 w-5 shrink-0', isActive(item) ? 'text-emerald-600' : 'text-slate-500 group-hover:text-slate-700']"
+              :class="['h-5 w-5 shrink-0', isActive(item) ? 'text-sid-accent' : 'text-slate-500 group-hover:text-sid-secondary']"
             />
             <span class="truncate">{{ item.name }}</span>
           </router-link>

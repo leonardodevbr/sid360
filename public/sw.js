@@ -7,7 +7,7 @@ self.addEventListener('push', function (event) {
     event.waitUntil(
         self.registration.showNotification(payload.title || 'Nova Notificação - DiariaSys', {
             body: payload.body || 'Você tem uma nova mensagem.',
-            icon: '/logo.png',
+            icon: '/img/logo-full-bg.png',
             data: payload.url || '/',
             actions: payload.actions || []
         })

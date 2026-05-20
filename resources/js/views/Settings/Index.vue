@@ -43,7 +43,7 @@
                   v-model="form[item.key]"
                   type="checkbox"
                   :value="opt.value"
-                  class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  class="rounded border-slate-300 text-sid-accent focus:ring-sid-accent"
                 >
                 <span class="text-sm text-slate-700">{{ opt.label }}</span>
               </label>
@@ -81,7 +81,7 @@
           type="button"
           :disabled="saving"
           @click="handleSave"
-          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors"
+          class="px-4 py-2 bg-sid-accent text-white rounded-lg hover:bg-sid-accent-light disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors"
         >
           <span v-if="saving">Salvando...</span>
           <span v-else>Salvar</span>
@@ -115,7 +115,6 @@ const GROUP_LABELS = {
 const LOGIN_METHOD_OPTIONS = [
   { value: 'email', label: 'E-mail' },
   { value: 'username', label: 'Usuário' },
-  { value: 'matricula', label: 'Matrícula' },
 ];
 
 export default {
@@ -155,7 +154,9 @@ export default {
       Object.keys(data || {}).forEach((group) => {
         (Array.isArray(data[group]) ? data[group] : []).forEach((s) => {
           if (s.key === 'allowed_login_methods' && s.type === 'json') {
-            f[s.key] = Array.isArray(s.value) ? [...s.value] : ['email', 'username', 'matricula'];
+            f[s.key] = Array.isArray(s.value)
+              ? s.value.filter((m) => m === 'email' || m === 'username')
+              : ['email', 'username'];
           } else {
             f[s.key] = s.type === 'boolean' ? !!s.value : (s.value ?? '');
           }
@@ -186,7 +187,9 @@ export default {
             const type = item.type || 'string';
             let value = form.value[key];
             if (key === 'allowed_login_methods' && type === 'json') {
-              value = Array.isArray(value) ? value : ['email', 'username', 'matricula'];
+              value = Array.isArray(value)
+                ? value.filter((m) => m === 'email' || m === 'username')
+                : ['email', 'username'];
             } else if (type === 'boolean') {
               value = !!value;
             }

@@ -10,17 +10,32 @@
   }
 
   body {
-    @apply bg-slate-50 text-slate-800 antialiased;
+    background-color: #faf5ee;
+    color: #1c0a06;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
 @layer components {
   .card {
-    @apply bg-white rounded-xl border border-slate-200 shadow-none;
+    @apply rounded-xl bg-white shadow-none;
+    border: 1px solid rgba(28, 10, 6, 0.1);
+  }
+
+  .auth-card {
+    border-color: rgba(201, 168, 76, 0.25);
+    box-shadow: 0 8px 32px rgba(28, 10, 6, 0.06);
   }
 
   .input-base {
-    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900
-    focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100;
+    @apply w-full rounded-lg bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2;
+    border: 1px solid rgba(28, 10, 6, 0.15);
+    color: #1c0a06;
+  }
+
+  .input-base:focus {
+    border-color: #c23028;
+    --tw-ring-color: rgba(194, 48, 40, 0.15);
   }
 }

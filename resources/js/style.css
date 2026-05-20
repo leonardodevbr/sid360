@@ -1,49 +1,33 @@
-/* Multiselect overrides para alinhar com inputs Tailwind e remover verde/borda grossa */
+/* Multiselect — cores da marca Sid360 */
 :root {
-  /* estados de item selecionado (sempre azul) */
-  --ms-option-bg-selected: #2563EB;          /* blue-600 */
-  --ms-option-bg-selected-pointed: #1D4ED8;  /* blue-700 */
+  --ms-option-bg-selected: #C23028;
+  --ms-option-bg-selected-pointed: #D44840;
   --ms-option-color-selected: #ffffff;
   --ms-option-color-selected-pointed: #ffffff;
-
-  /* item não selecionado em hover: cinza claro */
-  --ms-option-bg-pointed: #F1F5F9;           /* slate-100 */
-
-  /* desativa ring padrão da lib (usamos nosso próprio) */
+  --ms-option-bg-pointed: #F0E8DB;
   --ms-ring-width: 0px;
   --ms-ring-color: transparent;
+  --ms-tag-bg: #C23028;
+  --ms-tag-color: #ffffff;
+  --ms-tag-radius: 0.375rem;
+  --ms-border-color: rgba(28, 10, 6, 0.15);
+  --ms-border-color-active: #C23028;
+  --ms-radius: 0.375rem;
+  --ms-ring-width: 2px;
+  --ms-ring-color: #C23028;
+  --ms-option-bg-pointed: #FAF5EE;
+  --ms-option-color-pointed: #1C0A06;
+  --ms-dropdown-shadow: 0 10px 15px -3px rgba(28, 10, 6, 0.1), 0 4px 6px -2px rgba(28, 10, 6, 0.05);
 }
 
 .multiselect.is-active {
-  border-color: #3B82F6;                     /* blue-500 */
-  box-shadow: 0 0 0 1px #3B82F6;             /* ring fino */
+  border-color: #C23028;
+  box-shadow: 0 0 0 1px #C23028;
 }
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@layer base {
-  html,
-  body,
-  #app {
-    height: 100%;
-  }
-
-  body {
-    @apply bg-slate-50 text-slate-800 antialiased;
-  }
-}
-
-@layer components {
-  .card {
-    @apply bg-white rounded-xl border border-slate-200 shadow-none;
-  }
-
-  .input-base {
-    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900
-    focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100;
-  }
-}
 
 /* Toast Notifications - Z-Index Supremo */
 .Vue-Toastification__container {
@@ -60,12 +44,10 @@
   z-index: 100000 !important;
 }
 
-/* Campo tipo senha sem type=password, para o gerenciador de senhas do browser não oferecer salvar */
 .swal-manager-auth-input {
   -webkit-text-security: disc;
 }
 
-/* Prévia de cliente já identificado (F7) */
 .swal-customer-preview {
   text-align: left;
   font-size: 0.9375rem;
@@ -79,7 +61,6 @@
   color: #64748b;
 }
 
-/* Label e dica de atalhos no modal Identificar Cliente */
 .swal-cpf-label {
   display: block;
   margin-bottom: 0.5rem;
@@ -106,8 +87,12 @@
 }
 
 .swal2-confirm {
-  @apply bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
-  margin-left: 0.5rem !important;
+  background-color: #C23028 !important;
+  color: #fff !important;
+}
+
+.swal2-confirm:hover {
+  background-color: #D44840 !important;
 }
 
 .swal2-confirm.swal2-confirm--red {
@@ -119,24 +104,6 @@
   margin-right: 0.5rem !important;
 }
 
-/* Multiselect Custom Styles */
-:root {
-  --ms-tag-bg: #2563eb;
-  --ms-tag-color: #ffffff;
-  --ms-tag-radius: 0.375rem;
-  --ms-border-color: #cbd5e1;
-  --ms-border-color-active: #3b82f6;
-  --ms-radius: 0.375rem;
-  --ms-ring-width: 2px;
-  --ms-ring-color: #3b82f6;
-  --ms-option-bg-selected: #2563eb;
-  --ms-option-color-selected: #ffffff;
-  --ms-option-bg-pointed: #eff6ff;
-  --ms-option-color-pointed: #1e40af;
-  --ms-dropdown-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-}
-
-/* Garantir que o dropdown do Multiselect apareça acima de headers fixos */
 .multiselect-dropdown {
   z-index: 9999 !important;
 }

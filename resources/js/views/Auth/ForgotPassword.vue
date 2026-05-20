@@ -43,8 +43,8 @@ function backToLogin() {
 <template>
   <div class="space-y-5">
     <div class="space-y-1">
-      <h2 class="text-lg font-semibold text-slate-800">Esqueci minha senha</h2>
-      <p class="text-xs text-slate-500">
+      <h2 class="text-lg font-semibold text-sid-dark">Esqueci minha senha</h2>
+      <p class="text-xs text-sid-secondary">
         Informe o e-mail da sua conta. Enviaremos um link para você redefinir a senha.
       </p>
     </div>
@@ -68,9 +68,9 @@ function backToLogin() {
       </div>
     </form>
 
-    <div v-else class="rounded-lg bg-green-50 p-4 text-sm text-green-800">
+    <div v-else class="rounded-lg border border-sid-gold/30 bg-sid-cream-dark p-4 text-sm text-sid-dark">
       <p class="font-medium">E-mail enviado!</p>
-      <p class="mt-1 text-green-700">
+      <p class="mt-1 text-sid-secondary">
         Verifique sua caixa de entrada e o spam. O link expira em 60 minutos.
       </p>
       <Button type="button" variant="outline" class="mt-4" @click="backToLogin">

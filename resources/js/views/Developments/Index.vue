@@ -23,7 +23,7 @@
             v-model="searchQuery"
             type="search"
             placeholder="Nome ou localização..."
-            class="w-full rounded border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            class="w-full rounded border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent"
             @input="debouncedSearch"
           />
         </div>
@@ -76,7 +76,7 @@
                   <button
                     v-if="authStore.can('developments.edit')"
                     type="button"
-                    class="rounded p-1.5 text-blue-600 hover:bg-blue-50"
+                    class="rounded p-1.5 text-sid-accent hover:bg-primary-50"
                     title="Editar"
                     @click="$router.push({ name: 'developments.edit', params: { id: item.id } })"
                   >
@@ -115,6 +115,7 @@ import api from '@/services/api';
 import { useAuthStore } from '@/stores/auth';
 import { useAlert } from '@/composables/useAlert';
 import { developmentStatusLabels, developmentStatusOptions } from '@/utils/labels';
+import { getApiErrorMessage } from '@/utils/apiError';
 import Button from '@/components/Common/Button.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
 import PaginationBar from '@/components/Common/PaginationBar.vue';
@@ -134,7 +135,7 @@ let searchTimeout = null;
 
 function statusClass(status) {
   const map = {
-    active: 'bg-emerald-100 text-emerald-800',
+    active: 'bg-sid-cream-dark text-secondary-600',
     inactive: 'bg-slate-100 text-slate-700',
     under_construction: 'bg-amber-100 text-amber-800',
   };
@@ -175,7 +176,7 @@ async function confirmDelete(item) {
     toast.success('Empreendimento excluído.');
     loadItems(pagination.value?.current_page || 1);
   } catch (e) {
-    toast.error(e.response?.data?.message || 'Não foi possível excluir.');
+    toast.error(getApiErrorMessage(e, 'Não foi possível excluir.'));
   }
 }
 

@@ -18,7 +18,7 @@
             v-model="searchQuery"
             type="text"
             placeholder="Digite para buscar..."
-            class="w-full rounded border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            class="w-full rounded border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent"
             @input="debouncedSearch"
           />
         </div>
@@ -70,7 +70,7 @@
                   <button
                     v-if="authStore.can('users.edit')"
                     type="button"
-                    class="rounded p-1.5 text-blue-600 hover:bg-blue-50"
+                    class="rounded p-1.5 text-sid-accent hover:bg-primary-50"
                     title="Editar"
                     @click="$router.push({ name: 'users.edit', params: { id: u.id } })"
                   >

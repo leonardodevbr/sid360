@@ -12,7 +12,7 @@ class SettingSeeder extends Seeder
     public function run(): void
     {
         Settings::set('app_name', 'Sid360', 'string', 'general');
-        Settings::set('allowed_login_methods', ['email', 'username', 'matricula'], 'json', 'auth');
+        Settings::set('allowed_login_methods', ['email', 'username'], 'json', 'auth');
 
         $this->command->info('Configurações iniciais criadas.');
     }

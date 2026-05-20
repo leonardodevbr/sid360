@@ -17,7 +17,7 @@
         <textarea
           v-model="form.description"
           rows="4"
-          class="w-full rounded border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          class="w-full rounded border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent"
           placeholder="Descrição do empreendimento"
         />
       </div>

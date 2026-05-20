@@ -62,7 +62,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen bg-sid-cream">
     <Sidebar
       :is-open="isSidebarOpen"
       @close="isSidebarOpen = false"
@@ -75,7 +75,7 @@ onMounted(async () => {
         @logout="handleLogout"
       />
 
-      <main class="flex-1 overflow-hidden bg-gray-50">
+      <main class="flex-1 overflow-hidden bg-sid-cream">
         <div class="h-full p-4 md:p-6">
           <div class="card h-full p-4 md:p-6">
             <router-view />

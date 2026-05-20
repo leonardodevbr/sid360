@@ -73,7 +73,7 @@ class DevelopmentController extends Controller
         $development = Development::query()->findOrFail((int) $id);
         $action->execute($development);
 
-        return response()->json(['message' => 'Development deleted successfully.']);
+        return response()->json(['message' => 'Empreendimento excluído com sucesso.']);
     }
 
     public function lots(Request $request, string|int $id, ListLotsAction $action): AnonymousResourceCollection|JsonResponse

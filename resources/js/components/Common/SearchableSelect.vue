@@ -103,8 +103,8 @@ watch(internalValue, (val) => {
 }
 .filter-select-wrapper :deep(.multiselect.is-active) {
   outline: none;
-  box-shadow: 0 0 0 2px #3b82f6;
-  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px #C23028;
+  border-color: #C23028;
 }
 </style>
 

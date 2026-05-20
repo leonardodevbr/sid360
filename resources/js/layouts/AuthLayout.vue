@@ -3,16 +3,17 @@ import AppLogo from '@/components/Common/AppLogo.vue';
 </script>
 
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+  <div class="flex min-h-screen items-center justify-center bg-sid-cream px-4">
     <div class="w-full max-w-md">
-      <div class="mb-6 flex flex-col items-center">
-        <AppLogo icon-class="h-16 w-16" text-class="text-2xl" />
-        <p class="mt-2 text-sm text-slate-500">Sistema de Concessão de Diárias</p>
+      <div class="mb-8 flex flex-col items-center text-center">
+        <AppLogo height-class="h-16 sm:h-20" />
+        <p class="mt-4 text-sm font-medium text-sid-secondary">
+          Lotes e Imóveis em Cafarnaum-BA
+        </p>
       </div>
-      <div class="card p-6">
+      <div class="card auth-card p-6 sm:p-8">
         <router-view />
       </div>
     </div>
   </div>
 </template>
-

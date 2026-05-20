@@ -53,7 +53,7 @@
       <div class="p-2 border-t border-slate-100">
         <router-link
           :to="{ name: 'daily-requests.index' }"
-          class="block text-center text-sm font-medium text-blue-600 hover:text-blue-800 py-2"
+          class="block text-center text-sm font-medium text-sid-accent hover:text-sid-accent-light py-2"
           @click="open = false"
         >
           Ver todas as solicitações
@@ -104,7 +104,7 @@ function actionLabel(status) {
 function actionBadgeClass(status) {
   const map = {
     requested: 'bg-amber-100 text-amber-800',
-    validated: 'bg-green-100 text-green-800',
+    validated: 'bg-sid-cream-dark text-secondary-600',
     authorized: 'bg-indigo-100 text-indigo-800',
   }
   return map[status] ?? 'bg-slate-100 text-slate-800'

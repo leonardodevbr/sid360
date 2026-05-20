@@ -67,6 +67,6 @@ class LotController extends Controller
         $lot = Lot::query()->findOrFail((int) $id);
         $action->execute($lot);
 
-        return response()->json(['message' => 'Lot deleted successfully.']);
+        return response()->json(['message' => 'Lote excluído com sucesso.']);
     }
 }

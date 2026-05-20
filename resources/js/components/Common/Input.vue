@@ -34,7 +34,7 @@ const emit = defineEmits(['update:modelValue']);
     <label
       v-if="label"
       :for="id"
-      class="block text-sm font-medium text-slate-700"
+      class="block text-sm font-medium text-sid-dark"
     >
       {{ label }}
     </label>

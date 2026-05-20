@@ -13,7 +13,7 @@ class DeleteDevelopmentAction
     {
         if ($development->lots()->exists()) {
             throw ValidationException::withMessages([
-                'development' => ['Cannot delete a development that has lots registered.'],
+                'development' => ['Não é possível excluir um empreendimento que possui lotes cadastrados.'],
             ]);
         }
 

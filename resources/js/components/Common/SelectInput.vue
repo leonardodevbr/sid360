@@ -175,18 +175,20 @@ export default defineComponent({
 }
 
 :deep(.multiselect-option-pointed) {
-  @apply bg-blue-50 text-slate-900;
+  background-color: #fdf3f2;
+  color: #0f172a;
 }
 
 :deep(.multiselect-option.is-pointed),
 :deep(.multiselect-option-pointed) {
-  background-color: rgb(239 246 255) !important;
-  color: rgb(15 23 42) !important;
+  background-color: #fdf3f2 !important;
+  color: #1c0a06 !important;
 }
 
 :deep(.multiselect-container-active .multiselect-single-label),
 :deep(.multiselect-container-active .multiselect-placeholder) {
-  @apply border-blue-500 ring-2 ring-blue-100;
+  border-color: #c23028;
+  box-shadow: 0 0 0 2px #fbe4e2;
 }
 
 :deep(.multiselect-caret) {
@@ -198,11 +200,22 @@ export default defineComponent({
 }
 
 :deep(.multiselect-tag) {
-  @apply bg-blue-100 text-blue-900 rounded px-2 py-1 text-xs font-medium;
+  background-color: #fbe4e2;
+  color: #1c0a06;
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 :deep(.multiselect-tag-remove) {
-  @apply text-blue-700 hover:text-blue-900 hover:bg-blue-200 rounded;
+  color: #c23028;
+  border-radius: 0.25rem;
+}
+
+:deep(.multiselect-tag-remove:hover) {
+  color: #d44840;
+  background-color: #fbe4e2;
 }
 
 :deep(.multiselect-multiple-label) {
@@ -218,14 +231,14 @@ export default defineComponent({
 
 :deep(.multiselect-tag),
 :deep(.select-input-tag) {
-  background-color: rgb(219 234 254) !important;
-  color: rgb(30 58 138) !important;
+  background-color: #fbe4e2 !important;
+  color: #1c0a06 !important;
 }
 
 :deep(.multiselect-option.is-selected),
 :deep(.multiselect-option-selected),
 :deep(.multiselect-option-selected-pointed) {
-  background-color: rgb(219 234 254) !important;
-  color: rgb(30 58 138) !important;
+  background-color: #fbe4e2 !important;
+  color: #1c0a06 !important;
 }
 </style>

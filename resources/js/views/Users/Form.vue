@@ -39,13 +39,13 @@
             v-for="branchId in form.branch_ids"
             :key="branchId"
             class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-slate-50 transition-colors"
-            :class="{ 'border-blue-500 bg-blue-50': form.primary_branch_id === branchId }"
+            :class="{ 'border-sid-accent bg-primary-50': form.primary_branch_id === branchId }"
           >
             <input
               v-model="form.primary_branch_id"
               type="radio"
               :value="branchId"
-              class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300"
+              class="h-4 w-4 text-sid-accent focus:ring-sid-accent border-slate-300"
             >
             <span class="ml-3 text-sm font-medium text-slate-900">
               {{ branchOptions.find(b => b.value === branchId)?.label }}
@@ -55,12 +55,12 @@
       </div>
     </div>
     <SelectInput v-model="form.role" label="Cargo" :options="roleOptions" placeholder="Selecione o cargo" />
-    <div v-if="form.role === 'owner'" class="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+    <div v-if="form.role === 'owner'" class="mt-2 p-3 bg-primary-50 border border-primary-100 rounded-lg">
       <div class="flex items-start gap-2">
-        <svg class="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg class="h-5 w-5 text-sid-accent mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <div class="text-xs text-blue-800">
+        <div class="text-xs text-sid-secondary">
           <strong>Dono da Loja:</strong> Tem acesso a todas as filiais automaticamente. Possui mesmas permissões de Gerente em todas as filiais, mas não pode excluir Super Admin.
         </div>
       </div>

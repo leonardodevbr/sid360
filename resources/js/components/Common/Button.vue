@@ -18,8 +18,9 @@ const baseClasses =
   'inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60';
 
 const variants = {
-  primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
-  outline: 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus:ring-blue-500',
+  primary: 'bg-sid-accent text-white hover:bg-sid-accent-light focus:ring-sid-accent',
+  outline: 'border border-[rgba(28,10,6,0.15)] bg-white text-sid-dark hover:bg-sid-cream-dark focus:ring-sid-gold',
+  danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
 };
 </script>
 

@@ -105,6 +105,42 @@ const routes = [
         meta: { title: 'Editar lote', permission: 'lots.edit' },
       },
       {
+        path: 'clients',
+        name: 'clients.index',
+        component: () => import('@/views/Clients/Index.vue'),
+        meta: { title: 'Clientes', permission: 'clients.view' },
+      },
+      {
+        path: 'clients/new',
+        name: 'clients.create',
+        component: () => import('@/views/Clients/Form.vue'),
+        meta: { title: 'Novo cliente', permission: 'clients.create' },
+      },
+      {
+        path: 'clients/:id/edit',
+        name: 'clients.edit',
+        component: () => import('@/views/Clients/Form.vue'),
+        meta: { title: 'Editar cliente', permission: 'clients.edit' },
+      },
+      {
+        path: 'sales',
+        name: 'sales.index',
+        component: () => import('@/views/Sales/Index.vue'),
+        meta: { title: 'Vendas', permission: 'sales.view' },
+      },
+      {
+        path: 'sales/new',
+        name: 'sales.create',
+        component: () => import('@/views/Sales/Form.vue'),
+        meta: { title: 'Nova venda', permission: 'sales.create' },
+      },
+      {
+        path: 'sales/:id',
+        name: 'sales.show',
+        component: () => import('@/views/Sales/Show.vue'),
+        meta: { title: 'Detalhes da venda', permission: 'sales.view' },
+      },
+      {
         path: 'users',
         name: 'users.index',
         component: UsersIndex,

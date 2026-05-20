@@ -75,8 +75,8 @@ function goToLogin() {
 <template>
   <div class="space-y-5">
     <div class="space-y-1">
-      <h2 class="text-lg font-semibold text-slate-800">Redefinir senha</h2>
-      <p class="text-xs text-slate-500">
+      <h2 class="text-lg font-semibold text-sid-dark">Redefinir senha</h2>
+      <p class="text-xs text-sid-secondary">
         Defina uma nova senha para acessar o sistema.
       </p>
     </div>
@@ -115,9 +115,9 @@ function goToLogin() {
       </div>
     </form>
 
-    <div v-else-if="success" class="rounded-lg bg-green-50 p-4 text-sm text-green-800">
+    <div v-else-if="success" class="rounded-lg border border-sid-gold/30 bg-sid-cream-dark p-4 text-sm text-sid-dark">
       <p class="font-medium">Senha redefinida!</p>
-      <p class="mt-1 text-green-700">Redirecionando para o login...</p>
+      <p class="mt-1 text-sid-secondary">Redirecionando para o login...</p>
     </div>
 
     <div v-else class="rounded-lg bg-amber-50 p-4 text-sm text-amber-800">

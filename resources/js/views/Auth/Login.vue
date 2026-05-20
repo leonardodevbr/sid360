@@ -18,7 +18,7 @@ async function handleSubmit() {
   formErrors.value = {};
 
   if (!login.value) {
-    formErrors.value.login = 'Informe seu e-mail, usuário ou matrícula.';
+    formErrors.value.login = 'Informe seu e-mail ou usuário.';
   }
   if (!password.value) {
     formErrors.value.password = 'Informe a senha.';
@@ -46,19 +46,19 @@ async function handleSubmit() {
     @submit.prevent="handleSubmit"
   >
     <div class="space-y-1">
-      <h2 class="text-lg font-semibold text-slate-800">Entrar</h2>
-      <p class="text-xs text-slate-500">
-        Use seu e-mail, usuário ou matrícula e senha cadastrados para acessar o sistema.
+      <h2 class="text-lg font-semibold text-sid-dark">Entrar</h2>
+      <p class="text-xs text-sid-secondary">
+        Use seu e-mail ou usuário e senha cadastrados para acessar o sistema.
       </p>
     </div>
 
     <Input
       id="login"
       v-model="login"
-      label="E-mail, Usuário ou Matrícula"
+      label="E-mail ou Usuário"
       type="text"
       autocomplete="username"
-      placeholder="exemplo@email.com, usuario ou 12345"
+      placeholder="exemplo@email.com ou usuario"
       :error="formErrors.login"
     />
 
@@ -81,10 +81,10 @@ async function handleSubmit() {
       </Button>
     </div>
 
-    <p class="text-center text-sm text-slate-500">
+    <p class="text-center text-sm text-sid-secondary">
       <router-link
         :to="{ name: 'forgot-password' }"
-        class="text-blue-600 hover:text-blue-800 hover:underline"
+        class="font-medium text-sid-accent hover:text-sid-accent-light hover:underline"
       >
         Esqueci minha senha / Primeiro acesso
       </router-link>

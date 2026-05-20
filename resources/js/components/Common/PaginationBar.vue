@@ -13,7 +13,7 @@
         <span>Itens por página:</span>
         <select
           :value="currentPerPage"
-          class="rounded border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="rounded border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent"
           @change="onPerPageChange"
         >
           <option v-for="n in perPageOptions" :key="n" :value="n">{{ n }}</option>

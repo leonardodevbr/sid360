@@ -25,7 +25,7 @@ class AuthController extends Controller
 
         if (! Auth::attempt($credentials)) {
             throw ValidationException::withMessages([
-                'login' => ['E-mail, usuário ou matrícula e/ou senha incorretos.'],
+                'login' => ['E-mail ou usuário e/ou senha incorretos.'],
             ]);
         }
 
@@ -33,7 +33,7 @@ class AuthController extends Controller
 
         if (! $user) {
             throw ValidationException::withMessages([
-                'login' => ['E-mail, usuário ou matrícula e/ou senha incorretos.'],
+                'login' => ['E-mail ou usuário e/ou senha incorretos.'],
             ]);
         }
 
@@ -54,24 +54,24 @@ class AuthController extends Controller
         $login = $request->input('login');
         $password = $request->input('password');
 
-        $allowedMethods = Settings::get('allowed_login_methods', ['email', 'username', 'matricula']);
+        $allowedMethods = Settings::get('allowed_login_methods', ['email', 'username']);
         if (! is_array($allowedMethods)) {
-            $allowedMethods = ['email', 'username', 'matricula'];
+            $allowedMethods = ['email', 'username'];
         }
-        $allowedMethods = array_map('strtolower', $allowedMethods);
-
-        $field = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email' : null;
-
-        if (! $field) {
-            $userByUsername = User::where('username', $login)->first();
-            $field = $userByUsername ? 'username' : 'matricula';
+        $allowedMethods = array_values(array_intersect(
+            array_map('strtolower', $allowedMethods),
+            ['email', 'username']
+        ));
+        if ($allowedMethods === []) {
+            $allowedMethods = ['email', 'username'];
         }
+
+        $field = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
 
         if (! in_array($field, $allowedMethods, true)) {
             $labels = [
                 'email' => 'e-mail',
                 'username' => 'usuário',
-                'matricula' => 'matrícula',
             ];
             $permitidos = array_map(fn ($m) => $labels[$m] ?? $m, $allowedMethods);
             throw ValidationException::withMessages([

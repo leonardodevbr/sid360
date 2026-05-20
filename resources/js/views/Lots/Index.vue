@@ -28,7 +28,7 @@
             v-model="searchQuery"
             type="search"
             placeholder="Número ou quadra..."
-            class="w-full rounded border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            class="w-full rounded border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent"
             @input="debouncedSearch"
           />
         </div>
@@ -75,7 +75,7 @@
                   <button
                     v-if="authStore.can('lots.edit')"
                     type="button"
-                    class="rounded p-1.5 text-blue-600 hover:bg-blue-50"
+                    class="rounded p-1.5 text-sid-accent hover:bg-primary-50"
                     title="Editar"
                     @click="$router.push({ name: 'lots.edit', params: { id: item.id } })"
                   >
@@ -116,6 +116,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useAlert } from '@/composables/useAlert';
 import { formatCurrency } from '@/utils/format';
 import { lotStatusLabels, lotStatusOptions } from '@/utils/labels';
+import { getApiErrorMessage } from '@/utils/apiError';
 import Button from '@/components/Common/Button.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
 import PaginationBar from '@/components/Common/PaginationBar.vue';
@@ -148,7 +149,7 @@ function formatNumber(value) {
 
 function statusClass(status) {
   const map = {
-    available: 'bg-emerald-100 text-emerald-800',
+    available: 'bg-sid-cream-dark text-secondary-600',
     reserved: 'bg-amber-100 text-amber-800',
     sold: 'bg-slate-100 text-slate-700',
   };
@@ -210,7 +211,7 @@ async function confirmDelete(item) {
     toast.success('Lote excluído.');
     loadItems(pagination.value?.current_page || 1);
   } catch (e) {
-    toast.error(e.response?.data?.message || 'Não foi possível excluir.');
+    toast.error(getApiErrorMessage(e, 'Não foi possível excluir.'));
   }
 }
 

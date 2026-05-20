@@ -24,7 +24,7 @@
             type="text"
             @blur="fetchAddress"
             @input="(e) => formatCep(e)"
-            class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent"
             placeholder="00000-000"
             maxlength="9"
           />
@@ -37,7 +37,7 @@
             :value="addressData.street"
             @input="updateField('street', $event.target.value)"
             type="text"
-            class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent"
             placeholder="Rua, Avenida, etc."
           />
         </div>
@@ -53,7 +53,7 @@
             :value="addressData.number"
             @input="updateField('number', $event.target.value)"
             type="text"
-            class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent"
             placeholder="123"
           />
         </div>
@@ -65,7 +65,7 @@
             :value="addressData.complement"
             @input="updateField('complement', $event.target.value)"
             type="text"
-            class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent"
             placeholder="Apto, Bloco, etc."
           />
         </div>
@@ -80,7 +80,7 @@
             :value="addressData.neighborhood"
             @input="updateField('neighborhood', $event.target.value)"
             type="text"
-            class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent"
             placeholder="Bairro"
           />
         </div>
@@ -92,7 +92,7 @@
             :value="addressData.city"
             @input="updateField('city', $event.target.value)"
             type="text"
-            class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent"
             placeholder="Cidade"
           />
         </div>
@@ -107,7 +107,7 @@
           @input="updateField('state', $event.target.value.toUpperCase())"
           type="text"
           maxlength="2"
-          class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+          class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent uppercase"
           placeholder="SP"
         />
       </div>

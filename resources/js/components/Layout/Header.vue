@@ -1,6 +1,5 @@
 <script setup>
 import UserMenu from '@/components/Common/UserMenu.vue';
-import NotificationsPanel from '@/components/Layout/NotificationsPanel.vue';
 
 const props = defineProps({
   userName: {
@@ -18,7 +17,7 @@ const emit = defineEmits(['toggleSidebar', 'logout']);
       <!-- Mobile menu button -->
       <button
         type="button"
-        class="inline-flex items-center justify-center rounded-md p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 md:hidden"
+        class="inline-flex items-center justify-center rounded-md p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-sid-accent md:hidden"
         @click="emit('toggleSidebar')"
       >
         <span class="sr-only">Abrir menu</span>
@@ -40,7 +39,6 @@ const emit = defineEmits(['toggleSidebar', 'logout']);
     </div>
 
     <div class="flex items-center gap-2">
-      <NotificationsPanel />
       <UserMenu :user-name="props.userName" @logout="emit('logout')" />
     </div>
   </header>

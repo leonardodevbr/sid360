@@ -11,7 +11,7 @@
       <PopoverButton
         type="button"
         class="input-base w-full flex items-center justify-between text-left"
-        :class="[open ? 'ring-2 ring-blue-500 border-blue-500' : '']"
+        :class="[open ? 'ring-2 ring-sid-accent border-sid-accent' : '']"
       >
         <span :class="displayText ? 'text-slate-800' : 'text-slate-400'">
           {{ displayText || placeholder }}
@@ -37,7 +37,7 @@
             <button
               v-if="tempStart || tempEnd"
               type="button"
-              class="text-xs font-medium text-blue-600 hover:text-blue-700 p-1"
+              class="text-xs font-medium text-sid-accent hover:text-sid-accent-light p-1"
               @click="clearSelection"
             >
               Limpar seleção
@@ -117,7 +117,7 @@
             <p class="text-[10px] text-slate-400 uppercase font-medium tracking-wider">
               {{ !tempStart ? 'Selecione a ida' : (!tempEnd ? 'Selecione a volta' : 'Período selecionado') }}
             </p>
-            <div v-if="tempStart && !tempEnd" class="text-[10px] text-blue-500 font-bold uppercase">
+            <div v-if="tempStart && !tempEnd" class="text-[10px] text-sid-accent font-bold uppercase">
               Aguardando retorno...
             </div>
           </div>
@@ -245,20 +245,20 @@ function dayClasses(day, month) {
   const isEnd = end && isSameDay(d, end)
 
   if (isStart || isEnd) {
-    return 'bg-blue-600 text-white font-bold shadow-sm z-10 scale-105'
+    return 'bg-sid-accent text-white font-bold shadow-sm z-10 scale-105'
   }
 
   // Range Selecionado (Ida e Volta)
   if (start && end) {
     if (isWithinInterval(d, { start, end })) {
-      return 'bg-blue-50 text-blue-700 font-semibold'
+      return 'bg-primary-50 text-sid-accent font-semibold'
     }
   }
 
   // Preview de Range (Apenas Ida selecionada + Hover)
   if (start && !end && hovered && !isBefore(hovered, start)) {
     if (isWithinInterval(d, { start, end: hovered })) {
-      return 'bg-blue-50 text-blue-400 font-medium'
+      return 'bg-primary-50 text-sid-accent/70 font-medium'
     }
   }
 
