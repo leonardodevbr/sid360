@@ -81,12 +81,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('favicon/apple-touch-icon.png') }}" />
 <meta name="apple-mobile-web-app-title" content="Sid360" />
 <link rel="manifest" href="{{ asset('site.webmanifest') }}" />
-<link
-  rel="stylesheet"
-  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-  crossorigin=""
-/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
 
 <style>
 :root {
@@ -2674,11 +2669,7 @@ footer {
   })->all();
 @endphp
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/js/tom-select.complete.min.js"></script>
-<script
-  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvBtlKU="
-  crossorigin=""
-></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 (function() {
   const LOT_TYPES = @json($lotTypesForJs);
@@ -3183,123 +3174,92 @@ footer {
 
   applyLoteType('residencial');
 
-  // === Mapa de lotes (Leaflet — hardcoded) ===
-  const LOTES_MAP_DATA = [
-    {
-      id: 'frente-br',
-      name: 'Lote Frente à Rodovia',
-      color: '#C23028',
-      fillOpacity: 0.4,
-      coords: [
-        [-11.4655, -39.9845],
-        [-11.4655, -39.9828],
-        [-11.4647, -39.9828],
-        [-11.4647, -39.9845]
-      ],
-      popup: '<strong>Lote Frente à Rodovia</strong><br>Comercial · Frente BR<br>À vista: R$ 60.000 · Parcelado: R$ 65.000'
-    },
-    {
-      id: 'res-01',
-      name: 'Lote Residencial 01',
-      color: '#3d8a5a',
-      fillOpacity: 0.45,
-      coords: [
-        [-11.4674, -39.9840],
-        [-11.4674, -39.9834],
-        [-11.4669, -39.9834],
-        [-11.4669, -39.9840]
-      ],
-      popup: '<strong>Lote Residencial 01</strong><br>20×30 · Disponível<br>À vista: R$ 25.000'
-    },
-    {
-      id: 'res-02',
-      name: 'Lote Residencial 02',
-      color: '#3d8a5a',
-      fillOpacity: 0.45,
-      coords: [
-        [-11.4674, -39.9833],
-        [-11.4674, -39.9827],
-        [-11.4669, -39.9827],
-        [-11.4669, -39.9833]
-      ],
-      popup: '<strong>Lote Residencial 02</strong><br>20×30 · Disponível<br>À vista: R$ 25.000'
-    },
-    {
-      id: 'res-03',
-      name: 'Lote Residencial 03',
-      color: '#3d8a5a',
-      fillOpacity: 0.45,
-      coords: [
-        [-11.4668, -39.9840],
-        [-11.4668, -39.9834],
-        [-11.4663, -39.9834],
-        [-11.4663, -39.9840]
-      ],
-      popup: '<strong>Lote Residencial 03</strong><br>20×30 · Disponível<br>À vista: R$ 25.000'
-    },
-    {
-      id: 'res-04',
-      name: 'Lote Residencial 04',
-      color: '#3d8a5a',
-      fillOpacity: 0.45,
-      coords: [
-        [-11.4668, -39.9833],
-        [-11.4668, -39.9827],
-        [-11.4663, -39.9827],
-        [-11.4663, -39.9833]
-      ],
-      popup: '<strong>Lote Residencial 04</strong><br>20×30 · Disponível<br>À vista: R$ 25.000'
-    },
-    {
-      id: 'res-05',
-      name: 'Lote Residencial 05',
-      color: '#3d8a5a',
-      fillOpacity: 0.45,
-      coords: [
-        [-11.4674, -39.9825],
-        [-11.4674, -39.9819],
-        [-11.4669, -39.9819],
-        [-11.4669, -39.9825]
-      ],
-      popup: '<strong>Lote Residencial 05</strong><br>20×30 · Disponível<br>À vista: R$ 25.000'
-    },
-    {
-      id: 'res-06',
-      name: 'Lote Residencial 06',
-      color: '#3d8a5a',
-      fillOpacity: 0.45,
-      coords: [
-        [-11.4668, -39.9825],
-        [-11.4668, -39.9819],
-        [-11.4663, -39.9819],
-        [-11.4663, -39.9825]
-      ],
-      popup: '<strong>Lote Residencial 06</strong><br>20×30 · Disponível<br>À vista: R$ 25.000'
-    }
-  ];
+  // === Mapa de lotes (Leaflet — dados em public/data/lotes-map.json) ===
+  const LOTES_MAP_URL = @json(asset('data/lotes-map.json'));
+  const LOTES_MAP_STYLES = {
+    comercial: { color: '#C23028', fillOpacity: 0.4 },
+    residencial: { color: '#3d8a5a', fillOpacity: 0.45 }
+  };
 
   const lotsMapModal = document.getElementById('lotsMapModal');
   const lotsMapCanvas = document.getElementById('lotsMapCanvas');
   const simVerLotesBtn = document.getElementById('simVerLotesBtn');
   let lotsMapInstance = null;
   let lotsMapLayerGroup = null;
+  let lotsMapConfig = { center: LOTEAMENTO_CENTER, zoom: 17 };
+  let lotsMapData = [];
+  let lotsMapDataLoaded = false;
+  let lotsMapDataLoading = null;
 
-  function initLotsMap() {
-    if (lotsMapInstance || typeof L === 'undefined' || !lotsMapCanvas) return;
+  function normalizeLot(lot, index) {
+    const type = lot.type === 'comercial' ? 'comercial' : 'residencial';
+    const style = LOTES_MAP_STYLES[type];
+    return {
+      id: lot.id || ('lot-' + (index + 1)),
+      name: lot.name || ('Lote ' + (index + 1)),
+      color: lot.color || style.color,
+      fillOpacity: lot.fillOpacity != null ? lot.fillOpacity : style.fillOpacity,
+      coords: lot.coords,
+      popup: lot.popup || ('<strong>' + (lot.name || 'Lote') + '</strong>')
+    };
+  }
 
-    lotsMapInstance = L.map(lotsMapCanvas, {
-      scrollWheelZoom: true,
-      zoomControl: true
-    }).setView(LOTEAMENTO_CENTER, 17);
+  function lotsFromGeoJson(geojson) {
+    const features = geojson.features || [];
+    return features
+      .filter(function(f) { return f.geometry && f.geometry.type === 'Polygon'; })
+      .map(function(f, index) {
+        const ring = f.geometry.coordinates[0] || [];
+        const props = f.properties || {};
+        return normalizeLot({
+          id: props.id,
+          name: props.name,
+          type: props.type,
+          popup: props.popup,
+          coords: ring.map(function(c) { return [c[1], c[0]]; })
+        }, index);
+      });
+  }
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-    }).addTo(lotsMapInstance);
+  function parseLotsMapPayload(data) {
+    if (data.center) lotsMapConfig.center = data.center;
+    if (data.zoom) lotsMapConfig.zoom = data.zoom;
+    if (data.geojson) return lotsFromGeoJson(data.geojson);
+    if (Array.isArray(data.lots)) {
+      return data.lots.map(function(lot, index) { return normalizeLot(lot, index); });
+    }
+    return [];
+  }
 
-    lotsMapLayerGroup = L.layerGroup().addTo(lotsMapInstance);
+  function loadLotsMapData() {
+    if (lotsMapDataLoaded) return Promise.resolve(lotsMapData);
+    if (lotsMapDataLoading) return lotsMapDataLoading;
 
-    LOTES_MAP_DATA.forEach(function(lot) {
+    lotsMapDataLoading = fetch(LOTES_MAP_URL)
+      .then(function(res) {
+        if (!res.ok) throw new Error('lotes-map.json not found');
+        return res.json();
+      })
+      .then(function(data) {
+        lotsMapData = parseLotsMapPayload(data);
+        lotsMapDataLoaded = true;
+        return lotsMapData;
+      })
+      .catch(function() {
+        lotsMapData = [];
+        lotsMapDataLoaded = true;
+        return lotsMapData;
+      });
+
+    return lotsMapDataLoading;
+  }
+
+  function renderLotsOnMap() {
+    if (!lotsMapInstance || !lotsMapLayerGroup) return;
+    lotsMapLayerGroup.clearLayers();
+
+    lotsMapData.forEach(function(lot) {
+      if (!lot.coords || lot.coords.length < 3) return;
       const polygon = L.polygon(lot.coords, {
         color: lot.color,
         fillColor: lot.color,
@@ -3313,7 +3273,31 @@ footer {
 
     if (lotsMapLayerGroup.getLayers().length > 0) {
       lotsMapInstance.fitBounds(lotsMapLayerGroup.getBounds().pad(0.15));
+    } else {
+      lotsMapInstance.setView(lotsMapConfig.center, lotsMapConfig.zoom);
     }
+  }
+
+  function initLotsMap() {
+    if (typeof L === 'undefined' || !lotsMapCanvas) return Promise.resolve();
+
+    if (!lotsMapInstance) {
+      lotsMapInstance = L.map(lotsMapCanvas, {
+        scrollWheelZoom: true,
+        zoomControl: true
+      }).setView(lotsMapConfig.center, lotsMapConfig.zoom);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      }).addTo(lotsMapInstance);
+
+      lotsMapLayerGroup = L.featureGroup().addTo(lotsMapInstance);
+    }
+
+    return loadLotsMapData().then(function() {
+      renderLotsOnMap();
+    });
   }
 
   function openLotsMapModal() {
@@ -3321,13 +3305,15 @@ footer {
     lotsMapModal.classList.add('is-open');
     lotsMapModal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('lots-map-modal-open');
-    initLotsMap();
-    window.setTimeout(function() {
-      if (lotsMapInstance) lotsMapInstance.invalidateSize();
-      if (lotsMapLayerGroup && lotsMapLayerGroup.getLayers().length > 0) {
-        lotsMapInstance.fitBounds(lotsMapLayerGroup.getBounds().pad(0.12));
-      }
-    }, 200);
+
+    initLotsMap().then(function() {
+      window.setTimeout(function() {
+        if (lotsMapInstance) lotsMapInstance.invalidateSize();
+        if (lotsMapLayerGroup && lotsMapLayerGroup.getLayers().length > 0) {
+          lotsMapInstance.fitBounds(lotsMapLayerGroup.getBounds().pad(0.12));
+        }
+      }, 200);
+    });
   }
 
   function closeLotsMapModal() {

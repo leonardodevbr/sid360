@@ -1,0 +1,90 @@
+{
+  "center": [-11.4667, -39.9833],
+  "zoom": 17,
+  "lots": [
+    {
+      "id": "frente-br",
+      "name": "Lote Frente à Rodovia",
+      "type": "comercial",
+      "coords": [
+        [-11.4655, -39.9845],
+        [-11.4655, -39.9828],
+        [-11.4647, -39.9828],
+        [-11.4647, -39.9845]
+      ],
+      "popup": "<strong>Lote Frente à Rodovia</strong><br>Comercial · Frente BR<br>À vista: R$ 60.000 · Parcelado: R$ 65.000"
+    },
+    {
+      "id": "res-01",
+      "name": "Lote Residencial 01",
+      "type": "residencial",
+      "coords": [
+        [-11.4674, -39.9840],
+        [-11.4674, -39.9834],
+        [-11.4669, -39.9834],
+        [-11.4669, -39.9840]
+      ],
+      "popup": "<strong>Lote Residencial 01</strong><br>20×30 · Disponível<br>À vista: R$ 25.000"
+    },
+    {
+      "id": "res-02",
+      "name": "Lote Residencial 02",
+      "type": "residencial",
+      "coords": [
+        [-11.4674, -39.9833],
+        [-11.4674, -39.9827],
+        [-11.4669, -39.9827],
+        [-11.4669, -39.9833]
+      ],
+      "popup": "<strong>Lote Residencial 02</strong><br>20×30 · Disponível<br>À vista: R$ 25.000"
+    },
+    {
+      "id": "res-03",
+      "name": "Lote Residencial 03",
+      "type": "residencial",
+      "coords": [
+        [-11.4668, -39.9840],
+        [-11.4668, -39.9834],
+        [-11.4663, -39.9834],
+        [-11.4663, -39.9840]
+      ],
+      "popup": "<strong>Lote Residencial 03</strong><br>20×30 · Disponível<br>À vista: R$ 25.000"
+    },
+    {
+      "id": "res-04",
+      "name": "Lote Residencial 04",
+      "type": "residencial",
+      "coords": [
+        [-11.4668, -39.9833],
+        [-11.4668, -39.9827],
+        [-11.4663, -39.9827],
+        [-11.4663, -39.9833]
+      ],
+      "popup": "<strong>Lote Residencial 04</strong><br>20×30 · Disponível<br>À vista: R$ 25.000"
+    },
+    {
+      "id": "res-05",
+      "name": "Lote Residencial 05",
+      "type": "residencial",
+      "coords": [
+        [-11.4674, -39.9825],
+        [-11.4674, -39.9819],
+        [-11.4669, -39.9819],
+        [-11.4669, -39.9825]
+      ],
+      "popup": "<strong>Lote Residencial 05</strong><br>20×30 · Disponível<br>À vista: R$ 25.000"
+    },
+    {
+      "id": "res-06",
+      "name": "Lote Residencial 06",
+      "type": "residencial",
+      "coords": [
+        [-11.4668, -39.9825],
+        [-11.4668, -39.9819],
+        [-11.4663, -39.9819],
+        [-11.4663, -39.9825]
+      ],
+      "popup": "<strong>Lote Residencial 06</strong><br>20×30 · Disponível<br>À vista: R$ 25.000"
+    }
+  ]
+}
