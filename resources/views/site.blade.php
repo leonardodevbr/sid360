@@ -7,8 +7,8 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 
 {{-- ===== SEO BÁSICO ===== --}}
-<title>Sid360 — Imóveis em Cafarnaum-BA | Lotes, Casas e Terrenos</title>
-<meta name="description" content="Corretor de imóveis em Cafarnaum-BA. Lotes residenciais, comerciais e rurais com negociação direta. Novo loteamento com infraestrutura completa. Fale com o Sid: (74) 9 8823-0151.">
+<title>Sid360 — Lotes e Imóveis em Cafarnaum-BA</title>
+<meta name="description" content="Lotes residenciais e comerciais em Cafarnaum-BA. Uma oportunidade real de investir no seu futuro. Negocie direto com o Sid.">
 <meta name="keywords" content="imóveis Cafarnaum, lotes Cafarnaum, corretor Cafarnaum, terrenos Cafarnaum BA, loteamento Cafarnaum, imóveis Bahia, lotes residenciais, terreno rural Cafarnaum">
 <meta name="author" content="Sid Nunes — Corretor de Imóveis">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
@@ -523,30 +523,41 @@ nav.scrolled {
 }
 
 .lote-thumb {
-  height: 150px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  height: 200px;
   position: relative;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: var(--bg-dark);
 }
 
-.lote-card:nth-child(1) .lote-thumb {
-  background: linear-gradient(145deg, #6B5A3A, #3D2E1A);
+.lote-thumb::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(28,20,16,0.15) 0%,
+    rgba(28,20,16,0.5) 100%
+  );
 }
 
-.lote-card:nth-child(2) .lote-thumb {
-  background: linear-gradient(145deg, #5A6B3A, #2E3D1A);
+.lote-thumb-icon { display: none; }
+
+.lote-card .lote-thumb {
+  transition: background-size 0.6s ease;
 }
 
-.lote-card:nth-child(3) .lote-thumb {
-  background: linear-gradient(145deg, #4A5A6B, #1A2E3D);
+.lote-card:hover .lote-thumb {
+  background-size: 110%;
 }
-
-.lote-thumb-icon { opacity: 0.25; }
 
 .lote-badge-destaque {
   position: absolute;
-  top: 12px; left: 12px;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
   background: var(--accent);
   color: var(--bg-darker);
   font-size: 0.65rem;
@@ -877,6 +888,45 @@ nav.scrolled {
 
 .sim-wa:hover { background: #1db954; }
 
+.sim-radio-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sim-radio-item {
+  cursor: pointer;
+}
+
+.sim-radio-item input[type="radio"] {
+  display: none;
+}
+
+.sim-radio-item span {
+  display: inline-block;
+  padding: 9px 20px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-section);
+  transition: all 0.18s;
+  cursor: pointer;
+  user-select: none;
+}
+
+.sim-radio-item input[type="radio"]:checked + span {
+  background: var(--accent);
+  color: var(--bg-darker);
+  border-color: var(--accent);
+}
+
+.sim-radio-item:hover span {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
 .sim-panel { display: none; }
 .sim-panel.active { display: block; }
 
@@ -1036,7 +1086,7 @@ footer {
   gap: 10px;
 }
 
-.footer-copy, .footer-creci {
+.footer-copy {
   font-size: 0.75rem;
   color: rgba(247,243,238,0.5);
 }
@@ -1121,8 +1171,7 @@ footer {
       O imóvel certo<br>para o seu <span>futuro</span>
     </h1>
     <p class="hero-sub">
-      Novo loteamento em Cafarnaum com lotes residenciais e frente à rodovia.
-      Simule parcelas, veja a localização e negocie direto com o corretor.
+      Lotes residenciais e comerciais em Cafarnaum. Uma oportunidade real de investir no seu futuro. Negocie direto com o Sid.
     </p>
     <div class="hero-actions">
       <a href="https://wa.me/5574988230151" class="btn-primary">Falar no WhatsApp</a>
@@ -1164,12 +1213,11 @@ footer {
 <section class="lotes-section" id="lotes">
   <div class="section-label">Loteamento em destaque</div>
   <h2 class="section-title">Lotes disponíveis <span style="color:var(--accent)">agora</span></h2>
-  <p class="section-sub" style="margin-bottom:40px">Novo loteamento com infraestrutura completa em Cafarnaum. Escolha seu lote e garanta já.</p>
+  <p class="section-sub" style="margin-bottom:40px">Ótima oportunidade de adquirir seu lote em Cafarnaum. Escolha o seu e garanta já.</p>
 
   <div class="lotes-grid">
     <div class="lote-card">
-      <div class="lote-thumb">
-        <svg class="lote-thumb-icon" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v3"/><rect x="9" y="11" width="14" height="10" rx="2"/></svg>
+      <div class="lote-thumb" style="background-image: url('{{ asset('img/lote1.jpeg') }}');">
         <div class="lote-badge-destaque">Frente BR</div>
       </div>
       <div class="lote-body">
@@ -1188,13 +1236,11 @@ footer {
     </div>
 
     <div class="lote-card">
-      <div class="lote-thumb">
-        <svg class="lote-thumb-icon" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      </div>
+      <div class="lote-thumb" style="background-image: url('{{ asset('img/lote2.jpeg') }}');"></div>
       <div class="lote-body">
         <div class="lote-tag">Lote Residencial</div>
         <div class="lote-title">Lote Residencial 20x30</div>
-        <div class="lote-info">Loteamento regular · Infraestrutura completa · Ótima localização</div>
+        <div class="lote-info">Ótima localização · Parcelas acessíveis · Ideal para residência</div>
         <div class="lote-price">
           <div class="lote-price-value">R$ 25.000</div>
         </div>
@@ -1207,14 +1253,13 @@ footer {
     </div>
 
     <div class="lote-card">
-      <div class="lote-thumb">
-        <svg class="lote-thumb-icon" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      <div class="lote-thumb" style="background-image: url('{{ asset('img/lote3.jpeg') }}');">
         <div class="lote-badge-destaque">À Vista</div>
       </div>
       <div class="lote-body">
         <div class="lote-tag">Oferta Especial</div>
         <div class="lote-title">Compra à Vista</div>
-        <div class="lote-info">Condições especiais para pagamento à vista · Melhor preço garantido</div>
+        <div class="lote-info">Condições especiais para pagamento à vista</div>
         <div class="lote-price">
           <div class="lote-price-value">Consulte</div>
         </div>
@@ -1305,16 +1350,32 @@ footer {
       <div class="sim-grid">
         <div class="sim-field">
           <label class="sim-label" for="simTotal">Valor total (R$)</label>
-          <input type="number" id="simTotal" class="sim-input" min="0" step="1000">
+          <input type="text" id="simTotal" class="sim-input sim-money" inputmode="numeric" autocomplete="off" placeholder="R$ 0,00">
         </div>
         <div class="sim-field">
           <label class="sim-label" for="simEntradaPrice">Entrada (R$)</label>
-          <input type="number" id="simEntradaPrice" class="sim-input" min="0" step="500">
+          <input type="text" id="simEntradaPrice" class="sim-input sim-money" inputmode="numeric" autocomplete="off" placeholder="R$ 0,00">
         </div>
       </div>
       <div class="sim-field">
-        <label class="sim-label" for="simParcelas">Número de parcelas</label>
-        <input type="number" id="simParcelas" class="sim-input" min="1" max="120" value="24">
+        <div class="sim-label">Número de parcelas</div>
+        <div class="sim-radio-group" id="simParcelasGroup">
+          <label class="sim-radio-item">
+            <input type="radio" name="simParcelas" value="6"> <span>6x</span>
+          </label>
+          <label class="sim-radio-item">
+            <input type="radio" name="simParcelas" value="12"> <span>12x</span>
+          </label>
+          <label class="sim-radio-item">
+            <input type="radio" name="simParcelas" value="18"> <span>18x</span>
+          </label>
+          <label class="sim-radio-item">
+            <input type="radio" name="simParcelas" value="24" checked> <span>24x</span>
+          </label>
+          <label class="sim-radio-item">
+            <input type="radio" name="simParcelas" value="30"> <span>30x</span>
+          </label>
+        </div>
       </div>
     </div>
 
@@ -1322,11 +1383,11 @@ footer {
       <div class="sim-grid">
         <div class="sim-field">
           <label class="sim-label" for="simEntradaParcela">Entrada (R$)</label>
-          <input type="number" id="simEntradaParcela" class="sim-input" min="0" step="500">
+          <input type="text" id="simEntradaParcela" class="sim-input sim-money" inputmode="numeric" autocomplete="off" placeholder="R$ 0,00">
         </div>
         <div class="sim-field">
           <label class="sim-label" for="simParcelaMensal">Parcela mensal desejada (R$)</label>
-          <input type="number" id="simParcelaMensal" class="sim-input" min="0" step="100">
+          <input type="text" id="simParcelaMensal" class="sim-input sim-money" inputmode="numeric" autocomplete="off" placeholder="R$ 0,00">
         </div>
       </div>
     </div>
@@ -1346,7 +1407,7 @@ footer {
 <section class="section" id="imoveis">
   <div class="section-label">O que negociamos</div>
   <h2 class="section-title">Tudo que você precisa,<br><span>num só lugar</span></h2>
-  <p class="section-sub">Do lote rural ao imóvel comercial, atendemos todos os perfis com expertise e conhecimento do mercado de Cafarnaum.</p>
+  <p class="section-sub">Lotes, casas, terrenos rurais e comerciais. Quem conhece Cafarnaum sabe onde estão as melhores oportunidades.</p>
 
   <div class="types-grid">
     <div class="type-card">
@@ -1354,7 +1415,7 @@ footer {
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       </div>
       <div class="type-title">Casas</div>
-      <div class="type-desc">Residências prontas para morar ou na planta, em ótimas localizações.</div>
+      <div class="type-desc">Casas à venda em Cafarnaum e região. Consulte disponibilidade.</div>
     </div>
     <div class="type-card">
       <div class="type-icon">
@@ -1368,7 +1429,7 @@ footer {
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><rect x="9" y="14" width="6" height="7"/></svg>
       </div>
       <div class="type-title">Terreno Residencial</div>
-      <div class="type-desc">Lotes em loteamentos regulares para construir do jeito que você quer.</div>
+      <div class="type-desc">Lotes para construir do jeito que você quer, na localização que você escolher.</div>
     </div>
     <div class="type-card">
       <div class="type-icon">
@@ -1406,7 +1467,7 @@ footer {
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       </div>
       <div class="diferencial-title">Documentação Segura</div>
-      <div class="diferencial-desc">Toda a documentação verificada e regularizada. Compre com segurança jurídica total.</div>
+      <div class="diferencial-desc">Negócios realizados com transparência e segurança. O Sid te orienta em cada etapa.</div>
     </div>
     <div class="diferencial-card">
       <div class="diferencial-icon">
@@ -1420,7 +1481,7 @@ footer {
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       </div>
       <div class="diferencial-title">Suporte Completo</div>
-      <div class="diferencial-desc">Do primeiro contato à escritura. Acompanhamento em todas as etapas da negociação.</div>
+      <div class="diferencial-desc">Do primeiro contato ao fechamento do negócio. Atendimento direto, sem enrolação.</div>
     </div>
   </div>
 </section>
@@ -1456,7 +1517,6 @@ footer {
   </div>
   <div class="footer-bottom">
     <div class="footer-copy">&copy; {{ date('Y') }} Sid360 Imóveis · Cafarnaum, Bahia</div>
-    <div class="footer-creci">CRECI · Corretor Sid Nunes</div>
   </div>
 </footer>
 
@@ -1509,6 +1569,47 @@ footer {
     nav.classList.toggle('scrolled', window.scrollY > 60);
   }, { passive: true });
 
+  // === MÁSCARA MONEY ===
+  function applyMoneyMask(input) {
+    input.addEventListener('input', function () {
+      var digits = this.value.replace(/\D/g, '');
+      if (!digits) { this.value = ''; return; }
+      var cents = parseInt(digits, 10);
+      var reais = (cents / 100).toFixed(2);
+      this.value = 'R$ ' + reais
+        .replace('.', ',')
+        .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Backspace') {
+        var digits = this.value.replace(/\D/g, '');
+        digits = digits.slice(0, -1);
+        if (!digits) { this.value = ''; return; }
+        var cents = parseInt(digits || '0', 10);
+        var reais = (cents / 100).toFixed(2);
+        this.value = 'R$ ' + reais
+          .replace('.', ',')
+          .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        e.preventDefault();
+      }
+    });
+  }
+
+  function moneyToNum(input) {
+    var raw = input.value.replace(/\D/g, '');
+    return raw ? parseInt(raw, 10) / 100 : 0;
+  }
+
+  function setMoneyValue(input, num) {
+    if (!num) { input.value = ''; return; }
+    var reais = num.toFixed(2);
+    input.value = 'R$ ' + reais
+      .replace('.', ',')
+      .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
+  document.querySelectorAll('.sim-money').forEach(applyMoneyMask);
+
   // === SIMULADOR DE PARCELAS ===
   const LOT_TYPES = {
     'frente-br': { name: 'Lote Frente à Rodovia', total: 65000, entradaMin: 15000, parcelaRef: 2000 },
@@ -1522,7 +1623,22 @@ footer {
   const simPanelParcela = document.getElementById('simPanelParcela');
   const simTotal = document.getElementById('simTotal');
   const simEntradaPrice = document.getElementById('simEntradaPrice');
-  const simParcelas = document.getElementById('simParcelas');
+  const simParcelasGroup = document.getElementById('simParcelasGroup');
+  function getSimParcelas() {
+    const checked = simParcelasGroup.querySelector('input[type="radio"]:checked');
+    return checked ? Number(checked.value) : 24;
+  }
+  function setSimParcelas(val) {
+    const opt = simParcelasGroup.querySelector('input[value="' + val + '"]');
+    if (opt) { opt.checked = true; return; }
+    // se o valor não está nas opções, seleciona a mais próxima
+    const opts = Array.from(simParcelasGroup.querySelectorAll('input[type="radio"]'));
+    let closest = opts[0];
+    opts.forEach(function(o) {
+      if (Math.abs(Number(o.value) - val) < Math.abs(Number(closest.value) - val)) closest = o;
+    });
+    closest.checked = true;
+  }
   const simEntradaParcela = document.getElementById('simEntradaParcela');
   const simParcelaMensal = document.getElementById('simParcelaMensal');
   const simResult = document.getElementById('simResult');
@@ -1539,19 +1655,19 @@ footer {
     if (!lot) return;
     simLoteType.value = key;
     if (lot.total) {
-      simTotal.value = lot.total;
-      simEntradaPrice.value = lot.entradaMin;
-      simEntradaParcela.value = lot.entradaMin;
-      simParcelaMensal.value = lot.parcelaRef;
+      setMoneyValue(simTotal, lot.total);
+      setMoneyValue(simEntradaPrice, lot.entradaMin);
+      setMoneyValue(simEntradaParcela, lot.entradaMin);
+      setMoneyValue(simParcelaMensal, lot.parcelaRef);
       const restante = lot.total - lot.entradaMin;
       const parcelas = Math.max(1, Math.round(restante / lot.parcelaRef));
-      simParcelas.value = parcelas;
+      setSimParcelas(parcelas);
     } else {
       simTotal.value = '';
-      simEntradaPrice.value = 0;
-      simEntradaParcela.value = 0;
+      simEntradaPrice.value = '';
+      simEntradaParcela.value = '';
       simParcelaMensal.value = '';
-      simParcelas.value = 1;
+      setSimParcelas(6);
     }
   }
 
@@ -1591,9 +1707,9 @@ footer {
     }
 
     if (mode === 'price') {
-      const total = Number(simTotal.value) || 0;
-      const entrada = Number(simEntradaPrice.value) || 0;
-      const parcelas = Math.max(1, Number(simParcelas.value) || 1);
+      const total = moneyToNum(simTotal);
+      const entrada = moneyToNum(simEntradaPrice);
+      const parcelas = getSimParcelas();
       if (total <= 0) return alert('Informe o valor total do lote.');
       if (entrada >= total) return alert('A entrada deve ser menor que o valor total.');
       const restante = total - entrada;
@@ -1610,9 +1726,9 @@ footer {
         wa
       );
     } else {
-      const total = Number(simTotal.value) || LOT_TYPES[key].total || 0;
-      const entrada = Number(simEntradaParcela.value) || 0;
-      const mensal = Number(simParcelaMensal.value) || 0;
+      const total = moneyToNum(simTotal) || LOT_TYPES[key].total || 0;
+      const entrada = moneyToNum(simEntradaParcela);
+      const mensal = moneyToNum(simParcelaMensal);
       if (total <= 0 || mensal <= 0) return alert('Informe o valor do lote e a parcela desejada.');
       if (entrada >= total) return alert('A entrada deve ser menor que o valor total.');
       const restante = total - entrada;
