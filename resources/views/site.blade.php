@@ -1,4 +1,39 @@
 {{-- resources/views/site.blade.php — Site público Sid360 (GET /) --}}
+@php
+  $siteLots = config('site.lots');
+  $loteamento = config('site.loteamento');
+  $fmtBrl = static fn (int|float $amount): string => number_format((int) $amount, 0, ',', '.');
+  $fmtBrlShort = static function (int|float $amount): string {
+      $amount = (int) $amount;
+      if ($amount >= 1000 && $amount % 1000 === 0) {
+          return 'R$ ' . number_format($amount / 1000, 0, ',', '.') . ' mil';
+      }
+      return 'R$ ' . number_format($amount, 0, ',', '.');
+  };
+  $lotRes = $siteLots['residencial'];
+  $lotBr = $siteLots['frente-br'];
+  $lotPriceOriginal = static fn (array $lot): int => (int) ($lot['price_original'] ?? $lot['price_installment']);
+  $priceTriggerResShort = 'de ' . $fmtBrlShort($lotPriceOriginal($lotRes)) . ' por ' . $fmtBrlShort($lotRes['price_cash']);
+  $priceTriggerBrShort = 'de ' . $fmtBrlShort($lotPriceOriginal($lotBr)) . ' por ' . $fmtBrlShort($lotBr['price_cash']);
+  $priceTriggersMetaPlain = 'À vista: ' . $priceTriggerResShort . ' (residencial) e ' . $priceTriggerBrShort . ' (frente BR).';
+  $lotDiscountPct = static function (array $lot) use ($lotPriceOriginal): int {
+      $from = $lotPriceOriginal($lot);
+      $to = (int) $lot['price_cash'];
+      if ($from <= 0 || $to >= $from) {
+          return 0;
+      }
+      return (int) round((($from - $to) / $from) * 100);
+  };
+  $lotBrDiscountPct = $lotDiscountPct($lotBr);
+  $lotResDiscountPct = $lotDiscountPct($lotRes);
+  $lotParcelaFrom30x = static function (array $lot): int {
+      $total = (int) $lot['price_installment'];
+      $entrada = (int) round($total * 0.2);
+      return (int) round(($total - $entrada) / 30);
+  };
+  $lotBrParcelaFrom = $lotParcelaFrom30x($lotBr);
+  $lotResParcelaFrom = $lotParcelaFrom30x($lotRes);
+@endphp
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -8,7 +43,7 @@
 
 {{-- ===== SEO BÁSICO ===== --}}
 <title>Sid360 — Lotes e Imóveis em Cafarnaum-BA</title>
-<meta name="description" content="Lotes residenciais e comerciais em Cafarnaum-BA. Uma oportunidade real de investir no seu futuro. Negocie direto com o Sid.">
+<meta name="description" content="Lotes residenciais e comerciais em Cafarnaum-BA. {{ $priceTriggersMetaPlain }} Negocie direto com o Sid.">
 <meta name="keywords" content="imóveis Cafarnaum, lotes Cafarnaum, corretor Cafarnaum, terrenos Cafarnaum BA, loteamento Cafarnaum, imóveis Bahia, lotes residenciais, terreno rural Cafarnaum">
 <meta name="author" content="Sid Nunes — Corretor de Imóveis">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
@@ -19,7 +54,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Sid360 Imóveis">
 <meta property="og:title" content="Sid360 — Imóveis em Cafarnaum-BA">
-<meta property="og:description" content="Lotes, casas e terrenos rurais em Cafarnaum e região. Negociação direta com o Sid, corretor de confiança há mais de 10 anos.">
+<meta property="og:description" content="Lotes em Cafarnaum-BA. {{ $priceTriggersMetaPlain }} Negociação direta com o Sid.">
 <meta property="og:url" content="https://sid360.com.br/">
 <meta property="og:image" content="https://sid360.com.br/img/og-image.jpg">
 <meta property="og:image:width" content="1200">
@@ -46,6 +81,12 @@
 <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('favicon/apple-touch-icon.png') }}" />
 <meta name="apple-mobile-web-app-title" content="Sid360" />
 <link rel="manifest" href="{{ asset('site.webmanifest') }}" />
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""
+/>
 
 <style>
 :root {
@@ -704,6 +745,8 @@ body.nav-menu-open {
 }
 
 .lote-card {
+  display: flex;
+  flex-direction: column;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(201,168,76,0.15);
   border-radius: 16px;
@@ -763,11 +806,17 @@ body.nav-menu-open {
 }
 
 .lote-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   padding: 20px;
   background: rgba(255,255,255,0.03);
 }
 
 .lote-tag {
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
   background: rgba(201,168,76,0.15);
   color: #EDD882;
   font-size: 0.65rem;
@@ -776,7 +825,6 @@ body.nav-menu-open {
   border-radius: 6px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  display: inline-block;
   margin-bottom: 10px;
 }
 
@@ -785,13 +833,98 @@ body.nav-menu-open {
 
 .lote-price {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 14px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-bottom: 12px;
 }
 
-.lote-price-value { color: var(--accent); font-weight: 800; font-size: 1.4rem; letter-spacing: -0.5px; }
-.lote-price-label { color: rgba(247,243,238,0.35); font-size: 0.75rem; }
+.lote-price-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: rgba(237, 216, 130, 0.75);
+  line-height: 1;
+}
+
+.lote-price-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 2rem;
+}
+
+.lote-price-value {
+  font-family: var(--font-display);
+  color: #EDD882;
+  font-weight: 800;
+  font-size: 1.5rem;
+  letter-spacing: -0.5px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.lote-price-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 100px;
+  background: linear-gradient(135deg, #3d8a5a 0%, #2d6a45 100%);
+  color: #f0faf4;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.35px;
+  text-transform: uppercase;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.lote-price-was {
+  font-size: 0.82rem;
+  color: rgba(250, 245, 238, 0.42);
+  line-height: 1.3;
+}
+
+.lote-price-was s {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.lote-price-hint {
+  font-size: 0.75rem;
+  color: rgba(250, 245, 238, 0.38);
+  line-height: 1.45;
+  margin: 0 0 14px;
+}
+
+.lote-conditions-list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lote-conditions-list li {
+  position: relative;
+  padding-left: 18px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: rgba(250, 245, 238, 0.72);
+}
+
+.lote-conditions-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.45em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-dark);
+}
 
 .lote-cta {
   display: block;
@@ -813,6 +946,7 @@ body.nav-menu-open {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin-top: auto;
 }
 
 .lote-simular {
@@ -829,17 +963,13 @@ body.nav-menu-open {
   cursor: pointer;
   transition: all 0.2s;
   font-family: inherit;
+  text-decoration: none;
+  box-sizing: border-box;
 }
 
 .lote-simular:hover {
   background: var(--accent-light);
   transform: translateY(-1px);
-}
-
-.lote-price-hint {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin-bottom: 14px;
 }
 
 /* LOCALIZAÇÃO */
@@ -999,6 +1129,16 @@ body.nav-menu-open {
   border-color: var(--accent);
 }
 
+.sim-input-readonly {
+  color: var(--text-secondary);
+  cursor: default;
+  user-select: none;
+}
+
+.sim-input-readonly:focus {
+  border-color: var(--border-light);
+}
+
 /* TomSelect — oculta o <select> nativo após inicializar */
 .sim-field select.sim-select.tomselected,
 .sim-field:has(.ts-wrapper) > select.sim-select {
@@ -1068,7 +1208,7 @@ body.nav-menu-open {
 /* Dropdown flutuante (renderizado no body via dropdownParent) */
 .ts-dropdown {
   position: absolute !important;
-  z-index: 9999 !important;
+  z-index: 50 !important;
   border: 1px solid var(--border-light);
   border-radius: 10px;
   box-shadow: 0 10px 28px rgba(26,7,6,0.15);
@@ -1111,6 +1251,120 @@ body.nav-menu-open {
 
 .sim-btn-calc:hover { background: var(--accent-light); }
 
+.sim-simulate-wrap.is-hidden {
+  display: none;
+}
+
+.sim-avista-wrap {
+  display: none;
+  margin-top: 4px;
+}
+
+.sim-avista-wrap.is-visible {
+  display: block;
+}
+
+.sim-avista-offer {
+  padding: 24px 20px;
+  background: var(--bg-section);
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.sim-avista-lot {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent-dark);
+  margin-bottom: 12px;
+}
+
+.sim-avista-de {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.sim-avista-de s {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.sim-avista-label {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.sim-avista-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.sim-avista-por {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(1.6rem, 5vw, 2.1rem);
+  color: var(--accent-dark);
+  letter-spacing: -0.5px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.sim-avista-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 100px;
+  background: linear-gradient(135deg, #3d8a5a 0%, #2d6a45 100%);
+  color: #f0faf4;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.35px;
+  text-transform: uppercase;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.sim-avista-economia {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #2d6a45;
+}
+
+.sim-btn-contact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 14px 20px;
+  background: var(--accent);
+  color: var(--text-light);
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  font-family: inherit;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+
+.sim-btn-contact:hover {
+  background: var(--accent-light);
+  color: var(--text-light);
+}
+
 .sim-result {
   margin-top: 28px;
   padding: 24px;
@@ -1118,6 +1372,7 @@ body.nav-menu-open {
   border-radius: 14px;
   border: 1px solid var(--border-light);
   display: none;
+  scroll-margin-top: 88px;
 }
 
 .sim-result.visible { display: block; }
@@ -1159,11 +1414,43 @@ body.nav-menu-open {
   line-height: 1.6;
 }
 
+.sim-result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+  align-items: stretch;
+}
+
+.sim-btn-lotes {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 180px;
+  padding: 10px 18px;
+  background: transparent;
+  color: var(--accent-dark);
+  border: 1px solid var(--accent-dark);
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.sim-btn-lotes:hover {
+  background: var(--accent-dark);
+  color: var(--text-light);
+}
+
 .sim-wa {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  margin-top: 18px;
+  flex: 1 1 220px;
+  margin-top: 0;
   padding: 10px 18px;
   background: #25d366;
   color: white;
@@ -1174,6 +1461,119 @@ body.nav-menu-open {
 }
 
 .sim-wa:hover { background: #1db954; }
+
+/* Modal — mapa de lotes */
+.lots-map-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s, visibility 0.25s;
+}
+
+.lots-map-modal.is-open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.lots-map-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(28, 10, 6, 0.72);
+  cursor: pointer;
+}
+
+.lots-map-modal-dialog {
+  position: relative;
+  z-index: 1;
+  width: min(920px, 100%);
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-page);
+  border-radius: 16px;
+  border: 1px solid var(--border-light);
+  box-shadow: 0 24px 64px rgba(28, 10, 6, 0.35);
+  overflow: hidden;
+}
+
+.lots-map-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.lots-map-modal-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.lots-map-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: var(--bg-section);
+  color: var(--text-primary);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.lots-map-modal-close:hover {
+  background: var(--border-light);
+}
+
+.lots-map-canvas {
+  width: 100%;
+  height: min(52vh, 480px);
+  min-height: 280px;
+  background: #e8e4d8;
+}
+
+.lots-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+  padding: 12px 20px 16px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.lots-map-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lots-map-legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.lots-map-legend-swatch--comercial { background: #C23028; }
+.lots-map-legend-swatch--residencial { background: #3d8a5a; }
+
+body.lots-map-modal-open {
+  overflow: hidden;
+}
 
 .sim-radio-group {
   display: flex;
@@ -1212,6 +1612,19 @@ body.nav-menu-open {
 .sim-radio-item:hover span {
   border-color: var(--accent);
   color: var(--text-primary);
+}
+
+.sim-radio-group--mode .sim-radio-item {
+  flex: 1;
+  min-width: 0;
+}
+
+.sim-radio-group--mode .sim-radio-item span {
+  display: block;
+  text-align: center;
+  padding: 11px 12px;
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .sim-hint {
@@ -1833,7 +2246,7 @@ footer {
 <section class="lotes-section" id="lotes">
   <div class="section-label">Loteamento em destaque</div>
   <h2 class="section-title">Lotes disponíveis <span style="color:var(--accent)">agora</span></h2>
-  <p class="section-sub" style="margin-bottom:40px">Ótima oportunidade de adquirir seu lote em Cafarnaum. Escolha o seu e garanta já.</p>
+  <p class="section-sub" style="margin-bottom:40px">Ótima oportunidade de adquirir seu lote em Cafarnaum. Parcelamento facilitado ou condição especial no pagamento à vista.</p>
 
   <div class="lotes-grid">
     <div class="lote-card">
@@ -1845,9 +2258,16 @@ footer {
         <div class="lote-title">Lote Frente à Rodovia</div>
         <div class="lote-info">Visibilidade máxima · Área privilegiada · Ideal para comércio</div>
         <div class="lote-price">
-          <div class="lote-price-value">R$ 65.000</div>
+          <span class="lote-price-label">À vista</span>
+          <div class="lote-price-main">
+            <span class="lote-price-value">R$ {{ $fmtBrl($lotBr['price_cash']) }}</span>
+            @if ($lotBrDiscountPct > 0)
+              <span class="lote-price-badge">{{ $lotBrDiscountPct }}% OFF</span>
+            @endif
+          </div>
+          <span class="lote-price-was">De <s>R$ {{ $fmtBrl($lotPriceOriginal($lotBr)) }}</s></span>
         </div>
-        <p class="lote-price-hint">Simule entrada e parcelas conforme seu orçamento</p>
+        <p class="lote-price-hint">Parcelamento: 20% de entrada + parcelas a partir de R$ {{ $fmtBrl($lotBrParcelaFrom) }} (30x)</p>
         <div class="lote-actions">
           <button type="button" class="lote-simular" data-lote="frente-br">Simular Parcelas</button>
           <a href="https://wa.me/5574988230151?text=Olá, tenho interesse no lote frente à BR!" class="lote-cta">Tenho Interesse</a>
@@ -1856,15 +2276,24 @@ footer {
     </div>
 
     <div class="lote-card">
-      <div class="lote-thumb" style="background-image: url('{{ asset('img/lote2.jpeg') }}');"></div>
+      <div class="lote-thumb" style="background-image: url('{{ asset('img/lote2.jpeg') }}');">
+        <div class="lote-badge-destaque">Lotes Internos</div>
+      </div>
       <div class="lote-body">
         <div class="lote-tag">Lote Residencial</div>
         <div class="lote-title">Lote Residencial 20x30</div>
         <div class="lote-info">Ótima localização · Parcelas acessíveis · Ideal para residência</div>
         <div class="lote-price">
-          <div class="lote-price-value">R$ 25.000</div>
+          <span class="lote-price-label">À vista</span>
+          <div class="lote-price-main">
+            <span class="lote-price-value">R$ {{ $fmtBrl($lotRes['price_cash']) }}</span>
+            @if ($lotResDiscountPct > 0)
+              <span class="lote-price-badge">{{ $lotResDiscountPct }}% OFF</span>
+            @endif
+          </div>
+          <span class="lote-price-was">De <s>R$ {{ $fmtBrl($lotPriceOriginal($lotRes)) }}</s></span>
         </div>
-        <p class="lote-price-hint">Simule entrada e parcelas conforme seu orçamento</p>
+        <p class="lote-price-hint">Parcelamento: 20% de entrada + parcelas a partir de R$ {{ $fmtBrl($lotResParcelaFrom) }} (30x)</p>
         <div class="lote-actions">
           <button type="button" class="lote-simular" data-lote="residencial">Simular Parcelas</button>
           <a href="https://wa.me/5574988230151?text=Olá, tenho interesse em um lote residencial!" class="lote-cta">Tenho Interesse</a>
@@ -1874,19 +2303,26 @@ footer {
 
     <div class="lote-card">
       <div class="lote-thumb" style="background-image: url('{{ asset('img/lote3.jpeg') }}');">
-        <div class="lote-badge-destaque">À Vista</div>
+        <div class="lote-badge-destaque">Negociação</div>
       </div>
       <div class="lote-body">
-        <div class="lote-tag">Oferta Especial</div>
-        <div class="lote-title">Compra à Vista</div>
-        <div class="lote-info">Condições especiais para pagamento à vista</div>
-        <div class="lote-price">
-          <div class="lote-price-value">Consulte</div>
-        </div>
-        <p class="lote-price-hint">Condições especiais para pagamento à vista</p>
+        <div class="lote-tag">Condições flexíveis</div>
+        <div class="lote-title">Outras condições</div>
+        <div class="lote-info">Monte o pagamento do seu jeito — o Sid analisa a melhor proposta para o seu perfil.</div>
+        <ul class="lote-conditions-list">
+          <li>Entrada negociável conforme o lote</li>
+          <li>Parcelamento personalizado</li>
+          <li>Prazo de pagamento ajustado ao seu planejamento</li>
+          <li>Condições exclusivas direto com o corretor</li>
+        </ul>
         <div class="lote-actions">
-          <button type="button" class="lote-simular" data-lote="avista">Simular à Vista</button>
-          <a href="https://wa.me/5574988230151?text=Olá, quero saber o preço à vista dos lotes!" class="lote-cta">Consultar Preço</a>
+          <a
+            href="https://wa.me/5574988230151?text={{ rawurlencode('Olá! Gostaria de conversar sobre outras condições de pagamento para um lote no loteamento.') }}"
+            class="lote-simular"
+            target="_blank"
+            rel="noopener noreferrer"
+          >Consultar condições</a>
+          <a href="https://wa.me/5574988230151?text=Olá! Tenho interesse em negociar condições para um lote." class="lote-cta">Tenho Interesse</a>
         </div>
       </div>
     </div>
@@ -1894,7 +2330,6 @@ footer {
 </section>
 
 @php
-  $loteamento = config('site.loteamento');
   $mapsEmbed = $loteamento['maps_embed_url']
     ?? 'https://maps.google.com/maps?q=' . $loteamento['lat'] . ',' . $loteamento['lng'] . '&hl=pt-BR&z=16&output=embed';
   $mapsLink = 'https://www.google.com/maps/search/?api=1&query=' . $loteamento['lat'] . ',' . $loteamento['lng'];
@@ -1944,37 +2379,62 @@ footer {
 <section class="simulador-section" id="simulador">
   <div class="simulador-header">
     <h2 class="simulador-title">Simulação de Parcelamento</h2>
-    <p class="simulador-sub">Faça uma simulação e descubra as melhores condições para realizar o sonho de viver aqui</p>
+    <p class="simulador-sub">Faça uma simulação e descubra as melhores condições de pagamento para o seu lote.</p>
     <div class="simulador-divider"></div>
   </div>
 
   <div class="simulador-card">
     <div class="sim-field">
-      <label class="sim-label" for="simMode">Escolha a forma de busca:</label>
-      <select id="simMode" class="sim-select">
-        <option value="price">Por Preço do Lote</option>
-        <option value="parcela">Por Valor da Parcela</option>
+      <div class="sim-label" id="simModeLabel">Tipo de simulação</div>
+      <div class="sim-radio-group sim-radio-group--mode" id="simModeGroup" role="radiogroup" aria-labelledby="simModeLabel">
+        <label class="sim-radio-item">
+          <input type="radio" name="simMode" value="price" checked>
+          <span>Valor Total</span>
+        </label>
+        <label class="sim-radio-item">
+          <input type="radio" name="simMode" value="parcela">
+          <span>Valor da Parcela</span>
+        </label>
+        <label class="sim-radio-item">
+          <input type="radio" name="simMode" value="avista">
+          <span>à Vista</span>
+        </label>
+      </div>
+    </div>
+
+    <div id="simLotField" class="sim-field">
+      <label class="sim-label" for="simLoteType">Tipo de lote:</label>
+      <select id="simLoteType" class="sim-select">
+        <option value="frente-br">Lote Frente à Rodovia</option>
+        <option value="residencial">Lote Residencial 20×30</option>
       </select>
     </div>
 
+    <div id="simAvistaWrap" class="sim-avista-wrap" hidden>
+      <div class="sim-avista-offer">
+        <div class="sim-avista-lot" id="simAvistaLotName"></div>
+        <span class="sim-avista-label">À vista</span>
+        <div class="sim-avista-main">
+          <div class="sim-avista-por" id="simAvistaPor"></div>
+          <span class="sim-avista-badge" id="simAvistaBadge" hidden></span>
+        </div>
+        <div class="sim-avista-de" id="simAvistaDe"></div>
+        <div class="sim-avista-economia" id="simAvistaEconomia"></div>
+      </div>
+      <a href="#" class="sim-btn-contact" id="simAvistaContact" target="_blank" rel="noopener noreferrer">Entrar em contato</a>
+    </div>
+
+    <div id="simSimulateWrap" class="sim-simulate-wrap">
     <div class="sim-field">
-      <label class="sim-label" for="simLoteType">Tipo de lote:</label>
-      <select id="simLoteType" class="sim-select">
-        <option value="frente-br">Lote Frente à Rodovia — R$ 65.000</option>
-        <option value="residencial">Lote Residencial 20×30 — R$ 25.000</option>
-        <option value="avista">Compra à Vista — consulte condições</option>
-      </select>
+      <label class="sim-label" for="simTotal" id="simTotalLabel">Valor parcelado do lote (R$)</label>
+      <input type="text" id="simTotal" class="sim-input sim-input-readonly" readonly tabindex="-1" aria-readonly="true" autocomplete="off" placeholder="R$ 0,00">
     </div>
 
     <div id="simPanelPrice" class="sim-panel active">
       <div class="sim-grid">
         <div class="sim-field">
-          <label class="sim-label" for="simTotal">Valor total (R$)</label>
-          <input type="text" id="simTotal" class="sim-input sim-money" inputmode="numeric" autocomplete="off" placeholder="R$ 0,00">
-        </div>
-        <div class="sim-field">
           <label class="sim-label" for="simEntradaPrice">Entrada (R$)</label>
-          <input type="text" id="simEntradaPrice" class="sim-input sim-money" inputmode="numeric" autocomplete="off" placeholder="R$ 0,00">
+          <input type="text" id="simEntradaPrice" class="sim-input sim-money" inputmode="decimal" autocomplete="off" placeholder="R$ 0,00">
           <p class="sim-hint" id="simEntradaPriceHint">Mínimo: 20% do valor total</p>
         </div>
       </div>
@@ -2004,12 +2464,12 @@ footer {
       <div class="sim-grid">
         <div class="sim-field">
           <label class="sim-label" for="simEntradaParcela">Entrada (R$)</label>
-          <input type="text" id="simEntradaParcela" class="sim-input sim-money" inputmode="numeric" autocomplete="off" placeholder="R$ 0,00">
+          <input type="text" id="simEntradaParcela" class="sim-input sim-money" inputmode="decimal" autocomplete="off" placeholder="R$ 0,00">
           <p class="sim-hint" id="simEntradaParcelaHint">Mínimo: 20% do valor total</p>
         </div>
         <div class="sim-field">
           <label class="sim-label" for="simParcelaMensal">Parcela mensal desejada (R$)</label>
-          <input type="text" id="simParcelaMensal" class="sim-input sim-money" inputmode="numeric" autocomplete="off" placeholder="R$ 0,00">
+          <input type="text" id="simParcelaMensal" class="sim-input sim-money" inputmode="decimal" autocomplete="off" placeholder="R$ 0,00">
         </div>
       </div>
     </div>
@@ -2020,7 +2480,11 @@ footer {
       <div class="sim-result-title">Resultado da simulação</div>
       <div class="sim-result-grid" id="simResultGrid"></div>
       <p class="sim-result-note" id="simResultNote">Valores estimados. Condições finais confirmadas diretamente com o corretor.</p>
-      <a href="#" class="sim-wa" id="simWaLink" target="_blank" rel="noopener">Enviar simulação no WhatsApp</a>
+      <div class="sim-result-actions">
+        <button type="button" class="sim-btn-lotes" id="simVerLotesBtn">Ver lotes disponíveis</button>
+        <a href="#" class="sim-wa" id="simWaLink" target="_blank" rel="noopener">Enviar simulação no WhatsApp</a>
+      </div>
+    </div>
     </div>
   </div>
 </section>
@@ -2173,9 +2637,52 @@ footer {
   <span>Simular parcelas</span>
 </a>
 
+<div class="lots-map-modal" id="lotsMapModal" aria-hidden="true" role="dialog" aria-labelledby="lotsMapModalTitle">
+  <div class="lots-map-modal-backdrop" data-lots-map-close></div>
+  <div class="lots-map-modal-dialog">
+    <div class="lots-map-modal-header">
+      <h3 class="lots-map-modal-title" id="lotsMapModalTitle">Lotes disponíveis</h3>
+      <button type="button" class="lots-map-modal-close" data-lots-map-close aria-label="Fechar mapa">&times;</button>
+    </div>
+    <div id="lotsMapCanvas" class="lots-map-canvas" role="img" aria-label="Mapa do loteamento com lotes demarcados"></div>
+    <div class="lots-map-legend">
+      <span class="lots-map-legend-item">
+        <span class="lots-map-legend-swatch lots-map-legend-swatch--comercial"></span>
+        Frente à Rodovia (comercial)
+      </span>
+      <span class="lots-map-legend-item">
+        <span class="lots-map-legend-swatch lots-map-legend-swatch--residencial"></span>
+        Lotes residenciais 20×30
+      </span>
+      <span class="lots-map-legend-item">Clique no lote para ver detalhes</span>
+    </div>
+  </div>
+</div>
+
+@php
+  $lotTypesForJs = collect(config('site.lots'))->mapWithKeys(function ($lot, $key) use ($lotDiscountPct, $lotPriceOriginal, $lotParcelaFrom30x) {
+      return [$key => [
+          'name' => $lot['name'],
+          'totalOriginal' => $lotPriceOriginal($lot),
+          'totalPrazo' => $lot['price_installment'],
+          'totalAvista' => $lot['price_cash'],
+          'entradaMin' => $lot['down_payment_min'],
+          'parcelaRef' => $lot['installment_ref'],
+          'parcelaFrom30x' => $lotParcelaFrom30x($lot),
+          'discountPct' => $lotDiscountPct($lot),
+      ]];
+  })->all();
+@endphp
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/js/tom-select.complete.min.js"></script>
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvBtlKU="
+  crossorigin=""
+></script>
 <script>
 (function() {
+  const LOT_TYPES = @json($lotTypesForJs);
+  const LOTEAMENTO_CENTER = [{{ $loteamento['lat'] }}, {{ $loteamento['lng'] }}];
   const slides = document.querySelectorAll('.hero-slide');
   const dots   = document.querySelectorAll('.hero-dot');
   let current  = 0;
@@ -2283,6 +2790,35 @@ footer {
         e.preventDefault();
       }
     });
+    function selectAllMoney(el) {
+      requestAnimationFrame(function () {
+        el.setSelectionRange(0, el.value.length);
+      });
+    }
+
+    input.addEventListener('mousedown', function (e) {
+      if (e.button !== 0) return;
+      var el = this;
+      if (document.activeElement !== el) {
+        e.preventDefault();
+        el.focus();
+        selectAllMoney(el);
+      }
+    });
+
+    input.addEventListener('focus', function () {
+      selectAllMoney(this);
+    });
+
+    input.addEventListener('click', function () {
+      if (document.activeElement === this) {
+        selectAllMoney(this);
+      }
+    });
+
+    input.addEventListener('contextmenu', function (e) {
+      e.preventDefault();
+    });
   }
 
   function moneyToNum(input) {
@@ -2301,15 +2837,19 @@ footer {
   document.querySelectorAll('.sim-money').forEach(applyMoneyMask);
 
   // === SIMULADOR DE PARCELAS ===
-  const LOT_TYPES = {
-    'frente-br': { name: 'Lote Frente à Rodovia', total: 65000, entradaMin: 15000, parcelaRef: 2000 },
-    'residencial': { name: 'Lote Residencial 20×30', total: 25000, entradaMin: 5000, parcelaRef: 1000 },
-    'avista': { name: 'Compra à Vista', total: null, entradaMin: 0, desconto: 0.08 }
-  };
+  function getLotTotal(lot, mode) {
+    if (!lot) return 0;
+    return mode === 'avista' ? lot.totalAvista : lot.totalPrazo;
+  }
 
-  const simMode = document.getElementById('simMode');
+  function setSimModeValue(mode) {
+    if (!simModeGroup) return;
+    const radio = simModeGroup.querySelector('input[name="simMode"][value="' + mode + '"]');
+    if (radio) radio.checked = true;
+  }
+
+  const simModeGroup = document.getElementById('simModeGroup');
   const simLoteType = document.getElementById('simLoteType');
-  let simModeTom = null;
   let simLoteTypeTom = null;
 
   const tomSelectOpts = {
@@ -2319,13 +2859,14 @@ footer {
     dropdownParent: 'body',
   };
 
-  if (typeof TomSelect !== 'undefined' && simMode && simLoteType) {
-    simModeTom = new TomSelect(simMode, tomSelectOpts);
+  if (typeof TomSelect !== 'undefined' && simLoteType) {
     simLoteTypeTom = new TomSelect(simLoteType, tomSelectOpts);
   }
 
   function getSimModeValue() {
-    return simModeTom ? simModeTom.getValue() : simMode.value;
+    if (!simModeGroup) return 'price';
+    const checked = simModeGroup.querySelector('input[name="simMode"]:checked');
+    return checked ? checked.value : 'price';
   }
 
   function getSimLoteTypeValue() {
@@ -2340,6 +2881,14 @@ footer {
     }
   }
 
+  const simSimulateWrap = document.getElementById('simSimulateWrap');
+  const simAvistaWrap = document.getElementById('simAvistaWrap');
+  const simAvistaLotName = document.getElementById('simAvistaLotName');
+  const simAvistaDe = document.getElementById('simAvistaDe');
+  const simAvistaPor = document.getElementById('simAvistaPor');
+  const simAvistaEconomia = document.getElementById('simAvistaEconomia');
+  const simAvistaBadge = document.getElementById('simAvistaBadge');
+  const simAvistaContact = document.getElementById('simAvistaContact');
   const simPanelPrice = document.getElementById('simPanelPrice');
   const simPanelParcela = document.getElementById('simPanelParcela');
   const simTotal = document.getElementById('simTotal');
@@ -2371,6 +2920,37 @@ footer {
     return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
   }
 
+  function renderAvistaOffer() {
+    const lot = LOT_TYPES[getSimLoteTypeValue()];
+    if (!lot || !simAvistaWrap) return;
+    const pct = lot.discountPct || 0;
+    if (simAvistaLotName) simAvistaLotName.textContent = lot.name;
+    if (simAvistaBadge) {
+      if (pct > 0) {
+        simAvistaBadge.textContent = pct + '% OFF';
+        simAvistaBadge.hidden = false;
+      } else {
+        simAvistaBadge.hidden = true;
+      }
+    }
+    if (simAvistaPor) simAvistaPor.innerHTML = formatBRL(lot.totalAvista);
+    if (simAvistaDe) simAvistaDe.innerHTML = 'De <s>' + formatBRL(lot.totalOriginal) + '</s>';
+    if (simAvistaEconomia) {
+      const parcelaMin = lot.parcelaFrom30x || 0;
+      let msg = 'Economia de ' + formatBRL(lot.totalOriginal - lot.totalAvista) + ' em relação ao valor de tabela';
+      if (lot.totalOriginal !== lot.totalPrazo) {
+        msg += ' · Parcelado: ' + formatBRL(lot.totalPrazo);
+      }
+      msg += ' · Parcelas a partir de ' + formatBRL(parcelaMin) + ' (30x)';
+      simAvistaEconomia.textContent = msg;
+    }
+    if (simAvistaContact) {
+      const wa = 'Olá! Tenho interesse no ' + lot.name + ' à vista por ' + formatBRL(lot.totalAvista)
+        + ' (de ' + formatBRL(lot.totalOriginal) + ', parcelado ' + formatBRL(lot.totalPrazo) + '). Gostaria de mais informações.';
+      simAvistaContact.href = 'https://wa.me/5574988230151?text=' + encodeURIComponent(wa);
+    }
+  }
+
   const ENTRADA_MIN_PCT = 0.2;
 
   function getMinEntrada(total) {
@@ -2381,7 +2961,7 @@ footer {
     const fromInput = moneyToNum(simTotal);
     if (fromInput > 0) return fromInput;
     const lot = LOT_TYPES[getSimLoteTypeValue()];
-    return lot && lot.total ? lot.total : 0;
+    return getLotTotal(lot, getSimModeValue());
   }
 
   function clampEntrada(input, total) {
@@ -2402,6 +2982,7 @@ footer {
   }
 
   function updateEntradaHints() {
+    if (getSimModeValue() === 'avista') return;
     const total = getActiveTotal();
     const min = getMinEntrada(total);
     const hintText = total > 0
@@ -2417,32 +2998,25 @@ footer {
     const lot = LOT_TYPES[key];
     if (!lot) return;
     setSimLoteTypeValue(key);
-    if (lot.total) {
-      const minEntrada = getMinEntrada(lot.total);
-      const defaultEntrada = Math.max(minEntrada, lot.entradaMin || minEntrada);
-      setMoneyValue(simTotal, lot.total);
-      setMoneyValue(simEntradaPrice, defaultEntrada);
-      setMoneyValue(simEntradaParcela, defaultEntrada);
-      setMoneyValue(simParcelaMensal, lot.parcelaRef);
-      const restante = lot.total - lot.entradaMin;
-      const parcelas = Math.max(1, Math.round(restante / lot.parcelaRef));
-      setSimParcelas(parcelas);
-    } else {
-      simTotal.value = '';
-      simEntradaPrice.value = '';
-      simEntradaParcela.value = '';
-      simParcelaMensal.value = '';
-      setSimParcelas(6);
+    const mode = getSimModeValue();
+    const total = getLotTotal(lot, mode);
+    setMoneyValue(simTotal, total);
+
+    if (mode === 'avista') {
+      renderAvistaOffer();
+      return;
     }
+
+    const minEntrada = getMinEntrada(lot.totalPrazo);
+    const defaultEntrada = Math.max(minEntrada, lot.entradaMin || minEntrada);
+    setMoneyValue(simEntradaPrice, defaultEntrada);
+    setMoneyValue(simEntradaParcela, defaultEntrada);
+    setMoneyValue(simParcelaMensal, lot.parcelaRef);
+    const restante = lot.totalPrazo - defaultEntrada;
+    const parcelas = Math.max(1, Math.round(restante / lot.parcelaRef));
+    setSimParcelas(parcelas);
     updateEntradaHints();
   }
-
-  simTotal.addEventListener('blur', function() {
-    const total = moneyToNum(simTotal);
-    clampEntrada(simEntradaPrice, total);
-    updateEntradaHints();
-    simResult.classList.remove('visible');
-  });
 
   simEntradaPrice.addEventListener('blur', function() {
     clampEntrada(simEntradaPrice, moneyToNum(simTotal));
@@ -2453,27 +3027,80 @@ footer {
   });
 
   function onSimModeChange() {
-    const byPrice = getSimModeValue() === 'price';
-    simPanelPrice.classList.toggle('active', byPrice);
-    simPanelParcela.classList.toggle('active', !byPrice);
+    const mode = getSimModeValue();
+    const isAvista = mode === 'avista';
+
+    if (simSimulateWrap) simSimulateWrap.classList.toggle('is-hidden', isAvista);
+    if (simAvistaWrap) {
+      simAvistaWrap.classList.toggle('is-visible', isAvista);
+      simAvistaWrap.hidden = !isAvista;
+    }
+
+    simPanelPrice.classList.toggle('active', mode === 'price');
+    simPanelParcela.classList.toggle('active', mode === 'parcela');
+
     simResult.classList.remove('visible');
+
+    if (isAvista) {
+      renderAvistaOffer();
+      return;
+    }
+
+    applyLoteType(getSimLoteTypeValue());
   }
 
   function onSimLoteTypeChange() {
-    applyLoteType(getSimLoteTypeValue());
+    if (getSimModeValue() === 'avista') {
+      renderAvistaOffer();
+    } else {
+      applyLoteType(getSimLoteTypeValue());
+    }
     simResult.classList.remove('visible');
   }
 
-  if (simModeTom) {
-    simModeTom.on('change', onSimModeChange);
-  } else if (simMode) {
-    simMode.addEventListener('change', onSimModeChange);
+  if (simModeGroup) {
+    simModeGroup.querySelectorAll('input[name="simMode"]').forEach(function(radio) {
+      radio.addEventListener('change', onSimModeChange);
+    });
   }
 
   if (simLoteTypeTom) {
     simLoteTypeTom.on('change', onSimLoteTypeChange);
   } else if (simLoteType) {
     simLoteType.addEventListener('change', onSimLoteTypeChange);
+  }
+
+  function scrollSimResultIntoView() {
+    if (!simResult) return;
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        const rect = simResult.getBoundingClientRect();
+        const bottomPadding = 40;
+        const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+        const isDesktop = window.matchMedia('(min-width: 901px)').matches;
+
+        if (!isDesktop) {
+          simResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          return;
+        }
+
+        if (rect.height > window.innerHeight - bottomPadding - 24) {
+          const topOffset = 88;
+          const targetTop = window.scrollY + rect.top - topOffset;
+          window.scrollTo({
+            top: Math.max(0, Math.min(targetTop, maxScroll)),
+            behavior: 'smooth'
+          });
+          return;
+        }
+
+        const targetTop = window.scrollY + rect.bottom - window.innerHeight + bottomPadding;
+        window.scrollTo({
+          top: Math.max(0, Math.min(targetTop, maxScroll)),
+          behavior: 'smooth'
+        });
+      });
+    });
   }
 
   function renderResult(items, note, waText) {
@@ -2483,6 +3110,7 @@ footer {
     simResultNote.textContent = note;
     simWaLink.href = 'https://wa.me/5574988230151?text=' + encodeURIComponent(waText);
     simResult.classList.add('visible');
+    scrollSimResultIntoView();
   }
 
   document.getElementById('simCalcular').addEventListener('click', function() {
@@ -2490,14 +3118,7 @@ footer {
     const lot = LOT_TYPES[key];
     const mode = getSimModeValue();
 
-    if (key === 'avista') {
-      renderResult(
-        [{ label: 'Modalidade', value: 'À vista' }, { label: 'Desconto estimado', value: 'até 8%' }],
-        'Valor final e desconto confirmados com o corretor. Simulação indicativa.',
-        'Olá! Fiz uma simulação de compra à vista no loteamento. Gostaria de saber o valor com desconto.'
-      );
-      return;
-    }
+    if (mode === 'avista') return;
 
     if (mode === 'price') {
       const total = moneyToNum(simTotal);
@@ -2508,15 +3129,16 @@ footer {
       if (entrada >= total) return alert('A entrada deve ser menor que o valor total.');
       const restante = total - entrada;
       const mensal = restante / parcelas;
-      const wa = 'Olá! Simulei o lote "' + lot.name + '": entrada ' + formatBRL(entrada) + ', ' + parcelas + 'x de ' + formatBRL(mensal) + '. Tenho interesse!';
+      const wa = 'Olá! Simulei o lote "' + lot.name + '": valor parcelado ' + formatBRL(total)
+        + ', entrada ' + formatBRL(entrada) + ', ' + parcelas + 'x de ' + formatBRL(mensal) + '. Tenho interesse!';
       renderResult(
         [
-          { label: 'Valor total', value: formatBRL(total) },
+          { label: 'Valor parcelado', value: formatBRL(total) },
           { label: 'Entrada', value: formatBRL(entrada) },
           { label: 'Parcelas', value: String(parcelas) + 'x' },
           { label: 'Parcela mensal', value: formatBRL(mensal) }
         ],
-        'Simulação sem juros. Condições finais podem variar — confirme com o corretor.',
+        'Simulação estimada sem juros. Condições finais podem variar — confirme com o corretor.',
         wa
       );
     } else {
@@ -2528,15 +3150,18 @@ footer {
       if (entrada >= total) return alert('A entrada deve ser menor que o valor total.');
       const restante = total - entrada;
       const parcelas = Math.ceil(restante / mensal);
+      const waParcela = 'Olá! Simulei "' + lot.name + '": valor parcelado ' + formatBRL(total)
+        + ', entrada ' + formatBRL(entrada) + ', parcelas de ' + formatBRL(mensal)
+        + ' (~' + parcelas + 'x). Tenho interesse!';
       renderResult(
         [
-          { label: 'Valor total', value: formatBRL(total) },
+          { label: 'Valor parcelado', value: formatBRL(total) },
           { label: 'Entrada', value: formatBRL(entrada) },
           { label: 'Parcela desejada', value: formatBRL(mensal) },
           { label: 'Parcelas estimadas', value: '~' + parcelas + 'x' }
         ],
-        'Quantidade de parcelas estimada para atingir a parcela informada (sem juros).',
-        'Olá! Simulei "' + lot.name + '" com entrada ' + formatBRL(entrada) + ' e parcelas de ' + formatBRL(mensal) + '. Tenho interesse!'
+        'Quantidade de parcelas estimada (sem juros). Condições finais podem variar — confirme com o corretor.',
+        waParcela
       );
     }
   });
@@ -2544,12 +3169,189 @@ footer {
   document.querySelectorAll('.lote-simular').forEach(function(btn) {
     btn.addEventListener('click', function() {
       const key = btn.getAttribute('data-lote');
-      applyLoteType(key);
+      const mode = btn.getAttribute('data-sim-mode');
+      if (mode) {
+        setSimModeValue(mode);
+        onSimModeChange();
+      } else {
+        setSimModeValue('price');
+        onSimModeChange();
+      }
       document.getElementById('simulador').scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   });
 
   applyLoteType('residencial');
+
+  // === Mapa de lotes (Leaflet — hardcoded) ===
+  const LOTES_MAP_DATA = [
+    {
+      id: 'frente-br',
+      name: 'Lote Frente à Rodovia',
+      color: '#C23028',
+      fillOpacity: 0.4,
+      coords: [
+        [-11.4655, -39.9845],
+        [-11.4655, -39.9828],
+        [-11.4647, -39.9828],
+        [-11.4647, -39.9845]
+      ],
+      popup: '<strong>Lote Frente à Rodovia</strong><br>Comercial · Frente BR<br>À vista: R$ 60.000 · Parcelado: R$ 65.000'
+    },
+    {
+      id: 'res-01',
+      name: 'Lote Residencial 01',
+      color: '#3d8a5a',
+      fillOpacity: 0.45,
+      coords: [
+        [-11.4674, -39.9840],
+        [-11.4674, -39.9834],
+        [-11.4669, -39.9834],
+        [-11.4669, -39.9840]
+      ],
+      popup: '<strong>Lote Residencial 01</strong><br>20×30 · Disponível<br>À vista: R$ 25.000'
+    },
+    {
+      id: 'res-02',
+      name: 'Lote Residencial 02',
+      color: '#3d8a5a',
+      fillOpacity: 0.45,
+      coords: [
+        [-11.4674, -39.9833],
+        [-11.4674, -39.9827],
+        [-11.4669, -39.9827],
+        [-11.4669, -39.9833]
+      ],
+      popup: '<strong>Lote Residencial 02</strong><br>20×30 · Disponível<br>À vista: R$ 25.000'
+    },
+    {
+      id: 'res-03',
+      name: 'Lote Residencial 03',
+      color: '#3d8a5a',
+      fillOpacity: 0.45,
+      coords: [
+        [-11.4668, -39.9840],
+        [-11.4668, -39.9834],
+        [-11.4663, -39.9834],
+        [-11.4663, -39.9840]
+      ],
+      popup: '<strong>Lote Residencial 03</strong><br>20×30 · Disponível<br>À vista: R$ 25.000'
+    },
+    {
+      id: 'res-04',
+      name: 'Lote Residencial 04',
+      color: '#3d8a5a',
+      fillOpacity: 0.45,
+      coords: [
+        [-11.4668, -39.9833],
+        [-11.4668, -39.9827],
+        [-11.4663, -39.9827],
+        [-11.4663, -39.9833]
+      ],
+      popup: '<strong>Lote Residencial 04</strong><br>20×30 · Disponível<br>À vista: R$ 25.000'
+    },
+    {
+      id: 'res-05',
+      name: 'Lote Residencial 05',
+      color: '#3d8a5a',
+      fillOpacity: 0.45,
+      coords: [
+        [-11.4674, -39.9825],
+        [-11.4674, -39.9819],
+        [-11.4669, -39.9819],
+        [-11.4669, -39.9825]
+      ],
+      popup: '<strong>Lote Residencial 05</strong><br>20×30 · Disponível<br>À vista: R$ 25.000'
+    },
+    {
+      id: 'res-06',
+      name: 'Lote Residencial 06',
+      color: '#3d8a5a',
+      fillOpacity: 0.45,
+      coords: [
+        [-11.4668, -39.9825],
+        [-11.4668, -39.9819],
+        [-11.4663, -39.9819],
+        [-11.4663, -39.9825]
+      ],
+      popup: '<strong>Lote Residencial 06</strong><br>20×30 · Disponível<br>À vista: R$ 25.000'
+    }
+  ];
+
+  const lotsMapModal = document.getElementById('lotsMapModal');
+  const lotsMapCanvas = document.getElementById('lotsMapCanvas');
+  const simVerLotesBtn = document.getElementById('simVerLotesBtn');
+  let lotsMapInstance = null;
+  let lotsMapLayerGroup = null;
+
+  function initLotsMap() {
+    if (lotsMapInstance || typeof L === 'undefined' || !lotsMapCanvas) return;
+
+    lotsMapInstance = L.map(lotsMapCanvas, {
+      scrollWheelZoom: true,
+      zoomControl: true
+    }).setView(LOTEAMENTO_CENTER, 17);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(lotsMapInstance);
+
+    lotsMapLayerGroup = L.layerGroup().addTo(lotsMapInstance);
+
+    LOTES_MAP_DATA.forEach(function(lot) {
+      const polygon = L.polygon(lot.coords, {
+        color: lot.color,
+        fillColor: lot.color,
+        fillOpacity: lot.fillOpacity,
+        weight: 2
+      });
+      polygon.bindPopup(lot.popup);
+      polygon.bindTooltip(lot.name, { sticky: true, direction: 'top' });
+      lotsMapLayerGroup.addLayer(polygon);
+    });
+
+    if (lotsMapLayerGroup.getLayers().length > 0) {
+      lotsMapInstance.fitBounds(lotsMapLayerGroup.getBounds().pad(0.15));
+    }
+  }
+
+  function openLotsMapModal() {
+    if (!lotsMapModal) return;
+    lotsMapModal.classList.add('is-open');
+    lotsMapModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('lots-map-modal-open');
+    initLotsMap();
+    window.setTimeout(function() {
+      if (lotsMapInstance) lotsMapInstance.invalidateSize();
+      if (lotsMapLayerGroup && lotsMapLayerGroup.getLayers().length > 0) {
+        lotsMapInstance.fitBounds(lotsMapLayerGroup.getBounds().pad(0.12));
+      }
+    }, 200);
+  }
+
+  function closeLotsMapModal() {
+    if (!lotsMapModal) return;
+    lotsMapModal.classList.remove('is-open');
+    lotsMapModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('lots-map-modal-open');
+  }
+
+  if (simVerLotesBtn) {
+    simVerLotesBtn.addEventListener('click', openLotsMapModal);
+  }
+
+  if (lotsMapModal) {
+    lotsMapModal.querySelectorAll('[data-lots-map-close]').forEach(function(el) {
+      el.addEventListener('click', closeLotsMapModal);
+    });
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && lotsMapModal && lotsMapModal.classList.contains('is-open')) {
+      closeLotsMapModal();
+    }
+  });
 
   // === FAB Simular — após localização; oculta no simulador ===
   const fabSimular = document.getElementById('fabSimular');
@@ -2663,7 +3465,9 @@ footer {
           "closes": "12:00"
         }
       ],
-      "priceRange": "R$25.000 - R$65.000"
+@endverbatim
+      "priceRange": "R$ {{ $fmtBrl($lotRes['price_cash']) }} - R$ {{ $fmtBrl($lotPriceOriginal($lotBr)) }}"
+@verbatim
     },
     {
       "@type": "WebSite",
@@ -2701,7 +3505,7 @@ footer {
           "@type": "Offer",
           "name": "Lote Residencial 20x30",
           "description": "Lote residencial em loteamento regular com infraestrutura completa",
-          "price": "25000",
+          "price": "30000",
           "priceCurrency": "BRL",
           "availability": "https://schema.org/InStock",
           "seller": { "@id": "https://sid360.com.br/#agent" }
@@ -2709,8 +3513,8 @@ footer {
         {
           "@type": "Offer",
           "name": "Lote Comercial Frente à Rodovia",
-          "description": "Lote comercial com visibilidade privilegiada na rodovia BR",
-          "price": "65000",
+          "description": "Lote comercial com visibilidade privilegiada na rodovia BR. À vista R$60.000, parcelado R$65.000.",
+          "price": "60000",
           "priceCurrency": "BRL",
           "availability": "https://schema.org/InStock",
           "seller": { "@id": "https://sid360.com.br/#agent" }
