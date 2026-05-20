@@ -1091,6 +1091,26 @@ footer {
   color: rgba(247,243,238,0.5);
 }
 
+.footer-poweredby {
+  font-size: 0.72rem;
+  color: rgba(247,243,238,0.25);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  transition: color 0.2s;
+  text-align: right;
+}
+
+.footer-poweredby:hover {
+  color: var(--accent);
+}
+
+.footer-poweredby-copied {
+  color: var(--accent) !important;
+}
+
 /* MOBILE */
 @media (max-width: 900px) {
   .localizacao-grid { grid-template-columns: 1fr; }
@@ -1517,6 +1537,9 @@ footer {
   </div>
   <div class="footer-bottom">
     <div class="footer-copy">&copy; {{ date('Y') }} Sid360 Imóveis · Cafarnaum, Bahia</div>
+    <button type="button" class="footer-poweredby" id="poweredByBtn" title="Copiar contato do desenvolvedor">
+      Desenvolvido por Nunes, Leonardo
+    </button>
   </div>
 </footer>
 
@@ -1755,6 +1778,24 @@ footer {
   });
 
   applyLoteType('residencial');
+
+  // === POWERED BY ===
+  const poweredByBtn = document.getElementById('poweredByBtn');
+  if (poweredByBtn) {
+    poweredByBtn.addEventListener('click', function () {
+      const contato = 'Leonardo Nunes — Dev\nWhatsApp: (74) 9 8801-0032\nE-mail: leoontech@gmail.com';
+      navigator.clipboard.writeText(contato).then(function () {
+        poweredByBtn.textContent = 'Contato copiado!';
+        poweredByBtn.classList.add('footer-poweredby-copied');
+        setTimeout(function () {
+          poweredByBtn.textContent = 'Desenvolvido por Nunes, Leonardo';
+          poweredByBtn.classList.remove('footer-poweredby-copied');
+        }, 3000);
+      }).catch(function () {
+        prompt('Copie o contato do desenvolvedor:', contato);
+      });
+    });
+  }
 })();
 </script>
 
