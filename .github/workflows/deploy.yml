@@ -78,16 +78,17 @@ jobs:
           SSH_PORT: ${{ secrets.SSH_PORT_BRANIX }}
           DEPLOY_DIR: ${{ secrets.DEPLOY_DIRECTORY_BRANIX }}
         run: |
-          ssh -p $SSH_PORT -o StrictHostKeyChecking=no $USERNAME@$HOST << 'EOF'
+          ssh -p "$SSH_PORT" -o StrictHostKeyChecking=no "$USERNAME@$HOST" bash -s << ENDSSH
             set -e
 
-            echo "Iniciando deploy em $DEPLOY_DIR..."
-            mkdir -p $DEPLOY_DIR
+            DEPLOY_DIR="$DEPLOY_DIR"
 
-            mv ~/deployment.zip $DEPLOY_DIR/
-            cd $DEPLOY_DIR
+            echo "Iniciando deploy em \$DEPLOY_DIR..."
+            mkdir -p "\$DEPLOY_DIR"
 
-            # Preservar .env antes de extrair
+            mv ~/deployment.zip "\$DEPLOY_DIR/"
+            cd "\$DEPLOY_DIR"
+
             if [ -f .env ]; then
               cp .env /tmp/.env.backup
             fi
@@ -95,13 +96,11 @@ jobs:
             unzip -o deployment.zip
             rm deployment.zip
 
-            # Restaurar .env
             if [ -f /tmp/.env.backup ]; then
               cp /tmp/.env.backup .env
               rm /tmp/.env.backup
             fi
 
-            # Laravel artisan
             php artisan optimize:clear
             php artisan view:clear
             php artisan config:cache
@@ -110,7 +109,7 @@ jobs:
             php artisan migrate --force
 
             echo "Deploy concluído com sucesso."
-          EOF
+          ENDSSH
 
       - name: Notificar conclusão
         run: echo "Deploy para sid360.com.br concluído."
