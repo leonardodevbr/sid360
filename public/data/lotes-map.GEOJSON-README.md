@@ -3,7 +3,7 @@
 ## Opção 1 — geojson.io (recomendado)
 
 1. Abra [https://geojson.io](https://geojson.io)
-2. Navegue até Cafarnaum-BA (aprox. `-11.4667, -39.9833`)
+2. Navegue até o loteamento (Flor de Girassol — aprox. `-11.677, -41.471`)
 3. Desenhe cada lote com a ferramenta de polígono
 4. Em cada feature, edite as **properties**:
    - `id`: ex. `res-01`
@@ -25,7 +25,7 @@ Edite `public/data/lotes-map.json`:
 
 ```json
 {
-  "center": [-11.4667, -39.9833],
+  "center": [-11.67715, -41.4716],
   "zoom": 17,
   "lots": [
     {

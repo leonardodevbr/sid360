@@ -33,6 +33,7 @@
   };
   $lotBrParcelaFrom = $lotParcelaFrom30x($lotBr);
   $lotResParcelaFrom = $lotParcelaFrom30x($lotRes);
+  $googleMapsApiKey = config('site.loteamento.google_maps_api_key');
 @endphp
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -1539,6 +1540,19 @@ body.nav-menu-open {
   height: min(52vh, 480px);
   min-height: 280px;
   background: #e8e4d8;
+}
+
+/* Remove retângulo azul de foco ao clicar no polígono (SVG / navegador) */
+.lots-map-canvas .leaflet-interactive:focus {
+  outline: none !important;
+}
+
+.lots-map-canvas .leaflet-overlay-pane svg:focus {
+  outline: none;
+}
+
+.lots-map-canvas .leaflet-popup-close-button:focus {
+  outline: none;
 }
 
 .lots-map-legend {
@@ -3176,6 +3190,7 @@ footer {
 
   // === Mapa de lotes (Leaflet — dados em public/data/lotes-map.json) ===
   const LOTES_MAP_URL = @json(asset('data/lotes-map.json'));
+  const GOOGLE_MAPS_API_KEY = @json($googleMapsApiKey);
   const LOTES_MAP_STYLES = {
     comercial: { color: '#C23028', fillOpacity: 0.4 },
     residencial: { color: '#3d8a5a', fillOpacity: 0.45 }
@@ -3185,11 +3200,116 @@ footer {
   const lotsMapCanvas = document.getElementById('lotsMapCanvas');
   const simVerLotesBtn = document.getElementById('simVerLotesBtn');
   let lotsMapInstance = null;
+  let lotsMapBaseLayer = null;
+  let lotsMapUsesGoogle = false;
   let lotsMapLayerGroup = null;
   let lotsMapConfig = { center: LOTEAMENTO_CENTER, zoom: 17 };
   let lotsMapData = [];
   let lotsMapDataLoaded = false;
   let lotsMapDataLoading = null;
+  let googleMapsLibsPromise = null;
+
+  function loadScript(src) {
+    return new Promise(function(resolve, reject) {
+      const existing = document.querySelector('script[src="' + src + '"]');
+      if (existing) {
+        if (existing.dataset.loaded === '1') {
+          resolve();
+          return;
+        }
+        existing.addEventListener('load', resolve);
+        existing.addEventListener('error', reject);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = src;
+      script.async = true;
+      script.onload = function() {
+        script.dataset.loaded = '1';
+        resolve();
+      };
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+
+  const GOOGLE_MUTANT_SCRIPT_URL = 'https://cdn.jsdelivr.net/npm/leaflet.gridlayer.googlemutant@0.16.0/dist/Leaflet.GoogleMutant.js';
+
+  function loadGoogleMapsApi() {
+    return new Promise(function(resolve, reject) {
+      if (typeof google !== 'undefined' && google.maps) {
+        resolve();
+        return;
+      }
+
+      const callbackName = '__sid360LotsMapGoogleCb';
+      window[callbackName] = function() {
+        delete window[callbackName];
+        resolve();
+      };
+
+      const script = document.createElement('script');
+      script.src = 'https://maps.googleapis.com/maps/api/js?key=' +
+        encodeURIComponent(GOOGLE_MAPS_API_KEY) +
+        '&callback=' + callbackName;
+      script.async = true;
+      script.defer = true;
+      script.onerror = function() {
+        delete window[callbackName];
+        reject(new Error('Google Maps API failed to load'));
+      };
+      document.head.appendChild(script);
+    });
+  }
+
+  function loadGoogleMapsLibs() {
+    if (!GOOGLE_MAPS_API_KEY) return Promise.resolve(false);
+    if (googleMapsLibsPromise) return googleMapsLibsPromise;
+
+    if (typeof google !== 'undefined' && google.maps && L.gridLayer && L.gridLayer.googleMutant) {
+      return Promise.resolve(true);
+    }
+
+    googleMapsLibsPromise = loadGoogleMapsApi()
+      .then(function() {
+        return loadScript(GOOGLE_MUTANT_SCRIPT_URL);
+      })
+      .then(function() {
+        return Boolean(L.gridLayer && L.gridLayer.googleMutant);
+      })
+      .catch(function() {
+        return false;
+      });
+
+    return googleMapsLibsPromise;
+  }
+
+  function addLotsMapBaseLayer(map) {
+    if (lotsMapBaseLayer) {
+      map.removeLayer(lotsMapBaseLayer);
+      lotsMapBaseLayer = null;
+    }
+
+    if (typeof google !== 'undefined' && L.gridLayer && L.gridLayer.googleMutant) {
+      lotsMapUsesGoogle = true;
+      lotsMapBaseLayer = L.gridLayer.googleMutant({
+        type: 'hybrid',
+        maxZoom: 21
+      });
+      lotsMapBaseLayer.addTo(map);
+      lotsMapBaseLayer.on('load', function() {
+        map.invalidateSize();
+      });
+      return lotsMapBaseLayer;
+    }
+
+    lotsMapUsesGoogle = false;
+    lotsMapBaseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+    return lotsMapBaseLayer;
+  }
 
   function normalizeLot(lot, index) {
     const type = lot.type === 'comercial' ? 'comercial' : 'residencial';
@@ -3258,21 +3378,37 @@ footer {
     if (!lotsMapInstance || !lotsMapLayerGroup) return;
     lotsMapLayerGroup.clearLayers();
 
+    const lotsMapFitOptions = { maxZoom: 20, padding: [24, 24] };
+
     lotsMapData.forEach(function(lot) {
       if (!lot.coords || lot.coords.length < 3) return;
       const polygon = L.polygon(lot.coords, {
         color: lot.color,
         fillColor: lot.color,
         fillOpacity: lot.fillOpacity,
-        weight: 2
+        weight: 2,
+        className: 'lots-map-polygon'
       });
-      polygon.bindPopup(lot.popup);
-      polygon.bindTooltip(lot.name, { sticky: true, direction: 'top' });
+      polygon.bindPopup(lot.popup, { closeButton: true, autoPan: true, keepInView: true });
+      polygon.bindTooltip(lot.name, { direction: 'top', opacity: 0.9 });
+      polygon.on('click', function(e) {
+        L.DomEvent.stopPropagation(e);
+        polygon.closeTooltip();
+        if (polygon._path && typeof polygon._path.blur === 'function') {
+          polygon._path.blur();
+        }
+      });
+      polygon.on('popupopen', function() {
+        polygon.closeTooltip();
+        if (polygon._path && typeof polygon._path.blur === 'function') {
+          polygon._path.blur();
+        }
+      });
       lotsMapLayerGroup.addLayer(polygon);
     });
 
     if (lotsMapLayerGroup.getLayers().length > 0) {
-      lotsMapInstance.fitBounds(lotsMapLayerGroup.getBounds().pad(0.15));
+      lotsMapInstance.fitBounds(lotsMapLayerGroup.getBounds().pad(0.04), lotsMapFitOptions);
     } else {
       lotsMapInstance.setView(lotsMapConfig.center, lotsMapConfig.zoom);
     }
@@ -3281,22 +3417,23 @@ footer {
   function initLotsMap() {
     if (typeof L === 'undefined' || !lotsMapCanvas) return Promise.resolve();
 
-    if (!lotsMapInstance) {
-      lotsMapInstance = L.map(lotsMapCanvas, {
-        scrollWheelZoom: true,
-        zoomControl: true
-      }).setView(lotsMapConfig.center, lotsMapConfig.zoom);
+    return loadGoogleMapsLibs().then(function(googleReady) {
+      if (!lotsMapInstance) {
+        lotsMapInstance = L.map(lotsMapCanvas, {
+          scrollWheelZoom: true,
+          zoomControl: true
+        }).setView(lotsMapConfig.center, lotsMapConfig.zoom);
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-      }).addTo(lotsMapInstance);
+        addLotsMapBaseLayer(lotsMapInstance);
+        lotsMapLayerGroup = L.featureGroup().addTo(lotsMapInstance);
+      } else if (googleReady && !lotsMapUsesGoogle) {
+        addLotsMapBaseLayer(lotsMapInstance);
+        lotsMapInstance.invalidateSize();
+      }
 
-      lotsMapLayerGroup = L.featureGroup().addTo(lotsMapInstance);
-    }
-
-    return loadLotsMapData().then(function() {
-      renderLotsOnMap();
+      return loadLotsMapData().then(function() {
+        renderLotsOnMap();
+      });
     });
   }
 
@@ -3308,11 +3445,12 @@ footer {
 
     initLotsMap().then(function() {
       window.setTimeout(function() {
-        if (lotsMapInstance) lotsMapInstance.invalidateSize();
+        if (!lotsMapInstance) return;
+        lotsMapInstance.invalidateSize();
         if (lotsMapLayerGroup && lotsMapLayerGroup.getLayers().length > 0) {
-          lotsMapInstance.fitBounds(lotsMapLayerGroup.getBounds().pad(0.12));
+          lotsMapInstance.fitBounds(lotsMapLayerGroup.getBounds().pad(0.04), { maxZoom: 20, padding: [24, 24] });
         }
-      }, 200);
+      }, GOOGLE_MAPS_API_KEY ? 350 : 200);
     });
   }
 

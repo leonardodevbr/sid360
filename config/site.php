@@ -7,6 +7,7 @@ return [
         'lat' => (float) env('LOTEAMENTO_LAT', -11.4667),
         'lng' => (float) env('LOTEAMENTO_LNG', -39.9833),
         'maps_embed_url' => env('GOOGLE_MAPS_EMBED_URL'),
+        'google_maps_api_key' => env('GOOGLE_MAPS_API_KEY'),
     ],
 
     'lots' => [

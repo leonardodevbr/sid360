@@ -1,90 +1,117 @@
 {
-  "center": [-11.4667, -39.9833],
-  "zoom": 17,
-  "lots": [
-    {
-      "id": "frente-br",
-      "name": "Lote Frente à Rodovia",
-      "type": "comercial",
-      "coords": [
-        [-11.4655, -39.9845],
-        [-11.4655, -39.9828],
-        [-11.4647, -39.9828],
-        [-11.4647, -39.9845]
-      ],
-      "popup": "<strong>Lote Frente à Rodovia</strong><br>Comercial · Frente BR<br>À vista: R$ 60.000 · Parcelado: R$ 65.000"
-    },
-    {
-      "id": "res-01",
-      "name": "Lote Residencial 01",
-      "type": "residencial",
-      "coords": [
-        [-11.4674, -39.9840],
-        [-11.4674, -39.9834],
-        [-11.4669, -39.9834],
-        [-11.4669, -39.9840]
-      ],
-      "popup": "<strong>Lote Residencial 01</strong><br>20×30 · Disponível<br>À vista: R$ 25.000"
-    },
-    {
-      "id": "res-02",
-      "name": "Lote Residencial 02",
-      "type": "residencial",
-      "coords": [
-        [-11.4674, -39.9833],
-        [-11.4674, -39.9827],
-        [-11.4669, -39.9827],
-        [-11.4669, -39.9833]
-      ],
-      "popup": "<strong>Lote Residencial 02</strong><br>20×30 · Disponível<br>À vista: R$ 25.000"
-    },
-    {
-      "id": "res-03",
-      "name": "Lote Residencial 03",
-      "type": "residencial",
-      "coords": [
-        [-11.4668, -39.9840],
-        [-11.4668, -39.9834],
-        [-11.4663, -39.9834],
-        [-11.4663, -39.9840]
-      ],
-      "popup": "<strong>Lote Residencial 03</strong><br>20×30 · Disponível<br>À vista: R$ 25.000"
-    },
-    {
-      "id": "res-04",
-      "name": "Lote Residencial 04",
-      "type": "residencial",
-      "coords": [
-        [-11.4668, -39.9833],
-        [-11.4668, -39.9827],
-        [-11.4663, -39.9827],
-        [-11.4663, -39.9833]
-      ],
-      "popup": "<strong>Lote Residencial 04</strong><br>20×30 · Disponível<br>À vista: R$ 25.000"
-    },
-    {
-      "id": "res-05",
-      "name": "Lote Residencial 05",
-      "type": "residencial",
-      "coords": [
-        [-11.4674, -39.9825],
-        [-11.4674, -39.9819],
-        [-11.4669, -39.9819],
-        [-11.4669, -39.9825]
-      ],
-      "popup": "<strong>Lote Residencial 05</strong><br>20×30 · Disponível<br>À vista: R$ 25.000"
-    },
-    {
-      "id": "res-06",
-      "name": "Lote Residencial 06",
-      "type": "residencial",
-      "coords": [
-        [-11.4668, -39.9825],
-        [-11.4668, -39.9819],
-        [-11.4663, -39.9819],
-        [-11.4663, -39.9825]
-      ],
-      "popup": "<strong>Lote Residencial 06</strong><br>20×30 · Disponível<br>À vista: R$ 25.000"
-    }
-  ]
+  "center": [-11.67715, -41.4716],
+  "zoom": 20,
+  "geojson": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "properties": {
+          "id": "comercial-01",
+          "name": "Lote Comercial 01",
+          "type": "comercial",
+          "popup": "<strong>Lote Comercial 01</strong><br>Frente à Rodovia<br>À vista: R$ 60.000 · Parcelado: R$ 65.000"
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -41.4714135,
+                -11.6776259
+              ],
+              [
+                -41.4717681,
+                -11.6774331
+              ],
+              [
+                -41.4717221,
+                -11.6772979
+              ],
+              [
+                -41.4713664,
+                -11.6774868
+              ],
+              [
+                -41.4714135,
+                -11.6776259
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "id": "comercial-02",
+          "name": "Lote Comercial 02",
+          "type": "comercial",
+          "popup": "<strong>Lote Comercial 02</strong><br>Frente à Rodovia<br>À vista: R$ 60.000 · Parcelado: R$ 65.000"
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -41.4713654,
+                -11.6774837
+              ],
+              [
+                -41.4717199,
+                -11.6772955
+              ],
+              [
+                -41.4716857,
+                -11.6771837
+              ],
+              [
+                -41.4713281,
+                -11.6773666
+              ],
+              [
+                -41.4713654,
+                -11.6774837
+              ]
+            ]
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "properties": {
+          "id": "res-02",
+          "name": "Lote Residencial 01",
+          "type": "residencial",
+          "popup": "<strong>Lote Residencial 01</strong><br>Lotes residenciais 20×30<br>À vista: R$ 25.000 · Parcelado: R$ 30.000"
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -41.471693,
+                -11.6771824
+              ],
+              [
+                -41.4718599,
+                -11.6770933
+              ],
+              [
+                -41.4719451,
+                -11.6773413
+              ],
+              [
+                -41.4717736,
+                -11.6774394
+              ],
+              [
+                -41.471693,
+                -11.6771824
+              ]
+            ]
+          ]
+        }
+      }
+    ]
+  }
 }
