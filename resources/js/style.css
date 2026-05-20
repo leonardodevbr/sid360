@@ -1,0 +1,146 @@
+/* Multiselect overrides para alinhar com inputs Tailwind e remover verde/borda grossa */
+:root {
+  /* estados de item selecionado (sempre azul) */
+  --ms-option-bg-selected: #2563EB;          /* blue-600 */
+  --ms-option-bg-selected-pointed: #1D4ED8;  /* blue-700 */
+  --ms-option-color-selected: #ffffff;
+  --ms-option-color-selected-pointed: #ffffff;
+
+  /* item não selecionado em hover: cinza claro */
+  --ms-option-bg-pointed: #F1F5F9;           /* slate-100 */
+
+  /* desativa ring padrão da lib (usamos nosso próprio) */
+  --ms-ring-width: 0px;
+  --ms-ring-color: transparent;
+}
+
+.multiselect.is-active {
+  border-color: #3B82F6;                     /* blue-500 */
+  box-shadow: 0 0 0 1px #3B82F6;             /* ring fino */
+}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #app {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-xl border border-slate-200 shadow-none;
+  }
+
+  .input-base {
+    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900
+    focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100;
+  }
+}
+
+/* Toast Notifications - Z-Index Supremo */
+.Vue-Toastification__container {
+  z-index: 99999 !important;
+  position: fixed !important;
+}
+
+.Vue-Toastification__toast {
+  z-index: 99999 !important;
+}
+
+/* SweetAlert2 - sempre acima de modais (Modal usa z-index 9999) */
+.swal2-container {
+  z-index: 100000 !important;
+}
+
+/* Campo tipo senha sem type=password, para o gerenciador de senhas do browser não oferecer salvar */
+.swal-manager-auth-input {
+  -webkit-text-security: disc;
+}
+
+/* Prévia de cliente já identificado (F7) */
+.swal-customer-preview {
+  text-align: left;
+  font-size: 0.9375rem;
+  color: #334155;
+  margin-bottom: 0.25rem;
+}
+
+.swal-customer-preview-question {
+  margin-top: 1rem;
+  font-size: 0.9375rem;
+  color: #64748b;
+}
+
+/* Label e dica de atalhos no modal Identificar Cliente */
+.swal-cpf-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #334155;
+  text-align: left;
+}
+
+.swal-cpf-shortcuts {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: #64748b;
+  text-align: center;
+}
+
+.swal2-popup {
+  @apply rounded-xl;
+}
+
+.swal2-actions {
+  @apply gap-2 !important;
+  margin-top: 1.5rem !important;
+}
+
+.swal2-confirm {
+  @apply bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+  margin-left: 0.5rem !important;
+}
+
+.swal2-confirm.swal2-confirm--red {
+  @apply bg-red-600 hover:bg-red-700 focus:ring-red-500;
+}
+
+.swal2-cancel {
+  @apply bg-slate-100 text-slate-700 hover:bg-slate-200 focus:ring-2 focus:ring-slate-500 focus:ring-offset-2;
+  margin-right: 0.5rem !important;
+}
+
+/* Multiselect Custom Styles */
+:root {
+  --ms-tag-bg: #2563eb;
+  --ms-tag-color: #ffffff;
+  --ms-tag-radius: 0.375rem;
+  --ms-border-color: #cbd5e1;
+  --ms-border-color-active: #3b82f6;
+  --ms-radius: 0.375rem;
+  --ms-ring-width: 2px;
+  --ms-ring-color: #3b82f6;
+  --ms-option-bg-selected: #2563eb;
+  --ms-option-color-selected: #ffffff;
+  --ms-option-bg-pointed: #eff6ff;
+  --ms-option-color-pointed: #1e40af;
+  --ms-dropdown-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Garantir que o dropdown do Multiselect apareça acima de headers fixos */
+.multiselect-dropdown {
+  z-index: 9999 !important;
+}
+
+.multiselect-options {
+  z-index: 9999 !important;
+}

@@ -1,0 +1,32 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Requests;
+
+use App\Models\Lot;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class UpdateLotRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return $this->user()?->can('lots.edit') ?? false;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function rules(): array
+    {
+        return [
+            'development_id' => ['sometimes', 'integer', 'exists:developments,id'],
+            'number' => ['sometimes', 'required', 'string', 'max:50'],
+            'block' => ['nullable', 'string', 'max:50'],
+            'area' => ['nullable', 'numeric', 'min:0'],
+            'total_value' => ['nullable', 'numeric', 'min:0'],
+            'status' => ['sometimes', 'string', Rule::in(Lot::STATUSES)],
+        ];
+    }
+}

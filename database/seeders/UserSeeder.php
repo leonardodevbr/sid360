@@ -1,0 +1,32 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Database\Seeders;
+
+use App\Models\User;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Role;
+
+class UserSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $superAdmin = User::firstOrCreate(
+            ['email' => 'admin@sid360.com.br'],
+            [
+                'name' => 'Administrador Sid360',
+                'username' => 'admin',
+                'password' => Hash::make('123$qweR---'),
+            ]
+        );
+
+        if (! $superAdmin->hasRole('super-admin')) {
+            $superAdminRole = Role::firstOrCreate(['name' => 'super-admin']);
+            $superAdmin->assignRole($superAdminRole);
+        }
+
+        $this->command->info('Usuário admin@sid360.com.br criado (senha: 123$qweR---).');
+    }
+}
