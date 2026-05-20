@@ -108,9 +108,8 @@ function handleClick() {
       'translate-x-0': isOpen,
     }"
   >
-    <div class="flex h-16 items-center gap-3 border-b border-[rgba(28,10,6,0.08)] bg-white px-4">
+    <div class="flex h-16 items-center border-b border-[rgba(28,10,6,0.08)] bg-white px-4">
       <AppLogo height-class="h-10" />
-      <span class="text-[11px] font-bold uppercase tracking-[0.18em] text-sid-secondary">Gestão</span>
     </div>
 
     <nav class="flex-1 space-y-1 py-4 text-sm">

@@ -16,7 +16,7 @@ export default {
     'text-sid-accent',
     'text-sid-accent-light',
     'text-sid-gold',
-    'text-secondary-600',
+    'text-sid-gold',
     'hover:bg-sid-accent/10',
     'hover:bg-primary-50',
     'hover:text-sid-accent-light',
