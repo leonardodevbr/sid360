@@ -987,7 +987,7 @@ footer {
 }
 
 .footer-links a {
-  color: rgba(247,243,238,0.3);
+  color: rgba(247,243,238,0.7);
   text-decoration: none;
   font-size: 0.82rem;
   transition: color 0.2s;
@@ -1005,7 +1005,7 @@ footer {
 
 .footer-copy, .footer-creci {
   font-size: 0.75rem;
-  color: rgba(247,243,238,0.2);
+  color: rgba(247,243,238,0.5);
 }
 
 /* MOBILE */
