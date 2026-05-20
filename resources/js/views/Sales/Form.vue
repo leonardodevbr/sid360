@@ -1232,7 +1232,7 @@ async function registrarVenda() {
         : `Venda registrada! ${venda.installments_count ?? form.value.installments_count} parcelas geradas.`
     );
     clearDraft();
-    router.push({ name: 'sales.show', params: { id: venda.id } });
+    router.push({ name: 'sales.show', params: { id: venda.id }, query: { registered: '1' } });
   } catch (err) {
     toast.error(getApiErrorMessage(err, 'Erro ao registrar venda.'));
   } finally {

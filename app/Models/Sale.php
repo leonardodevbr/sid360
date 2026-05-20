@@ -42,6 +42,8 @@ class Sale extends Model
         'payment_day',
         'status',
         'notes',
+        'signed_contract_path',
+        'signed_contract_original_name',
     ];
 
     /**

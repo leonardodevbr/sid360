@@ -8,13 +8,17 @@ use App\Actions\Sale\DeleteSaleAction;
 use App\Actions\Sale\ListSalesAction;
 use App\Actions\Sale\StoreSaleAction;
 use App\Actions\Sale\UpdateSaleAction;
+use App\Actions\Sale\UploadSignedContractAction;
 use App\Http\Requests\StoreSaleRequest;
+use App\Http\Requests\UploadSignedContractRequest;
 use App\Http\Resources\SaleResource;
 use App\Models\Sale;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class SaleController extends Controller
@@ -79,5 +83,35 @@ class SaleController extends Controller
             ->setPaper('a4', 'portrait');
 
         return $pdf->download("contrato-venda-{$sale->id}.pdf");
+    }
+
+    public function uploadSignedContract(
+        UploadSignedContractRequest $request,
+        string|int $id,
+        UploadSignedContractAction $action,
+    ): JsonResponse {
+        $this->authorize('sales.edit');
+
+        $sale = Sale::query()->findOrFail((int) $id);
+        $sale = $action->execute($sale, $request->file('file'));
+        $sale->load(['client', 'lot.development', 'installments']);
+
+        return response()->json(new SaleResource($sale));
+    }
+
+    public function signedContract(string|int $id): BinaryFileResponse
+    {
+        $this->authorize('sales.view');
+
+        $sale = Sale::query()->findOrFail((int) $id);
+
+        if ($sale->signed_contract_path === null || ! Storage::disk('local')->exists($sale->signed_contract_path)) {
+            abort(404, 'Contrato assinado não encontrado.');
+        }
+
+        return Storage::disk('local')->download(
+            $sale->signed_contract_path,
+            $sale->signed_contract_original_name ?? "contrato-assinado-venda-{$sale->id}.pdf",
+        );
     }
 }

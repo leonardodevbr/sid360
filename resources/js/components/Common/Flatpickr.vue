@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
+import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue';
 import flatpickr from 'flatpickr';
 import { Portuguese } from 'flatpickr/dist/l10n/pt.js';
 import { CalendarDaysIcon } from '@heroicons/vue/24/outline';
@@ -44,47 +44,53 @@ const emit = defineEmits(['update:modelValue']);
 const inputRef = ref(null);
 let fpInstance = null;
 
-function applyAltInputClasses() {
-  const alt = fpInstance?.altInput;
-  if (!alt) {
-    return;
+const inputId = computed(() => props.id || `flatpickr-${Math.random().toString(36).slice(2, 9)}`);
+
+function parseApiDate(value) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return null;
   }
-  alt.classList.add('input-base', 'pr-10');
-  alt.placeholder = props.placeholder;
-  alt.id = props.id || undefined;
-  alt.disabled = props.disabled;
-  if (props.error) {
-    alt.classList.add('border-red-500', 'focus:border-red-500', 'focus:ring-red-100');
-  } else {
-    alt.classList.remove('border-red-500', 'focus:border-red-500', 'focus:ring-red-100');
-  }
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function formatApiDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function buildConfig() {
   const config = {
     locale: Portuguese,
-    dateFormat: 'Y-m-d',
-    altInput: true,
-    altFormat: 'd/m/Y',
+    dateFormat: 'd/m/Y',
     allowInput: true,
     disableMobile: true,
-    defaultDate: props.modelValue || undefined,
-    onReady() {
-      applyAltInputClasses();
+    defaultDate: parseApiDate(props.modelValue) ?? undefined,
+    onChange(selectedDates) {
+      if (selectedDates[0]) {
+        emit('update:modelValue', formatApiDate(selectedDates[0]));
+      } else {
+        emit('update:modelValue', '');
+      }
     },
-    onChange(_selectedDates, _dateStr, instance) {
-      emit('update:modelValue', instance.input.value);
-    },
-    onClose(_selectedDates, _dateStr, instance) {
-      emit('update:modelValue', instance.input.value);
+    onClose(selectedDates) {
+      if (selectedDates[0]) {
+        emit('update:modelValue', formatApiDate(selectedDates[0]));
+      } else {
+        emit('update:modelValue', '');
+      }
     },
   };
 
-  if (props.minDate) {
-    config.minDate = props.minDate;
+  const min = parseApiDate(props.minDate);
+  const max = parseApiDate(props.maxDate);
+  if (min) {
+    config.minDate = min;
   }
-  if (props.maxDate) {
-    config.maxDate = props.maxDate;
+  if (max) {
+    config.maxDate = max;
   }
 
   return config;
@@ -105,17 +111,18 @@ watch(
     if (!fpInstance) {
       return;
     }
-    if (value && value !== fpInstance.input.value) {
-      fpInstance.setDate(value, false);
-    } else if (!value) {
+    const selected = fpInstance.selectedDates[0];
+    const currentApi = selected ? formatApiDate(selected) : '';
+    if (value === currentApi) {
+      return;
+    }
+    const parsed = parseApiDate(value);
+    if (parsed) {
+      fpInstance.setDate(parsed, false);
+    } else {
       fpInstance.clear();
     }
   },
-);
-
-watch(
-  () => props.error,
-  () => applyAltInputClasses(),
 );
 
 watch(
@@ -125,8 +132,8 @@ watch(
       return;
     }
     fpInstance.set('clickOpens', !disabled);
-    if (fpInstance.altInput) {
-      fpInstance.altInput.disabled = disabled;
+    if (inputRef.value) {
+      inputRef.value.disabled = disabled;
     }
   },
 );
@@ -141,7 +148,7 @@ onBeforeUnmount(() => {
   <div class="space-y-1.5">
     <label
       v-if="label"
-      :for="id"
+      :for="inputId"
       class="block text-sm font-medium text-sid-dark"
     >
       {{ label }}
@@ -149,11 +156,13 @@ onBeforeUnmount(() => {
     <div class="relative">
       <input
         ref="inputRef"
-        :id="id"
+        :id="inputId"
         type="text"
-        class="sr-only"
-        tabindex="-1"
-        aria-hidden="true"
+        class="input-base w-full pr-10"
+        :class="error ? 'border-red-500 focus:border-red-500 focus:ring-red-100' : ''"
+        :placeholder="placeholder"
+        :disabled="disabled"
+        autocomplete="off"
       />
       <CalendarDaysIcon
         class="pointer-events-none absolute right-3 top-2.5 z-10 h-5 w-5 text-slate-400"

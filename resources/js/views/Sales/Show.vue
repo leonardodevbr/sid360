@@ -1,24 +1,126 @@
 <template>
   <div class="space-y-6">
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-4">
-        <button type="button" class="rounded-lg p-2 hover:bg-slate-100" @click="$router.push({ name: 'sales.index' })">
-          <ArrowLeftIcon class="h-5 w-5 text-slate-600" />
-        </button>
-        <div>
-          <h2 class="text-lg font-semibold text-slate-800">Venda #{{ sale?.id }}</h2>
-          <p class="text-xs text-slate-500">{{ sale?.client?.name }}</p>
-        </div>
+    <div class="flex items-center gap-4">
+      <button type="button" class="rounded-lg p-2 hover:bg-slate-100" @click="$router.push({ name: 'sales.index' })">
+        <ArrowLeftIcon class="h-5 w-5 text-slate-600" />
+      </button>
+      <div class="min-w-0 flex-1">
+        <h2 class="text-lg font-semibold text-slate-800">Venda #{{ sale?.id }}</h2>
+        <p class="text-xs text-slate-500">{{ sale?.client?.name }}</p>
       </div>
-      <Button v-if="sale" variant="outline" @click="downloadContract(sale.id)">
-        <DocumentArrowDownIcon class="mr-2 h-4 w-4" />
-        Baixar Contrato PDF
-      </Button>
     </div>
 
     <div v-if="loading" class="card p-12 text-center text-slate-400">Carregando...</div>
 
     <template v-else-if="sale">
+      <div
+        v-if="showRegistrationSuccess"
+        class="card border-[#e8dcc8] bg-[#faf5ee] p-5"
+      >
+        <p class="text-sm font-semibold text-[#1c0a06]">Venda registrada com sucesso</p>
+        <p class="mt-1 text-xs text-[#7a4535]">
+          Imprima o contrato para assinatura e, após assinado, envie o arquivo digitalizado abaixo.
+        </p>
+      </div>
+
+      <div class="card p-5">
+        <h3 class="mb-1 text-sm font-semibold text-slate-800">Contrato</h3>
+        <p class="mb-4 text-xs text-slate-500">
+          Gere o PDF para impressão e assinatura do comprador.
+        </p>
+
+        <div class="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="primary"
+            :loading="printingContract"
+            @click="handlePrintContract"
+          >
+            <PrinterIcon class="mr-2 h-4 w-4" />
+            Imprimir contrato
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            :loading="downloadingContract"
+            @click="handleDownloadContract"
+          >
+            <DocumentArrowDownIcon class="mr-2 h-4 w-4" />
+            Baixar PDF
+          </Button>
+        </div>
+
+        <div class="mt-5 border-t border-slate-100 pt-5">
+          <p class="mb-2 text-sm font-medium text-slate-700">Contrato assinado</p>
+          <p class="mb-3 text-xs text-slate-500">
+            Anexe o contrato assinado (PDF ou foto) para vincular a esta venda.
+          </p>
+
+          <div
+            v-if="sale.has_signed_contract"
+            class="flex flex-col gap-3 rounded-lg border border-[#e8dcc8] bg-[#faf5ee] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div class="flex min-w-0 items-center gap-2">
+              <DocumentCheckIcon class="h-5 w-5 shrink-0 text-[#2d6a45]" />
+              <span class="truncate text-sm text-[#1c0a06]">
+                {{ sale.signed_contract_original_name || 'Contrato assinado anexado' }}
+              </span>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                :loading="downloadingSigned"
+                @click="handleDownloadSignedContract"
+              >
+                Baixar anexo
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                :loading="uploadingSigned"
+                @click="openFilePicker"
+              >
+                Substituir arquivo
+              </Button>
+            </div>
+          </div>
+
+          <div
+            v-else
+            class="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4"
+          >
+            <p v-if="selectedFileName" class="mb-3 text-sm text-slate-700">
+              Arquivo selecionado: <span class="font-medium">{{ selectedFileName }}</span>
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" @click="openFilePicker">
+                <ArrowUpTrayIcon class="mr-2 h-4 w-4" />
+                Selecionar arquivo
+              </Button>
+              <Button
+                v-if="selectedFile"
+                type="button"
+                variant="primary"
+                :loading="uploadingSigned"
+                @click="handleUploadSignedContract"
+              >
+                Enviar contrato assinado
+              </Button>
+            </div>
+            <p class="mt-2 text-xs text-slate-400">PDF, JPG, PNG ou WebP — máximo 10 MB</p>
+          </div>
+
+          <input
+            ref="fileInputRef"
+            type="file"
+            class="sr-only"
+            accept=".pdf,image/jpeg,image/png,image/webp"
+            @change="onFileSelected"
+          />
+        </div>
+      </div>
+
       <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div class="card p-4">
           <p class="text-xs text-slate-500">Valor Total</p>
@@ -30,7 +132,12 @@
         </div>
         <div class="card p-4">
           <p class="text-xs text-slate-500">Parcelas</p>
-          <p class="text-lg font-bold text-slate-800">{{ sale.installments_count }}x {{ formatCurrency(sale.installment_value) }}</p>
+          <p class="text-lg font-bold text-slate-800">
+            <template v-if="sale.installments_count > 0">
+              {{ sale.installments_count }}x {{ formatCurrency(sale.installment_value) }}
+            </template>
+            <template v-else>À vista</template>
+          </p>
         </div>
         <div class="card p-4">
           <p class="text-xs text-slate-500">Status</p>
@@ -40,7 +147,7 @@
         </div>
       </div>
 
-      <div class="card overflow-hidden">
+      <div v-if="sale.installments?.length" class="card overflow-hidden">
         <div class="border-b border-slate-100 px-4 py-3">
           <h3 class="text-sm font-semibold text-slate-700">Parcelas</h3>
         </div>
@@ -85,19 +192,41 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import api from '@/services/api';
+import {
+  downloadContract,
+  downloadSignedContract,
+  printContract,
+  uploadSignedContract,
+} from '@/services/sale.service';
+import { getApiErrorMessage } from '@/utils/apiError';
 import { formatCurrency } from '@/utils/format';
 import Button from '@/components/Common/Button.vue';
-import { ArrowLeftIcon, DocumentArrowDownIcon } from '@heroicons/vue/24/outline';
+import {
+  ArrowLeftIcon,
+  ArrowUpTrayIcon,
+  DocumentArrowDownIcon,
+  DocumentCheckIcon,
+  PrinterIcon,
+} from '@heroicons/vue/24/outline';
 
 const route = useRoute();
 const router = useRouter();
 const toast = useToast();
 const sale = ref(null);
 const loading = ref(false);
+const printingContract = ref(false);
+const downloadingContract = ref(false);
+const downloadingSigned = ref(false);
+const uploadingSigned = ref(false);
+const fileInputRef = ref(null);
+const selectedFile = ref(null);
+const selectedFileName = ref('');
+
+const showRegistrationSuccess = computed(() => route.query.registered === '1');
 
 const formatDate = (d) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString('pt-BR') : '—');
 const statusLabel = (s) => ({ active: 'Ativo', cancelled: 'Cancelado', completed: 'Concluído' }[s] ?? s);
@@ -118,17 +247,89 @@ async function loadSale() {
   }
 }
 
-async function downloadContract(saleId) {
+async function handlePrintContract() {
+  printingContract.value = true;
   try {
-    const { data } = await api.get(`/sales/${saleId}/contract`, { responseType: 'blob' });
-    const url = window.URL.createObjectURL(new Blob([data], { type: 'application/pdf' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `contrato-venda-${saleId}.pdf`;
-    link.click();
-    window.URL.revokeObjectURL(url);
+    await printContract(sale.value.id);
+  } catch (err) {
+    if (err?.code === 'popup_blocked') {
+      toast.warning('Permita pop-ups para imprimir ou use "Baixar PDF".');
+    } else {
+      toast.error('Erro ao abrir contrato para impressão.');
+    }
+  } finally {
+    printingContract.value = false;
+  }
+}
+
+async function handleDownloadContract() {
+  downloadingContract.value = true;
+  try {
+    await downloadContract(sale.value.id);
   } catch {
     toast.error('Erro ao baixar contrato.');
+  } finally {
+    downloadingContract.value = false;
+  }
+}
+
+function openFilePicker() {
+  fileInputRef.value?.click();
+}
+
+function onFileSelected(event) {
+  const file = event.target.files?.[0];
+  if (!file) {
+    return;
+  }
+  selectedFile.value = file;
+  selectedFileName.value = file.name;
+  if (sale.value?.has_signed_contract) {
+    handleUploadSignedContract();
+  }
+}
+
+async function handleUploadSignedContract() {
+  if (!selectedFile.value) {
+    toast.warning('Selecione o arquivo do contrato assinado.');
+    return;
+  }
+
+  uploadingSigned.value = true;
+  try {
+    const updated = await uploadSignedContract(sale.value.id, selectedFile.value);
+    sale.value = updated;
+    selectedFile.value = null;
+    selectedFileName.value = '';
+    if (fileInputRef.value) {
+      fileInputRef.value.value = '';
+    }
+    toast.success('Contrato assinado anexado com sucesso.');
+    clearRegistrationQuery();
+  } catch (err) {
+    toast.error(getApiErrorMessage(err, 'Erro ao enviar contrato assinado.'));
+  } finally {
+    uploadingSigned.value = false;
+  }
+}
+
+async function handleDownloadSignedContract() {
+  downloadingSigned.value = true;
+  try {
+    await downloadSignedContract(
+      sale.value.id,
+      sale.value.signed_contract_original_name,
+    );
+  } catch {
+    toast.error('Erro ao baixar contrato assinado.');
+  } finally {
+    downloadingSigned.value = false;
+  }
+}
+
+function clearRegistrationQuery() {
+  if (route.query.registered === '1') {
+    router.replace({ name: 'sales.show', params: { id: route.params.id } });
   }
 }
 

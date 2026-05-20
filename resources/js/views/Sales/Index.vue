@@ -54,7 +54,7 @@
                   type="button"
                   class="rounded p-1 text-slate-400 hover:bg-primary-50 hover:text-sid-accent"
                   title="Baixar contrato PDF"
-                  @click="downloadContract(sale.id)"
+                  @click="handleDownloadContract(sale.id)"
                 >
                   <DocumentArrowDownIcon class="h-4 w-4" />
                 </button>
@@ -73,6 +73,7 @@
 import { ref, onMounted } from 'vue';
 import { useToast } from 'vue-toastification';
 import api from '@/services/api';
+import { downloadContract } from '@/services/sale.service';
 import { formatCurrency } from '@/utils/format';
 import Button from '@/components/Common/Button.vue';
 import PaginationBar from '@/components/Common/PaginationBar.vue';
@@ -105,15 +106,9 @@ async function fetchSales(page = 1) {
   }
 }
 
-async function downloadContract(saleId) {
+async function handleDownloadContract(saleId) {
   try {
-    const { data } = await api.get(`/sales/${saleId}/contract`, { responseType: 'blob' });
-    const url = window.URL.createObjectURL(new Blob([data], { type: 'application/pdf' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `contrato-venda-${saleId}.pdf`;
-    link.click();
-    window.URL.revokeObjectURL(url);
+    await downloadContract(saleId);
   } catch {
     toast.error('Erro ao baixar contrato.');
   }
