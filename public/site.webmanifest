@@ -4,8 +4,8 @@
   "description": "Imóveis em Cafarnaum-BA — Lotes, Casas e Terrenos",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#2A1F14",
-  "theme_color": "#2A1F14",
+  "background_color": "#1C0A06",
+  "theme_color": "#1C0A06",
   "icons": [
     {
       "src": "/img/icon-192.png",

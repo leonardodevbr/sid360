@@ -40,32 +40,37 @@
 <meta name="ICBM" content="-11.4667, -39.9833">
 
 {{-- ===== FAVICON ===== --}}
-<link rel="icon" type="image/svg+xml" href="{{ asset('img/favicon.svg') }}">
-<link rel="icon" type="image/png" sizes="96x96" href="{{ asset('favicon/favicon-96x96.png') }}">
-<link rel="shortcut icon" href="{{ asset('favicon/favicon.ico') }}">
-<link rel="apple-touch-icon" sizes="180x180" href="{{ asset('favicon/apple-touch-icon.png') }}">
-<link rel="manifest" href="{{ asset('site.webmanifest') }}">
-<meta name="theme-color" content="#2A1F14">
-<meta name="msapplication-TileColor" content="#2A1F14">
-<meta name="apple-mobile-web-app-title" content="Sid360">
+<link rel="icon" type="image/png" href="{{ asset('favicon/favicon-96x96.png') }}" sizes="96x96" />
+<link rel="icon" type="image/svg+xml" href="{{ asset('img/favicon.svg') }}" />
+<link rel="shortcut icon" href="{{ asset('favicon/favicon.ico') }}" />
+<link rel="apple-touch-icon" sizes="180x180" href="{{ asset('favicon/apple-touch-icon.png') }}" />
+<meta name="apple-mobile-web-app-title" content="Sid360" />
+<link rel="manifest" href="{{ asset('site.webmanifest') }}" />
+
 <style>
 :root {
-  --accent:        #C8A96E;
-  --accent-light:  #DFC08A;
-  --accent-dark:   #A88A50;
+  /* Logo red (S/D letters) — primary CTA & buttons */
+  --accent:        #C23028;
+  --accent-light:  #D44840;
 
-  --bg-page:       #F7F3EE;
-  --bg-section:    #EDE8E0;
-  --bg-dark:       #2A1F14;
-  --bg-darker:     #1C1410;
+  /* Logo gold (360 letters) — labels, icons, highlights */
+  --accent-dark:   #C9A84C;
 
-  --text-primary:  #1C1410;
-  --text-secondary:#6B5F52;
-  --text-light:    #F7F3EE;
-  --text-muted:    rgba(247,243,238,0.55);
+  /* Light backgrounds — warm cream matching logo background */
+  --bg-page:       #FAF5EE;
+  --bg-section:    #F0E8DB;
 
-  --border-light:  rgba(28,20,16,0.1);
-  --border-accent: rgba(200,169,110,0.25);
+  /* Dark backgrounds — warm deep (not pure crimson) */
+  --bg-dark:       #2A1008;
+  --bg-darker:     #1C0A06;
+
+  --text-primary:  #1C0A06;
+  --text-secondary:#7A4535;
+  --text-light:    #FAF5EE;
+  --text-muted:    rgba(250,245,238,0.55);
+
+  --border-light:  rgba(28,10,6,0.1);
+  --border-accent: rgba(201,168,76,0.3);
 
   --font-display: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Arial, sans-serif;
   --font-body:    -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Arial, sans-serif;
@@ -99,11 +104,28 @@ nav {
 }
 
 nav.scrolled {
-  background: rgba(28,20,16,0.96);
+  background: #fbf2ea;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   padding: 14px 5%;
-  box-shadow: 0 1px 0 rgba(200,169,110,0.15);
+  box-shadow: 0 1px 20px rgba(26,7,7,0.1);
+}
+
+nav.scrolled .nav-links a {
+  color: var(--text-secondary);
+}
+
+nav.scrolled .nav-links a:hover {
+  color: var(--accent);
+}
+
+nav.scrolled .nav-cta {
+  background: var(--accent) !important;
+  color: var(--text-light) !important;
+}
+
+nav.scrolled .nav-cta:hover {
+  background: var(--accent-dark) !important;
 }
 
 .nav-logo {
@@ -113,20 +135,19 @@ nav.scrolled {
 }
 
 .nav-logo-img {
-  height: 40px;
+  height: 64px;
   width: auto;
   display: block;
-  max-width: 200px;
+  max-width: 240px;
   object-fit: contain;
 }
 
 .footer-logo-img {
-  height: 32px;
+  height: 56px;
   width: auto;
   display: block;
-  max-width: 180px;
+  max-width: 220px;
   object-fit: contain;
-  opacity: 0.9;
 }
 
 .nav-links {
@@ -148,13 +169,172 @@ nav.scrolled {
 
 .nav-cta {
   background: var(--accent) !important;
-  color: var(--bg-darker) !important;
+  color: var(--text-light) !important;
   padding: 8px 20px;
   border-radius: 8px;
   font-weight: 700 !important;
 }
 
 .nav-cta:hover { background: var(--accent-light) !important; }
+
+/* NAV — mobile actions & drawer */
+.nav-mobile-actions {
+  display: none;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-wa-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 42px;
+  padding: 0 14px;
+  background: #25d366;
+  color: #fff;
+  border-radius: 10px;
+  text-decoration: none;
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.nav-wa-btn:hover {
+  background: #1db954;
+  transform: scale(1.02);
+}
+
+.nav-wa-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.nav-toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.1);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.nav-toggle span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: var(--text-light);
+  border-radius: 2px;
+  transition: transform 0.25s ease, opacity 0.2s ease, background 0.2s;
+}
+
+nav.scrolled .nav-toggle {
+  background: rgba(28,10,6,0.05);
+  border-color: var(--border-light);
+}
+
+nav.scrolled .nav-toggle span {
+  background: var(--text-primary);
+}
+
+.nav-toggle.is-open span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.nav-toggle.is-open span:nth-child(2) {
+  opacity: 0;
+}
+
+.nav-toggle.is-open span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+.nav-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 98;
+  background: rgba(28,10,6,0.55);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s;
+}
+
+.nav-backdrop.is-visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.nav-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 99;
+  width: min(300px, 88vw);
+  height: 100%;
+  background: var(--bg-page);
+  box-shadow: -8px 0 32px rgba(28,10,6,0.15);
+  padding: 88px 24px 32px;
+  transform: translateX(100%);
+  transition: transform 0.32s ease;
+  overflow-y: auto;
+}
+
+.nav-drawer.is-open {
+  transform: translateX(0);
+}
+
+.nav-drawer-links {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-drawer-links a {
+  display: block;
+  padding: 14px 0;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 500;
+  border-bottom: 1px solid var(--border-light);
+  transition: color 0.2s;
+}
+
+.nav-drawer-links a:hover {
+  color: var(--accent);
+}
+
+.nav-drawer-links .nav-drawer-cta {
+  margin-top: 16px;
+  text-align: center;
+  background: var(--accent);
+  color: var(--text-light) !important;
+  border: none;
+  border-radius: 10px;
+  padding: 14px 20px;
+  font-weight: 700;
+}
+
+.nav-drawer-links .nav-drawer-cta:hover {
+  background: var(--accent-light);
+}
+
+body.nav-menu-open {
+  overflow: hidden;
+}
 
 /* HERO FULLSCREEN */
 .hero {
@@ -207,9 +387,9 @@ nav.scrolled {
   z-index: 3;
   background: linear-gradient(
     to bottom,
-    rgba(28,20,16,0.2) 0%,
-    rgba(28,20,16,0.5) 50%,
-    rgba(28,20,16,0.75) 100%
+    rgba(26,7,7,0.2) 0%,
+    rgba(26,7,7,0.55) 50%,
+    rgba(26,7,7,0.78) 100%
   );
 }
 
@@ -227,9 +407,9 @@ nav.scrolled {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: rgba(200,169,110,0.15);
-  border: 1px solid rgba(200,169,110,0.3);
-  color: var(--accent-light);
+  background: rgba(201,168,76,0.15);
+  border: 1px solid rgba(201,168,76,0.35);
+  color: #EDD882;
   padding: 6px 16px;
   border-radius: 100px;
   font-size: 0.72rem;
@@ -326,7 +506,7 @@ nav.scrolled {
   align-items: center;
   gap: 8px;
   background: var(--accent);
-  color: var(--bg-darker);
+  color: var(--text-light);
   padding: 13px 26px;
   border-radius: 10px;
   font-weight: 700;
@@ -358,12 +538,16 @@ nav.scrolled {
 .stats-bar {
   background: var(--bg-dark);
   padding: 40px 5%;
+  border-top: 1px solid rgba(201,168,76,0.15);
+  border-bottom: 1px solid rgba(201,168,76,0.15);
+  overflow: hidden;
+}
+
+.stats-track {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0;
-  border-top: 1px solid rgba(200,169,110,0.1);
-  border-bottom: 1px solid rgba(200,169,110,0.1);
+  width: 100%;
 }
 
 .stat-item {
@@ -371,10 +555,20 @@ nav.scrolled {
   flex: 1;
   max-width: 240px;
   padding: 0 32px;
+  flex-shrink: 0;
 }
 
 .stat-item + .stat-item {
-  border-left: 1px solid rgba(200,169,110,0.2);
+  border-left: 1px solid rgba(201,168,76,0.2);
+}
+
+.stat-item--clone {
+  display: none;
+}
+
+@keyframes statsMarquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 
 .stat-value {
@@ -461,7 +655,7 @@ nav.scrolled {
 
 .type-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 16px 40px rgba(28,20,16,0.1);
+  box-shadow: 0 16px 40px rgba(26,7,7,0.1);
   border-color: var(--border-accent);
 }
 
@@ -469,7 +663,7 @@ nav.scrolled {
 
 .type-icon {
   width: 46px; height: 46px;
-  background: rgba(200,169,110,0.12);
+  background: rgba(193,51,41,0.1);
   border-radius: 11px;
   display: flex;
   align-items: center;
@@ -498,7 +692,7 @@ nav.scrolled {
   padding: 80px 5%;
 }
 
-.lotes-section .section-label { color: rgba(200,169,110,0.7); }
+.lotes-section .section-label { color: rgba(201,168,76,0.85); }
 .lotes-section .section-title { color: var(--text-light); }
 .lotes-section .section-title span { color: var(--accent); }
 .lotes-section .section-sub { color: var(--text-muted); }
@@ -511,7 +705,7 @@ nav.scrolled {
 
 .lote-card {
   background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(200,169,110,0.12);
+  border: 1px solid rgba(201,168,76,0.15);
   border-radius: 16px;
   overflow: hidden;
   transition: all 0.25s;
@@ -519,7 +713,7 @@ nav.scrolled {
 
 .lote-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(200,169,110,0.35);
+  border-color: rgba(201,168,76,0.4);
 }
 
 .lote-thumb {
@@ -538,8 +732,8 @@ nav.scrolled {
   inset: 0;
   background: linear-gradient(
     to bottom,
-    rgba(28,20,16,0.15) 0%,
-    rgba(28,20,16,0.5) 100%
+    rgba(26,7,7,0.15) 0%,
+    rgba(26,7,7,0.5) 100%
   );
 }
 
@@ -559,7 +753,7 @@ nav.scrolled {
   left: 12px;
   z-index: 2;
   background: var(--accent);
-  color: var(--bg-darker);
+  color: var(--text-light);
   font-size: 0.65rem;
   font-weight: 700;
   padding: 4px 10px;
@@ -570,12 +764,12 @@ nav.scrolled {
 
 .lote-body {
   padding: 20px;
-  background: rgba(255,255,255,0.04);
+  background: rgba(255,255,255,0.03);
 }
 
 .lote-tag {
-  background: rgba(200,169,110,0.12);
-  color: var(--accent-light);
+  background: rgba(201,168,76,0.15);
+  color: #EDD882;
   font-size: 0.65rem;
   font-weight: 600;
   padding: 3px 10px;
@@ -602,9 +796,9 @@ nav.scrolled {
 .lote-cta {
   display: block;
   text-align: center;
-  background: rgba(200,169,110,0.1);
-  border: 1px solid rgba(200,169,110,0.2);
-  color: var(--accent-light);
+  background: rgba(201,168,76,0.1);
+  border: 1px solid rgba(201,168,76,0.25);
+  color: #EDD882;
   padding: 10px;
   border-radius: 10px;
   font-size: 0.82rem;
@@ -613,7 +807,7 @@ nav.scrolled {
   transition: all 0.2s;
 }
 
-.lote-cta:hover { background: var(--accent); color: var(--bg-darker); }
+.lote-cta:hover { background: var(--accent); color: var(--text-light); }
 
 .lote-actions {
   display: flex;
@@ -627,7 +821,7 @@ nav.scrolled {
   text-align: center;
   background: var(--accent);
   border: none;
-  color: var(--bg-darker);
+  color: var(--text-light);
   padding: 10px;
   border-radius: 10px;
   font-size: 0.82rem;
@@ -701,7 +895,7 @@ nav.scrolled {
   border-radius: 16px;
   overflow: hidden;
   border: 1px solid var(--border-light);
-  box-shadow: 0 8px 32px rgba(28,20,16,0.08);
+  box-shadow: 0 8px 32px rgba(26,7,7,0.08);
   min-height: 380px;
   background: var(--bg-section);
 }
@@ -769,10 +963,15 @@ nav.scrolled {
   border-radius: 20px;
   padding: 36px 32px;
   text-align: left;
-  box-shadow: 0 12px 40px rgba(28,20,16,0.07);
+  box-shadow: 0 12px 40px rgba(26,7,7,0.07);
+  overflow: visible;
 }
 
-.sim-field { margin-bottom: 20px; }
+.sim-field {
+  margin-bottom: 20px;
+  overflow: visible;
+  position: relative;
+}
 
 .sim-label {
   display: block;
@@ -782,8 +981,8 @@ nav.scrolled {
   margin-bottom: 8px;
 }
 
-.sim-select,
 .sim-input {
+  display: block;
   width: 100%;
   padding: 12px 14px;
   border: 1px solid var(--border-light);
@@ -791,14 +990,102 @@ nav.scrolled {
   font-size: 0.9rem;
   font-family: inherit;
   color: var(--text-primary);
-  background: var(--bg-section);
+  background-color: var(--bg-section);
   transition: border-color 0.2s;
 }
 
-.sim-select:focus,
 .sim-input:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+/* TomSelect — oculta o <select> nativo após inicializar */
+.sim-field select.sim-select.tomselected,
+.sim-field:has(.ts-wrapper) > select.sim-select {
+  display: none !important;
+  visibility: hidden !important;
+  position: absolute !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* TomSelect — wrapper invisível; visual só no .ts-control (igual .sim-input) */
+.sim-field .ts-wrapper {
+  width: 100%;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+  position: relative;
+}
+
+.sim-field .ts-wrapper.single .ts-control {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 40px 10px 14px;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-section);
+  box-shadow: none;
+  transition: border-color 0.2s;
+  cursor: pointer;
+}
+
+.sim-field .ts-wrapper.single.focus .ts-control,
+.sim-field .ts-wrapper.single.dropdown-active .ts-control {
+  border-color: var(--accent);
+  box-shadow: none;
+  outline: none;
+}
+
+.sim-field .ts-wrapper.single .ts-control .item {
+  padding: 0;
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.sim-field .ts-wrapper.single .ts-control > input {
+  display: none !important;
+}
+
+.sim-field .ts-wrapper.single .ts-control::after {
+  border-color: #7A4535 transparent transparent;
+  right: 14px;
+  margin-top: -2px;
+}
+
+/* Dropdown flutuante (renderizado no body via dropdownParent) */
+.ts-dropdown {
+  position: absolute !important;
+  z-index: 9999 !important;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(26,7,6,0.15);
+  background: #fff;
+  margin: 0 !important;
+}
+
+.ts-dropdown .option {
+  padding: 11px 14px;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+
+.ts-dropdown .option:hover,
+.ts-dropdown .option.active {
+  background: var(--accent);
+  color: var(--text-light);
 }
 
 .sim-grid {
@@ -812,7 +1099,7 @@ nav.scrolled {
   margin-top: 8px;
   padding: 14px;
   background: var(--accent);
-  color: var(--bg-darker);
+  color: var(--text-light);
   border: none;
   border-radius: 10px;
   font-weight: 700;
@@ -918,13 +1205,20 @@ nav.scrolled {
 
 .sim-radio-item input[type="radio"]:checked + span {
   background: var(--accent);
-  color: var(--bg-darker);
+  color: var(--text-light);
   border-color: var(--accent);
 }
 
 .sim-radio-item:hover span {
   border-color: var(--accent);
   color: var(--text-primary);
+}
+
+.sim-hint {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-top: 5px;
+  line-height: 1.4;
 }
 
 .sim-panel { display: none; }
@@ -948,12 +1242,12 @@ nav.scrolled {
 .diferencial-card:hover {
   border-color: var(--border-accent);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(28,20,16,0.08);
+  box-shadow: 0 8px 24px rgba(26,7,7,0.08);
 }
 
 .diferencial-icon {
   width: 46px; height: 46px;
-  background: rgba(200,169,110,0.1);
+  background: rgba(193,51,41,0.08);
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -991,8 +1285,8 @@ nav.scrolled {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(200,169,110,0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(200,169,110,0.04) 1px, transparent 1px);
+    linear-gradient(rgba(201,168,76,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(201,168,76,0.06) 1px, transparent 1px);
   background-size: 48px 48px;
   pointer-events: none;
 }
@@ -1031,24 +1325,50 @@ nav.scrolled {
 .btn-whatsapp {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  gap: 12px;
   background: #25d366;
   color: white;
-  padding: 13px 26px;
-  border-radius: 10px;
+  padding: 14px 28px;
+  border-radius: 12px;
   font-weight: 700;
-  font-size: 0.9rem;
   text-decoration: none;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .btn-whatsapp:hover { background: #1db954; transform: translateY(-2px); }
+
+.btn-whatsapp svg {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.btn-whatsapp-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  line-height: 1.2;
+}
+
+.btn-whatsapp-label {
+  font-size: 0.95rem;
+}
+
+.btn-whatsapp-phone {
+  font-size: 0.78rem;
+  font-weight: 500;
+  opacity: 0.92;
+}
 
 /* FOOTER */
 footer {
   background: var(--bg-darker);
   padding: 40px 5% 28px;
-  border-top: 1px solid rgba(200,169,110,0.1);
+  border-top: 1px solid rgba(201,168,76,0.12);
 }
 
 .footer-top {
@@ -1076,7 +1396,7 @@ footer {
   transition: color 0.2s;
 }
 
-.footer-links a:hover { color: var(--accent); }
+.footer-links a:hover { color: var(--accent-light); }
 
 .footer-bottom {
   display: flex;
@@ -1111,6 +1431,11 @@ footer {
   color: var(--accent) !important;
 }
 
+/* FAB — Simular (mobile) */
+.fab-simular {
+  display: none;
+}
+
 /* MOBILE */
 @media (max-width: 900px) {
   .localizacao-grid { grid-template-columns: 1fr; }
@@ -1118,20 +1443,247 @@ footer {
 }
 
 @media (max-width: 640px) {
+  nav { padding: 14px 4%; }
+  nav.scrolled { padding: 12px 4%; }
+
+  .nav-logo-img {
+    height: 52px;
+    max-width: 180px;
+  }
+
   .nav-links { display: none; }
+
+  .nav-mobile-actions { display: flex; gap: 8px; }
+
+  .nav-wa-btn {
+    height: 40px;
+    padding: 0 11px;
+    font-size: 0.75rem;
+    gap: 5px;
+  }
+
+  .nav-wa-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
   .hero-title { letter-spacing: -0.5px; }
   .hero-scroll-arrow { display: none; }
-  .stats-bar { flex-wrap: wrap; gap: 20px; padding: 28px 5%; }
-  .stat-item { max-width: none; flex: 1 1 140px; padding: 0 12px; }
-  .stat-item + .stat-item { border-left: none; }
+  .stats-bar { padding: 28px 0; }
+
+  .stats-track {
+    justify-content: flex-start;
+    width: max-content;
+    animation: statsMarquee 22s linear infinite;
+    will-change: transform;
+  }
+
+  .stats-bar:hover .stats-track {
+    animation-play-state: paused;
+  }
+
+  .stat-item {
+    flex: 0 0 auto;
+    min-width: 72vw;
+    max-width: none;
+    padding: 0 28px;
+    border-left: none !important;
+  }
+
+  .stat-item--clone {
+    display: block;
+  }
   .sim-grid { grid-template-columns: 1fr; }
   .simulador-card { padding: 24px 20px; }
+
+  .sim-radio-group {
+    flex-wrap: nowrap;
+    gap: 5px;
+  }
+
+  .sim-radio-item {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sim-radio-item span {
+    display: block;
+    text-align: center;
+    padding: 8px 2px;
+    font-size: 0.78rem;
+  }
+
+  .contato-section { padding: 72px 5%; }
+
+  .contato-actions {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: 10px;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .btn-whatsapp {
+    grid-column: 1;
+    width: 100%;
+    padding: 13px 12px;
+    gap: 8px;
+    min-height: 52px;
+  }
+
+  .btn-whatsapp-phone { display: none; }
+
+  .btn-whatsapp-text {
+    align-items: flex-start;
+  }
+
+  .btn-whatsapp-label { font-size: 0.82rem; }
+
+  .btn-whatsapp svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .contato-actions .btn-secondary {
+    grid-column: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 52px;
+    padding: 13px 12px;
+    font-size: 0.85rem;
+    color: var(--text-light);
+    border-color: rgba(247,243,238,0.35);
+  }
+
+  footer {
+    padding: 28px 5% 24px;
+  }
+
+  .footer-top {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 20px;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+  }
+
+  .footer-logo {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+
+  .footer-logo-img {
+    height: 48px;
+  }
+
+  .footer-links {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 16px;
+    width: 100%;
+    max-width: 300px;
+    justify-items: center;
+  }
+
+  .footer-links a {
+    font-size: 0.8rem;
+  }
+
+  .footer-bottom {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 14px;
+  }
+
+  .footer-copy {
+    font-size: 0.72rem;
+    line-height: 1.5;
+  }
+
+  .footer-poweredby {
+    text-align: center;
+    font-size: 0.7rem;
+  }
+
+  body { padding-bottom: 76px; }
+
+  .fab-simular {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    position: fixed;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    right: calc(16px + env(safe-area-inset-right, 0px));
+    left: auto;
+    z-index: 90;
+    padding: 13px 18px 13px 16px;
+    background: var(--accent);
+    color: var(--text-light);
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-decoration: none;
+    border-radius: 100px;
+    box-shadow: 0 6px 24px rgba(28,10,6,0.35);
+    transition: background 0.2s, transform 0.2s, box-shadow 0.2s, opacity 0.3s, visibility 0.3s;
+    white-space: nowrap;
+  }
+
+  .fab-simular:hover {
+    background: var(--accent-light);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(28,10,6,0.4);
+  }
+
+  .fab-simular svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    fill: none;
+    flex-shrink: 0;
+  }
+
+  .fab-simular.is-hidden {
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(12px);
+    pointer-events: none;
+  }
 }
 
 /* ANIMAÇÕES HERO */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(18px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stats-track {
+    animation: none;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .stat-item--clone { display: none !important; }
+
+  @media (max-width: 640px) {
+    .stats-bar {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .stat-item {
+      min-width: auto;
+      flex: 0 0 70vw;
+    }
+  }
 }
 
 .hero-badge { animation: fadeUp 0.5s ease both; }
@@ -1146,7 +1698,7 @@ footer {
 <nav>
   <a href="#" class="nav-logo">
     <img
-      src="{{ asset('img/light-logo-full.png') }}"
+      src="{{ asset('img/logo-full-bg.png') }}"
       alt="Sid360"
       class="nav-logo-img"
     >
@@ -1157,7 +1709,41 @@ footer {
     <li><a href="#simulador">Simular</a></li>
     <li><a href="#contato" class="nav-cta">Falar com Corretor</a></li>
   </ul>
+  <div class="nav-mobile-actions">
+    <a
+      href="https://wa.me/5574988230151"
+      class="nav-wa-btn"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Chamar no WhatsApp"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      <span>Chamar</span>
+    </a>
+    <button
+      type="button"
+      class="nav-toggle"
+      id="navToggle"
+      aria-label="Abrir menu"
+      aria-expanded="false"
+      aria-controls="navDrawer"
+    >
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+  </div>
 </nav>
+<div class="nav-backdrop" id="navBackdrop" aria-hidden="true"></div>
+<aside class="nav-drawer" id="navDrawer" aria-hidden="true">
+  <ul class="nav-drawer-links">
+    <li><a href="#lotes">Loteamento</a></li>
+    <li><a href="#localizacao">Localização</a></li>
+    <li><a href="#simulador">Simular</a></li>
+    <li><a href="#imoveis">Tipos de imóveis</a></li>
+    <li><a href="#contato" class="nav-drawer-cta">Falar com Corretor</a></li>
+  </ul>
+</aside>
 
 <!-- HERO -->
 <section class="hero" id="hero">
@@ -1215,17 +1801,31 @@ footer {
 
 <!-- STATS -->
 <div class="stats-bar">
-  <div class="stat-item">
-    <div class="stat-value">+10</div>
-    <div class="stat-label">Anos de experiência</div>
-  </div>
-  <div class="stat-item">
-    <div class="stat-value">+200</div>
-    <div class="stat-label">Negócios realizados</div>
-  </div>
-  <div class="stat-item">
-    <div class="stat-value">100%</div>
-    <div class="stat-label">Segurança jurídica</div>
+  <div class="stats-track" aria-label="Destaques Sid360">
+    <div class="stat-item">
+      <div class="stat-value">+10</div>
+      <div class="stat-label">Anos de experiência</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">+200</div>
+      <div class="stat-label">Negócios realizados</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">100%</div>
+      <div class="stat-label">Segurança jurídica</div>
+    </div>
+    <div class="stat-item stat-item--clone" aria-hidden="true">
+      <div class="stat-value">+10</div>
+      <div class="stat-label">Anos de experiência</div>
+    </div>
+    <div class="stat-item stat-item--clone" aria-hidden="true">
+      <div class="stat-value">+200</div>
+      <div class="stat-label">Negócios realizados</div>
+    </div>
+    <div class="stat-item stat-item--clone" aria-hidden="true">
+      <div class="stat-value">100%</div>
+      <div class="stat-label">Segurança jurídica</div>
+    </div>
   </div>
 </div>
 
@@ -1375,6 +1975,7 @@ footer {
         <div class="sim-field">
           <label class="sim-label" for="simEntradaPrice">Entrada (R$)</label>
           <input type="text" id="simEntradaPrice" class="sim-input sim-money" inputmode="numeric" autocomplete="off" placeholder="R$ 0,00">
+          <p class="sim-hint" id="simEntradaPriceHint">Mínimo: 20% do valor total</p>
         </div>
       </div>
       <div class="sim-field">
@@ -1404,6 +2005,7 @@ footer {
         <div class="sim-field">
           <label class="sim-label" for="simEntradaParcela">Entrada (R$)</label>
           <input type="text" id="simEntradaParcela" class="sim-input sim-money" inputmode="numeric" autocomplete="off" placeholder="R$ 0,00">
+          <p class="sim-hint" id="simEntradaParcelaHint">Mínimo: 20% do valor total</p>
         </div>
         <div class="sim-field">
           <label class="sim-label" for="simParcelaMensal">Parcela mensal desejada (R$)</label>
@@ -1512,7 +2114,19 @@ footer {
     <h2 class="contato-title">Pronto para encontrar<br>seu <span>imóvel ideal</span>?</h2>
     <p class="contato-sub">Fale agora mesmo com o Sid. Atendimento rápido, direto e sem complicação.</p>
     <div class="contato-actions">
-      <a href="https://wa.me/5574988230151" class="btn-whatsapp">(74) 9 8823-0151 · WhatsApp</a>
+      <a
+        href="https://wa.me/5574988230151"
+        class="btn-whatsapp"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Falar no WhatsApp — (74) 9 8823-0151"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        <span class="btn-whatsapp-text">
+          <span class="btn-whatsapp-label">Falar no WhatsApp</span>
+          <span class="btn-whatsapp-phone">(74) 9 8823-0151</span>
+        </span>
+      </a>
       <a href="#lotes" class="btn-secondary">Ver Lotes &rarr;</a>
     </div>
   </div>
@@ -1523,7 +2137,7 @@ footer {
   <div class="footer-top">
     <div class="footer-logo">
       <img
-        src="{{ asset('img/light-logo-full.png') }}"
+        src="{{ asset('img/logo-full-bg.png') }}"
         alt="Sid360"
         class="footer-logo-img"
       >
@@ -1543,6 +2157,23 @@ footer {
   </div>
 </footer>
 
+<a href="#simulador" class="fab-simular is-hidden" id="fabSimular" aria-label="Simular parcelas do lote">
+  <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <rect x="4" y="2" width="16" height="20" rx="2"/>
+    <line x1="8" y1="6" x2="16" y2="6"/>
+    <line x1="8" y1="10" x2="8" y2="10.01"/>
+    <line x1="12" y1="10" x2="12" y2="10.01"/>
+    <line x1="16" y1="10" x2="16" y2="10.01"/>
+    <line x1="8" y1="14" x2="8" y2="14.01"/>
+    <line x1="12" y1="14" x2="12" y2="14.01"/>
+    <line x1="16" y1="14" x2="16" y2="14.01"/>
+    <line x1="8" y1="18" x2="12" y2="18"/>
+    <line x1="16" y1="18" x2="16" y2="18.01"/>
+  </svg>
+  <span>Simular parcelas</span>
+</a>
+
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/js/tom-select.complete.min.js"></script>
 <script>
 (function() {
   const slides = document.querySelectorAll('.hero-slide');
@@ -1591,6 +2222,42 @@ footer {
   window.addEventListener('scroll', function() {
     nav.classList.toggle('scrolled', window.scrollY > 60);
   }, { passive: true });
+
+  const navToggle   = document.getElementById('navToggle');
+  const navDrawer   = document.getElementById('navDrawer');
+  const navBackdrop = document.getElementById('navBackdrop');
+
+  function setNavMenuOpen(open) {
+    if (!navToggle || !navDrawer || !navBackdrop) return;
+    navToggle.classList.toggle('is-open', open);
+    navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    navToggle.setAttribute('aria-label', open ? 'Fechar menu' : 'Abrir menu');
+    navDrawer.classList.toggle('is-open', open);
+    navDrawer.setAttribute('aria-hidden', open ? 'false' : 'true');
+    navBackdrop.classList.toggle('is-visible', open);
+    navBackdrop.setAttribute('aria-hidden', open ? 'false' : 'true');
+    document.body.classList.toggle('nav-menu-open', open);
+  }
+
+  if (navToggle) {
+    navToggle.addEventListener('click', function() {
+      setNavMenuOpen(!navToggle.classList.contains('is-open'));
+    });
+  }
+
+  if (navBackdrop) {
+    navBackdrop.addEventListener('click', function() { setNavMenuOpen(false); });
+  }
+
+  if (navDrawer) {
+    navDrawer.querySelectorAll('a').forEach(function(link) {
+      link.addEventListener('click', function() { setNavMenuOpen(false); });
+    });
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') setNavMenuOpen(false);
+  });
 
   // === MÁSCARA MONEY ===
   function applyMoneyMask(input) {
@@ -1642,6 +2309,37 @@ footer {
 
   const simMode = document.getElementById('simMode');
   const simLoteType = document.getElementById('simLoteType');
+  let simModeTom = null;
+  let simLoteTypeTom = null;
+
+  const tomSelectOpts = {
+    allowEmptyOption: false,
+    closeAfterSelect: true,
+    controlInput: null,
+    dropdownParent: 'body',
+  };
+
+  if (typeof TomSelect !== 'undefined' && simMode && simLoteType) {
+    simModeTom = new TomSelect(simMode, tomSelectOpts);
+    simLoteTypeTom = new TomSelect(simLoteType, tomSelectOpts);
+  }
+
+  function getSimModeValue() {
+    return simModeTom ? simModeTom.getValue() : simMode.value;
+  }
+
+  function getSimLoteTypeValue() {
+    return simLoteTypeTom ? simLoteTypeTom.getValue() : simLoteType.value;
+  }
+
+  function setSimLoteTypeValue(key) {
+    if (simLoteTypeTom) {
+      simLoteTypeTom.setValue(key, true);
+    } else {
+      simLoteType.value = key;
+    }
+  }
+
   const simPanelPrice = document.getElementById('simPanelPrice');
   const simPanelParcela = document.getElementById('simPanelParcela');
   const simTotal = document.getElementById('simTotal');
@@ -1673,14 +2371,58 @@ footer {
     return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
   }
 
+  const ENTRADA_MIN_PCT = 0.2;
+
+  function getMinEntrada(total) {
+    return total > 0 ? Math.round(total * ENTRADA_MIN_PCT * 100) / 100 : 0;
+  }
+
+  function getActiveTotal() {
+    const fromInput = moneyToNum(simTotal);
+    if (fromInput > 0) return fromInput;
+    const lot = LOT_TYPES[getSimLoteTypeValue()];
+    return lot && lot.total ? lot.total : 0;
+  }
+
+  function clampEntrada(input, total) {
+    if (!input || total <= 0) return;
+    const min = getMinEntrada(total);
+    if (moneyToNum(input) < min) {
+      setMoneyValue(input, min);
+    }
+  }
+
+  function validateEntrada(entrada, total) {
+    const min = getMinEntrada(total);
+    if (entrada < min) {
+      alert('A entrada mínima é de 20% do valor total (' + formatBRL(min) + ').');
+      return false;
+    }
+    return true;
+  }
+
+  function updateEntradaHints() {
+    const total = getActiveTotal();
+    const min = getMinEntrada(total);
+    const hintText = total > 0
+      ? 'Mínimo: 20% do valor total (' + formatBRL(min) + ')'
+      : 'Mínimo: 20% do valor total';
+    const hintPrice = document.getElementById('simEntradaPriceHint');
+    const hintParcela = document.getElementById('simEntradaParcelaHint');
+    if (hintPrice) hintPrice.textContent = hintText;
+    if (hintParcela) hintParcela.textContent = hintText;
+  }
+
   function applyLoteType(key) {
     const lot = LOT_TYPES[key];
     if (!lot) return;
-    simLoteType.value = key;
+    setSimLoteTypeValue(key);
     if (lot.total) {
+      const minEntrada = getMinEntrada(lot.total);
+      const defaultEntrada = Math.max(minEntrada, lot.entradaMin || minEntrada);
       setMoneyValue(simTotal, lot.total);
-      setMoneyValue(simEntradaPrice, lot.entradaMin);
-      setMoneyValue(simEntradaParcela, lot.entradaMin);
+      setMoneyValue(simEntradaPrice, defaultEntrada);
+      setMoneyValue(simEntradaParcela, defaultEntrada);
       setMoneyValue(simParcelaMensal, lot.parcelaRef);
       const restante = lot.total - lot.entradaMin;
       const parcelas = Math.max(1, Math.round(restante / lot.parcelaRef));
@@ -1692,19 +2434,47 @@ footer {
       simParcelaMensal.value = '';
       setSimParcelas(6);
     }
+    updateEntradaHints();
   }
 
-  simMode.addEventListener('change', function() {
-    const byPrice = simMode.value === 'price';
+  simTotal.addEventListener('blur', function() {
+    const total = moneyToNum(simTotal);
+    clampEntrada(simEntradaPrice, total);
+    updateEntradaHints();
+    simResult.classList.remove('visible');
+  });
+
+  simEntradaPrice.addEventListener('blur', function() {
+    clampEntrada(simEntradaPrice, moneyToNum(simTotal));
+  });
+
+  simEntradaParcela.addEventListener('blur', function() {
+    clampEntrada(simEntradaParcela, getActiveTotal());
+  });
+
+  function onSimModeChange() {
+    const byPrice = getSimModeValue() === 'price';
     simPanelPrice.classList.toggle('active', byPrice);
     simPanelParcela.classList.toggle('active', !byPrice);
     simResult.classList.remove('visible');
-  });
+  }
 
-  simLoteType.addEventListener('change', function() {
-    applyLoteType(simLoteType.value);
+  function onSimLoteTypeChange() {
+    applyLoteType(getSimLoteTypeValue());
     simResult.classList.remove('visible');
-  });
+  }
+
+  if (simModeTom) {
+    simModeTom.on('change', onSimModeChange);
+  } else if (simMode) {
+    simMode.addEventListener('change', onSimModeChange);
+  }
+
+  if (simLoteTypeTom) {
+    simLoteTypeTom.on('change', onSimLoteTypeChange);
+  } else if (simLoteType) {
+    simLoteType.addEventListener('change', onSimLoteTypeChange);
+  }
 
   function renderResult(items, note, waText) {
     simResultGrid.innerHTML = items.map(function(item) {
@@ -1716,9 +2486,9 @@ footer {
   }
 
   document.getElementById('simCalcular').addEventListener('click', function() {
-    const key = simLoteType.value;
+    const key = getSimLoteTypeValue();
     const lot = LOT_TYPES[key];
-    const mode = simMode.value;
+    const mode = getSimModeValue();
 
     if (key === 'avista') {
       renderResult(
@@ -1734,6 +2504,7 @@ footer {
       const entrada = moneyToNum(simEntradaPrice);
       const parcelas = getSimParcelas();
       if (total <= 0) return alert('Informe o valor total do lote.');
+      if (!validateEntrada(entrada, total)) return;
       if (entrada >= total) return alert('A entrada deve ser menor que o valor total.');
       const restante = total - entrada;
       const mensal = restante / parcelas;
@@ -1749,10 +2520,11 @@ footer {
         wa
       );
     } else {
-      const total = moneyToNum(simTotal) || LOT_TYPES[key].total || 0;
+      const total = getActiveTotal();
       const entrada = moneyToNum(simEntradaParcela);
       const mensal = moneyToNum(simParcelaMensal);
       if (total <= 0 || mensal <= 0) return alert('Informe o valor do lote e a parcela desejada.');
+      if (!validateEntrada(entrada, total)) return;
       if (entrada >= total) return alert('A entrada deve ser menor que o valor total.');
       const restante = total - entrada;
       const parcelas = Math.ceil(restante / mensal);
@@ -1778,6 +2550,46 @@ footer {
   });
 
   applyLoteType('residencial');
+
+  // === FAB Simular — após localização; oculta no simulador ===
+  const fabSimular = document.getElementById('fabSimular');
+  const localizacaoSection = document.getElementById('localizacao');
+  const simuladorSection = document.getElementById('simulador');
+
+  if (fabSimular && 'IntersectionObserver' in window) {
+    let passedLocalizacao = false;
+    let onSimulador = false;
+
+    function updateFabVisibility() {
+      fabSimular.classList.toggle('is-hidden', !passedLocalizacao || onSimulador);
+    }
+
+    if (localizacaoSection) {
+      const locObserver = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting) {
+            passedLocalizacao = false;
+          } else {
+            passedLocalizacao = entry.boundingClientRect.top < 0;
+          }
+          updateFabVisibility();
+        });
+      }, { threshold: 0 });
+      locObserver.observe(localizacaoSection);
+    }
+
+    if (simuladorSection) {
+      const simObserver = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          onSimulador = entry.isIntersecting;
+          updateFabVisibility();
+        });
+      }, { threshold: 0.15, rootMargin: '0px 0px -80px 0px' });
+      simObserver.observe(simuladorSection);
+    }
+
+    updateFabVisibility();
+  }
 
   // === POWERED BY ===
   const poweredByBtn = document.getElementById('poweredByBtn');
