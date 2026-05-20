@@ -17,7 +17,18 @@ class Development extends Model
         'description',
         'location',
         'status',
+        'down_payment_percent',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'down_payment_percent' => 'decimal:2',
+        ];
+    }
 
     /**
      * @return HasMany<Lot, $this>

@@ -40,7 +40,25 @@
           <tr v-for="client in clients" :key="client.id" class="hover:bg-slate-50">
             <td class="px-4 py-3 font-medium text-slate-800">{{ client.name }}</td>
             <td class="px-4 py-3 text-slate-600">{{ client.cpf }}</td>
-            <td class="px-4 py-3 text-slate-600">{{ client.phone ?? '—' }}</td>
+            <td class="px-4 py-3 text-slate-600">
+              <div class="flex items-center gap-1.5">
+                <span>{{ client.phone ?? '—' }}</span>
+                <span
+                  v-if="client.whatsapp_status === 'confirmed'"
+                  class="inline-flex items-center rounded-full bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700"
+                  title="WhatsApp confirmado"
+                >
+                  WPP
+                </span>
+                <span
+                  v-else-if="client.whatsapp_status === 'none'"
+                  class="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-400"
+                  title="Sem WhatsApp"
+                >
+                  sem WPP
+                </span>
+              </div>
+            </td>
             <td class="px-4 py-3 text-slate-600">{{ client.city ?? '—' }}</td>
             <td class="px-4 py-3 text-right">
               <div class="flex justify-end gap-2">

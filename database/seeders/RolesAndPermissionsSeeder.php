@@ -27,6 +27,14 @@ class RolesAndPermissionsSeeder extends Seeder
             'lots.delete',
             'settings.manage',
             'settings.system',
+            'clients.view',
+            'clients.create',
+            'clients.edit',
+            'clients.delete',
+            'sales.view',
+            'sales.create',
+            'sales.edit',
+            'sales.delete',
         ];
 
         foreach ($permissions as $permission) {

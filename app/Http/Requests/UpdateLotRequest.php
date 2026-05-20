@@ -25,7 +25,8 @@ class UpdateLotRequest extends FormRequest
             'number' => ['sometimes', 'required', 'string', 'max:50'],
             'block' => ['nullable', 'string', 'max:50'],
             'area' => ['nullable', 'numeric', 'min:0'],
-            'total_value' => ['nullable', 'numeric', 'min:0'],
+            'total_value' => ['nullable', 'integer', 'min:0'],
+            'down_payment_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'status' => ['sometimes', 'string', Rule::in(Lot::STATUSES)],
         ];
     }

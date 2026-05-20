@@ -3,6 +3,7 @@ import { createPinia } from 'pinia';
 import Toast from 'vue-toastification';
 import 'vue-toastification/dist/index.css';
 import 'sweetalert2/dist/sweetalert2.min.css';
+import 'flatpickr/dist/flatpickr.min.css';
 import '@vueform/multiselect/themes/default.css';
 import '../css/app.css';
 import './style.css';

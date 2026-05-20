@@ -25,7 +25,31 @@
       </div>
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Input v-model="form.area" label="Área (m²)" type="number" step="0.01" min="0" />
-        <Input v-model="form.total_value" label="Valor total (R$)" type="number" step="0.01" min="0" />
+        <CurrencyInput v-model="form.total_value" label="Valor total" />
+      </div>
+      <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
+        <p class="text-sm font-medium text-slate-700">Condições de venda do lote</p>
+        <label class="flex cursor-pointer select-none items-center gap-2">
+          <input
+            v-model="useDevelopmentPaymentTerms"
+            type="checkbox"
+            class="h-4 w-4 rounded border-slate-300 text-[#c23028] focus:ring-[#c23028]/30"
+          />
+          <span class="text-sm text-slate-600">Usar padrão do empreendimento</span>
+        </label>
+        <Input
+          v-if="!useDevelopmentPaymentTerms"
+          v-model="form.down_payment_percent"
+          label="Entrada sugerida deste lote (%)"
+          type="number"
+          min="0"
+          max="100"
+          step="0.01"
+          placeholder="20"
+        />
+        <p v-else class="text-xs text-slate-500">
+          Entrada: {{ developmentDownPaymentLabel }}% (definido no empreendimento)
+        </p>
       </div>
       <SelectInput v-model="form.status" label="Status" :options="lotStatusFormOptions" :searchable="false" />
       <div class="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
@@ -44,6 +68,7 @@ import { useToast } from 'vue-toastification';
 import api from '@/services/api';
 import { lotStatusFormOptions } from '@/utils/labels';
 import Input from '@/components/Common/Input.vue';
+import CurrencyInput from '@/components/Common/CurrencyInput.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
 import Button from '@/components/Common/Button.vue';
 import { ArrowLeftIcon } from '@heroicons/vue/24/outline';
@@ -55,13 +80,21 @@ const toast = useToast();
 const loading = ref(false);
 const saving = ref(false);
 const developments = ref([]);
+const useDevelopmentPaymentTerms = ref(true);
+
 const form = ref({
   development_id: route.query.development_id ? String(route.query.development_id) : '',
   number: '',
   block: '',
   area: '',
-  total_value: '',
+  total_value: 0,
+  down_payment_percent: '',
   status: 'available',
+});
+
+const developmentDownPaymentLabel = computed(() => {
+  const dev = developments.value.find((d) => String(d.id) === String(form.value.development_id));
+  return dev?.down_payment_percent ?? 20;
 });
 
 const isEdit = computed(() => Boolean(route.params.id));
@@ -95,9 +128,11 @@ async function loadItem() {
       number: item.number ?? '',
       block: item.block ?? '',
       area: item.area ?? '',
-      total_value: item.total_value ?? '',
+      total_value: item.total_value ?? 0,
+      down_payment_percent: item.down_payment_percent != null ? String(item.down_payment_percent) : '',
       status: item.status ?? 'available',
     };
+    useDevelopmentPaymentTerms.value = item.down_payment_percent == null;
   } catch {
     toast.error('Erro ao carregar lote');
     goBack();
@@ -112,7 +147,10 @@ async function submit() {
     ...form.value,
     development_id: Number(form.value.development_id),
     area: form.value.area === '' ? null : Number(form.value.area),
-    total_value: form.value.total_value === '' ? null : Number(form.value.total_value),
+    total_value: form.value.total_value > 0 ? Number(form.value.total_value) : null,
+    down_payment_percent: useDevelopmentPaymentTerms.value
+      ? null
+      : (form.value.down_payment_percent === '' ? null : Number(form.value.down_payment_percent)),
   };
   try {
     if (isEdit.value) {

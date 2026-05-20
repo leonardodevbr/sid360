@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Development;
 
 use App\Models\Development;
+use App\Models\Lot;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
@@ -16,7 +17,18 @@ class ListDevelopmentsAction
      */
     public function execute(Request $request): LengthAwarePaginator|Collection
     {
-        $query = Development::query()->withCount('lots');
+        $query = Development::query()->withCount([
+            'lots',
+            'lots as available_lots_count' => static function ($q): void {
+                $q->where('status', Lot::STATUS_AVAILABLE);
+            },
+        ]);
+
+        if ($request->boolean('has_available_lots')) {
+            $query->whereHas('lots', static function ($q): void {
+                $q->where('status', Lot::STATUS_AVAILABLE);
+            });
+        }
 
         if ($request->filled('search')) {
             $search = $request->string('search')->toString();

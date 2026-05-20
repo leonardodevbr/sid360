@@ -22,6 +22,19 @@
         />
       </div>
       <Input v-model="form.location" label="Localização" placeholder="Endereço ou referência" />
+      <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <p class="mb-3 text-sm font-medium text-slate-700">Condições de venda (padrão do empreendimento)</p>
+        <Input
+          v-model="form.down_payment_percent"
+          label="Entrada sugerida (%)"
+          type="number"
+          min="0"
+          max="100"
+          step="0.01"
+          placeholder="20"
+        />
+        <p class="mt-1 text-xs text-slate-500">Usada na nova venda para calcular a entrada, salvo override no lote.</p>
+      </div>
       <SelectInput v-model="form.status" label="Status" :options="developmentStatusFormOptions" :searchable="false" />
       <div class="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" @click="$router.push({ name: 'developments.index' })">Cancelar</Button>
@@ -54,6 +67,7 @@ const form = ref({
   description: '',
   location: '',
   status: 'active',
+  down_payment_percent: '20',
 });
 
 const isEdit = computed(() => Boolean(route.params.id));
@@ -69,6 +83,7 @@ async function loadItem() {
       description: item.description ?? '',
       location: item.location ?? '',
       status: item.status ?? 'active',
+      down_payment_percent: String(item.down_payment_percent ?? 20),
     };
   } catch {
     toast.error('Erro ao carregar empreendimento');

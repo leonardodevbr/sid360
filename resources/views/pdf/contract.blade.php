@@ -116,8 +116,8 @@
           {{ $sale->client->rg_issuer }}
         @endif
       @endif
-      @if($sale->client->address)
-        , residente e domiciliado(a) na {{ $sale->client->address }},
+      @if($sale->client->full_address)
+        , residente e domiciliado(a) na {{ $sale->client->full_address }},
         {{ $sale->client->city ?? 'Cafarnaum' }} no Estado da {{ $sale->client->state ?? 'Bahia' }}
       @endif
       , aqui denominado(a) de <strong>Outorgado(a) Comprador(a)</strong>.
@@ -152,11 +152,11 @@
   <p class="sub-title">Do Pagamento:</p>
 
   @php
-    $totalFormatted    = 'R$ ' . number_format((float)$sale->total_value, 2, ',', '.');
-    $cashFormatted     = $sale->cash_value ? 'R$ ' . number_format((float)$sale->cash_value, 2, ',', '.') : null;
-    $downFormatted     = 'R$ ' . number_format((float)$sale->down_payment, 2, ',', '.');
-    $financedFormatted = 'R$ ' . number_format((float)$sale->financed_value, 2, ',', '.');
-    $installFormatted  = 'R$ ' . number_format((float)$sale->installment_value, 2, ',', '.');
+    $totalFormatted    = 'R$ ' . number_format((int) $sale->total_value / 100, 2, ',', '.');
+    $cashFormatted     = $sale->cash_value ? 'R$ ' . number_format((int) $sale->cash_value / 100, 2, ',', '.') : null;
+    $downFormatted     = 'R$ ' . number_format((int) $sale->down_payment / 100, 2, ',', '.');
+    $financedFormatted = 'R$ ' . number_format((int) $sale->financed_value / 100, 2, ',', '.');
+    $installFormatted  = 'R$ ' . number_format((int) $sale->installment_value / 100, 2, ',', '.');
     $firstDue          = \Carbon\Carbon::parse($sale->first_due_date)->translatedFormat('d \d\e F \d\e Y');
     $saleDate          = \Carbon\Carbon::parse($sale->sale_date)->translatedFormat('d \d\e F \d\e Y');
   @endphp

@@ -33,6 +33,7 @@ class Lot extends Model
         'block',
         'area',
         'total_value',
+        'down_payment_percent',
         'status',
     ];
 
@@ -43,7 +44,8 @@ class Lot extends Model
     {
         return [
             'area' => 'decimal:2',
-            'total_value' => 'decimal:2',
+            'total_value' => 'integer',
+            'down_payment_percent' => 'decimal:2',
         ];
     }
 
@@ -53,5 +55,16 @@ class Lot extends Model
     public function development(): BelongsTo
     {
         return $this->belongsTo(Development::class);
+    }
+
+    public function effectiveDownPaymentPercent(): float
+    {
+        if ($this->down_payment_percent !== null) {
+            return (float) $this->down_payment_percent;
+        }
+
+        $this->loadMissing('development');
+
+        return (float) ($this->development?->down_payment_percent ?? 20);
     }
 }

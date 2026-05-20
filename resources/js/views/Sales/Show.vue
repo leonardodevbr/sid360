@@ -89,6 +89,7 @@ import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import api from '@/services/api';
+import { formatCurrency } from '@/utils/format';
 import Button from '@/components/Common/Button.vue';
 import { ArrowLeftIcon, DocumentArrowDownIcon } from '@heroicons/vue/24/outline';
 
@@ -99,7 +100,6 @@ const sale = ref(null);
 const loading = ref(false);
 
 const formatDate = (d) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString('pt-BR') : '—');
-const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 const statusLabel = (s) => ({ active: 'Ativo', cancelled: 'Cancelado', completed: 'Concluído' }[s] ?? s);
 const statusClass = (s) => ({ active: 'bg-sid-cream-dark text-secondary-600', cancelled: 'bg-red-100 text-red-700', completed: 'bg-slate-100 text-slate-600' }[s] ?? '');
 const installStatusLabel = (s) => ({ pending: 'Pendente', paid: 'Pago', overdue: 'Atrasado' }[s] ?? s);

@@ -20,7 +20,11 @@ class DevelopmentResource extends JsonResource
             'description' => $this->description,
             'location' => $this->location,
             'status' => $this->status,
+            'down_payment_percent' => $this->down_payment_percent !== null
+                ? (float) $this->down_payment_percent
+                : 20,
             'lots_count' => $this->whenCounted('lots'),
+            'available_lots_count' => $this->whenCounted('available_lots_count'),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

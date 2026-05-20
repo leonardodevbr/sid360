@@ -24,6 +24,7 @@ class UpdateDevelopmentRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'location' => ['nullable', 'string', 'max:255'],
             'status' => ['sometimes', 'string', Rule::in(['active', 'inactive', 'under_construction'])],
+            'down_payment_percent' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100'],
         ];
     }
 }

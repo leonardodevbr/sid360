@@ -35,4 +35,17 @@ return [
         ],
     ],
 
+    'efi' => [
+        'client_id' => env('EFI_CLIENT_ID'),
+        'client_secret' => env('EFI_CLIENT_SECRET'),
+        'sandbox' => env('EFI_SANDBOX', true),
+        'certificate' => env('EFI_CERTIFICATE_PATH', ''),
+    ],
+
+    'wppconnect' => [
+        'base_url' => env('WPPCONNECT_BASE_URL', 'https://wppconnect-server-production-9aa6.up.railway.app'),
+        'session' => env('WPPCONNECT_SESSION', 'Sid360'),
+        'token' => env('WPPCONNECT_TOKEN', ''),
+    ],
+
 ];

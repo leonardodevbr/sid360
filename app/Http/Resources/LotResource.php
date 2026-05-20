@@ -21,7 +21,12 @@ class LotResource extends JsonResource
             'number' => $this->number,
             'block' => $this->block,
             'area' => $this->area !== null ? (float) $this->area : null,
-            'total_value' => $this->total_value !== null ? (float) $this->total_value : null,
+            'total_value' => $this->total_value !== null ? (int) $this->total_value : null,
+            'down_payment_percent' => $this->down_payment_percent !== null
+                ? (float) $this->down_payment_percent
+                : null,
+            'effective_down_payment_percent' => $this->effectiveDownPaymentPercent(),
+            'uses_development_payment_terms' => $this->down_payment_percent === null,
             'status' => $this->status,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

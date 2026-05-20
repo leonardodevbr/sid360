@@ -73,6 +73,7 @@
 import { ref, onMounted } from 'vue';
 import { useToast } from 'vue-toastification';
 import api from '@/services/api';
+import { formatCurrency } from '@/utils/format';
 import Button from '@/components/Common/Button.vue';
 import PaginationBar from '@/components/Common/PaginationBar.vue';
 import { EyeIcon, DocumentArrowDownIcon } from '@heroicons/vue/24/outline';
@@ -90,7 +91,6 @@ const statusClass = (s) => ({
 }[s] ?? '');
 
 const formatDate = (d) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString('pt-BR') : '—');
-const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
 async function fetchSales(page = 1) {
   loading.value = true;

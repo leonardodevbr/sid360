@@ -21,7 +21,11 @@
         <Input v-model="form.phone" label="Telefone" placeholder="(74) 9 0000-0000" />
       </div>
       <Input v-model="form.email" label="E-mail" type="email" placeholder="email@exemplo.com" />
-      <Input v-model="form.address" label="Endereço" placeholder="Rua, número, bairro" />
+      <Input v-model="form.address" label="Logradouro" placeholder="Rua, avenida…" />
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Input v-model="form.address_number" label="Número" placeholder="123" />
+        <Input v-model="form.neighborhood" label="Bairro" placeholder="Centro" />
+      </div>
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Input v-model="form.city" label="Cidade" placeholder="Cafarnaum" />
         <Input v-model="form.state" label="Estado" placeholder="BA" />
@@ -62,7 +66,7 @@ const isEdit = computed(() => Boolean(route.params.id));
 
 const form = ref({
   name: '', cpf: '', rg: '', rg_issuer: '',
-  phone: '', email: '', address: '',
+  phone: '', email: '', address: '', address_number: '', neighborhood: '',
   city: 'Cafarnaum', state: 'BA', notes: '',
 });
 

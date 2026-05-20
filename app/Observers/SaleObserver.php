@@ -1,0 +1,40 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Observers;
+
+use App\Models\Installment;
+use App\Models\Lot;
+use App\Models\Sale;
+use Carbon\Carbon;
+
+class SaleObserver
+{
+    public function created(Sale $sale): void
+    {
+        Lot::query()->where('id', $sale->lot_id)->update(['status' => Lot::STATUS_SOLD]);
+
+        if ($sale->installments_count < 1) {
+            return;
+        }
+
+        $dueDate = Carbon::parse($sale->first_due_date);
+
+        for ($i = 1; $i <= $sale->installments_count; $i++) {
+            Installment::query()->create([
+                'sale_id' => $sale->id,
+                'number' => $i,
+                'due_date' => $dueDate->copy(),
+                'value' => $sale->installment_value,
+                'status' => Installment::STATUS_PENDING,
+            ]);
+            $dueDate->addMonth();
+        }
+    }
+
+    public function deleted(Sale $sale): void
+    {
+        Lot::query()->where('id', $sale->lot_id)->update(['status' => Lot::STATUS_AVAILABLE]);
+    }
+}

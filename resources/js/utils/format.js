@@ -23,6 +23,41 @@ export function formatCurrency(cents) {
 }
 
 /**
+ * Formata centavos para exibição no input (mesma lógica do simulador do site).
+ * @param {number|string} cents
+ * @returns {string} Ex: "R$ 1.234,56" ou ""
+ */
+export function formatMoneyMaskFromCents(cents) {
+  const digits = String(cents ?? '').replace(/\D/g, '');
+  if (!digits || digits === '0') return '';
+
+  const reais = (parseInt(digits, 10) / 100).toFixed(2);
+
+  return `R$ ${reais.replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
+}
+
+/**
+ * Extrai centavos de valor digitado ou formatado.
+ * @param {string} value
+ * @returns {number}
+ */
+export function parseMoneyMaskToCents(value) {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  return digits ? parseInt(digits, 10) : 0;
+}
+
+/**
+ * Converte reais (legado/API decimal) para centavos inteiros.
+ * @param {number|string} reais
+ * @returns {number}
+ */
+export function reaisToCents(reais) {
+  const num = typeof reais === 'string' ? parseFloat(reais) : Number(reais);
+  if (Number.isNaN(num)) return 0;
+  return Math.round(num * 100);
+}
+
+/**
  * Formata uma data usando date-fns com locale pt-BR
  * @param {Date|string} date - Data a ser formatada
  * @param {string} formatStr - Formato desejado (ex: 'dd/MM/yyyy', 'dd/MM/yyyy HH:mm')
