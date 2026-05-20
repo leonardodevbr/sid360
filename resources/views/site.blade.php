@@ -1,34 +1,41 @@
-{{-- resources/views/site.blade.php
-    Site público Sid360 — servido em GET /
---}}
+{{-- resources/views/site.blade.php — Site público Sid360 (GET /) --}}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+{{-- Favicon --}}
+<link rel="icon" type="image/png" href="{{ asset('favicon/favicon-96x96.png') }}" sizes="96x96" />
+<link rel="icon" type="image/svg+xml" href="{{ asset('favicon/favicon.svg') }}" />
+<link rel="shortcut icon" href="{{ asset('favicon/favicon.ico') }}" />
+<link rel="apple-touch-icon" sizes="180x180" href="{{ asset('favicon/apple-touch-icon.png') }}" />
+<meta name="apple-mobile-web-app-title" content="{{ config('app.name') }}" />
+<link rel="manifest" href="{{ asset('favicon/site.webmanifest') }}" />
+
 <title>{{ config('app.name', 'Sid360') }} — Imóveis Residencial, Comercial e Rural</title>
 <meta name="description" content="Lotes, casas, terrenos rurais e comerciais em Cafarnaum-BA. Negociação direta com o Sid, corretor de confiança da região.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600;700&display=swap">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-@font-face { font-display: swap; }
-
 :root {
-  --green-dark: #1a3a28;
-  --green-mid: #2d6a45;
-  --green-light: #3d8a5a;
-  --gold: #c9a84c;
-  --gold-light: #e8c96a;
-  --gold-dark: #a07a28;
-  --white: #ffffff;
-  --off-white: #f8f6f0;
-  --gray-light: #e8e4d8;
-  --gray-mid: #8a8474;
-  --text-dark: #1a1a14;
-  --font-display: 'Syne', 'Trebuchet MS', Arial, sans-serif;
-  --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  --accent:        #C8A96E;
+  --accent-light:  #DFC08A;
+  --accent-dark:   #A88A50;
+
+  --bg-page:       #F7F3EE;
+  --bg-section:    #EDE8E0;
+  --bg-dark:       #2A1F14;
+  --bg-darker:     #1C1410;
+
+  --text-primary:  #1C1410;
+  --text-secondary:#6B5F52;
+  --text-light:    #F7F3EE;
+  --text-muted:    rgba(247,243,238,0.55);
+
+  --border-light:  rgba(28,20,16,0.1);
+  --border-accent: rgba(200,169,110,0.25);
+
+  --font-display: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Arial, sans-serif;
+  --font-body:    -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Arial, sans-serif;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -37,13 +44,12 @@ html { scroll-behavior: smooth; }
 body {
   font-family: var(--font-body);
   font-size: 16px;
-  background: var(--off-white);
-  color: var(--text-dark);
+  background: var(--bg-page);
+  color: var(--text-primary);
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  font-feature-settings: "kern" 1;
 }
 
 /* NAV */
@@ -51,19 +57,43 @@ nav {
   position: fixed;
   top: 0; left: 0; right: 0;
   z-index: 100;
-  background: rgba(26, 58, 40, 0.97);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(201,168,76,0.2);
-  padding: 14px 5%;
+  padding: 20px 5%;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: transparent;
+  transition: background 0.45s ease, padding 0.45s ease, box-shadow 0.45s ease;
+}
+
+nav.scrolled {
+  background: rgba(28,20,16,0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 14px 5%;
+  box-shadow: 0 1px 0 rgba(200,169,110,0.15);
 }
 
 .nav-logo {
   display: flex;
   align-items: center;
   text-decoration: none;
+}
+
+.nav-logo-img {
+  height: 40px;
+  width: auto;
+  display: block;
+  max-width: 200px;
+  object-fit: contain;
+}
+
+.footer-logo-img {
+  height: 32px;
+  width: auto;
+  display: block;
+  max-width: 180px;
+  object-fit: contain;
+  opacity: 0.9;
 }
 
 .nav-links {
@@ -74,253 +104,299 @@ nav {
 }
 
 .nav-links a {
-  color: rgba(255,255,255,0.7);
+  color: rgba(247,243,238,0.75);
   text-decoration: none;
   font-size: 0.88rem;
   font-weight: 500;
   transition: color 0.2s;
-  font-family: var(--font-body);
 }
 
-.nav-links a:hover { color: var(--gold); }
+.nav-links a:hover { color: var(--accent); }
 
 .nav-cta {
-  background: var(--gold) !important;
-  color: var(--green-dark) !important;
+  background: var(--accent) !important;
+  color: var(--bg-darker) !important;
   padding: 8px 20px;
   border-radius: 8px;
-  font-weight: 600 !important;
+  font-weight: 700 !important;
 }
 
-.nav-cta:hover { background: var(--gold-light) !important; }
+.nav-cta:hover { background: var(--accent-light) !important; }
 
-/* HERO */
+/* HERO FULLSCREEN */
 .hero {
-  min-height: 100vh;
-  background: var(--green-dark);
   position: relative;
+  width: 100%;
+  height: 100vh;
+  min-height: 600px;
   overflow: hidden;
   display: flex;
   align-items: center;
-  padding: 100px 5% 80px;
+  justify-content: center;
 }
 
-.hero-bg {
+.hero-media {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(ellipse 50% 70% at 75% 50%, rgba(201,168,76,0.07) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 40% at 15% 80%, rgba(45,106,69,0.35) 0%, transparent 60%);
+  z-index: 0;
 }
 
-.hero-grid {
+.hero-video {
   position: absolute;
   inset: 0;
-  background-image:
-    linear-gradient(rgba(201,168,76,0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(201,168,76,0.04) 1px, transparent 1px);
-  background-size: 64px 64px;
-}
-
-.hero-inner {
-  position: relative;
-  z-index: 2;
   width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 40px;
+  height: 100%;
+  object-fit: cover;
+  z-index: 2;
 }
 
-.hero-content { max-width: 580px; }
+.hero-slides {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.hero-slide {
+  position: absolute;
+  inset: -60px;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+  will-change: transform, background-position;
+}
+
+.hero-slide.active { opacity: 1; }
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: linear-gradient(
+    to bottom,
+    rgba(28,20,16,0.2) 0%,
+    rgba(28,20,16,0.5) 50%,
+    rgba(28,20,16,0.75) 100%
+  );
+}
+
+.hero-content {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+  color: var(--text-light);
+  padding: 0 5%;
+  max-width: 800px;
+  will-change: transform;
+}
 
 .hero-badge {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: rgba(201,168,76,0.12);
-  border: 1px solid rgba(201,168,76,0.25);
-  color: var(--gold-light);
-  padding: 6px 14px;
+  background: rgba(200,169,110,0.15);
+  border: 1px solid rgba(200,169,110,0.3);
+  color: var(--accent-light);
+  padding: 6px 16px;
   border-radius: 100px;
   font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 1px;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
-  margin-bottom: 24px;
-  font-family: var(--font-body);
+  margin-bottom: 28px;
 }
 
 .hero-badge-dot {
-  width: 5px; height: 5px;
-  background: var(--gold);
+  width: 6px; height: 6px;
+  background: var(--accent);
   border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.7); }
 }
 
 .hero-title {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: clamp(2.4rem, 5.5vw, 4rem);
-  color: var(--white);
-  line-height: 1.08;
-  letter-spacing: -1px;
+  font-size: clamp(2.6rem, 6vw, 5rem);
+  line-height: 1.05;
+  letter-spacing: -1.5px;
   margin-bottom: 20px;
+  text-shadow: 0 2px 20px rgba(0,0,0,0.4);
 }
 
-.hero-title span { color: var(--gold); }
+.hero-title span { color: var(--accent); }
 
 .hero-sub {
-  font-size: 1.05rem;
-  color: rgba(255,255,255,0.65);
-  line-height: 1.75;
+  font-size: clamp(1rem, 2vw, 1.15rem);
+  color: rgba(247,243,238,0.8);
+  line-height: 1.7;
   margin-bottom: 36px;
-  max-width: 460px;
-  font-weight: 400;
-  letter-spacing: 0;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .hero-actions {
   display: flex;
-  gap: 12px;
+  gap: 14px;
+  justify-content: center;
   flex-wrap: wrap;
-  margin-bottom: 52px;
+}
+
+.hero-dots {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  gap: 10px;
+}
+
+.hero-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.35);
+  cursor: pointer;
+  transition: all 0.3s;
+  padding: 0;
+}
+
+.hero-dot.active {
+  background: var(--accent);
+  width: 24px;
+  border-radius: 4px;
+}
+
+.hero-scroll-arrow {
+  position: absolute;
+  bottom: 36px;
+  right: 5%;
+  z-index: 10;
+  color: rgba(255,255,255,0.6);
+  text-decoration: none;
+  animation: bounce 2.5s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(8px); }
 }
 
 .btn-primary {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: var(--gold);
-  color: var(--green-dark);
+  background: var(--accent);
+  color: var(--bg-darker);
   padding: 13px 26px;
   border-radius: 10px;
   font-weight: 700;
   font-size: 0.9rem;
   text-decoration: none;
   transition: all 0.2s;
-  font-family: var(--font-body);
 }
 
-.btn-primary:hover { background: var(--gold-light); transform: translateY(-2px); }
+.btn-primary:hover { background: var(--accent-light); transform: translateY(-2px); }
 
 .btn-secondary {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   background: transparent;
-  color: rgba(255,255,255,0.85);
-  border: 1px solid rgba(255,255,255,0.2);
+  color: rgba(247,243,238,0.85);
+  border: 1px solid rgba(247,243,238,0.2);
   padding: 13px 26px;
   border-radius: 10px;
   font-weight: 500;
   font-size: 0.9rem;
   text-decoration: none;
   transition: all 0.2s;
-  font-family: var(--font-body);
 }
 
-.btn-secondary:hover { border-color: rgba(255,255,255,0.45); }
+.btn-secondary:hover { border-color: rgba(247,243,238,0.5); }
 
-.hero-stats {
+/* FAIXA DE STATS (abaixo do hero) */
+.stats-bar {
+  background: var(--bg-dark);
+  padding: 40px 5%;
   display: flex;
-  gap: 32px;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  border-top: 1px solid rgba(200,169,110,0.1);
+  border-bottom: 1px solid rgba(200,169,110,0.1);
 }
 
-.hero-stat-value {
+.stat-item {
+  text-align: center;
+  flex: 1;
+  max-width: 240px;
+  padding: 0 32px;
+}
+
+.stat-item + .stat-item {
+  border-left: 1px solid rgba(200,169,110,0.2);
+}
+
+.stat-value {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 1.9rem;
-  color: var(--gold);
-  letter-spacing: -1px;
+  font-size: 2.4rem;
+  color: var(--accent);
+  letter-spacing: -1.5px;
   line-height: 1;
+  margin-bottom: 8px;
 }
 
-.hero-stat-label {
-  font-size: 0.75rem;
-  color: rgba(255,255,255,0.45);
-  margin-top: 4px;
-  font-weight: 400;
-}
-
-.hero-divider {
-  width: 1px;
-  background: rgba(255,255,255,0.08);
-}
-
-/* FLOAT CARDS */
-.hero-float {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  flex-shrink: 0;
-}
-
-.float-card {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(201,168,76,0.18);
-  border-radius: 14px;
-  padding: 18px 22px;
-  width: 230px;
-}
-
-.float-card-icon {
-  width: 36px; height: 36px;
-  background: rgba(201,168,76,0.12);
-  border-radius: 9px;
-  display: flex; align-items: center; justify-content: center;
-  margin-bottom: 12px;
-}
-
-.float-card-value {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1.15rem;
-  color: var(--white);
-  margin-bottom: 2px;
-}
-
-.float-card-label {
-  font-size: 0.72rem;
-  color: rgba(255,255,255,0.45);
-  font-weight: 400;
+.stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
 /* SEÇÕES */
 .section { padding: 80px 5%; }
 
 .section-label {
-  display: inline-block;
+  display: block;
   font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 1.5px;
-  color: var(--green-mid);
+  letter-spacing: 2px;
+  color: var(--accent-dark);
   margin-bottom: 12px;
-  font-family: var(--font-body);
 }
 
 .section-title {
   font-family: var(--font-display);
   font-weight: 800;
   font-size: clamp(1.8rem, 3.5vw, 2.8rem);
-  color: var(--green-dark);
-  letter-spacing: -0.5px;
+  color: var(--text-primary);
+  letter-spacing: -1px;
   line-height: 1.1;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
-.section-title span { color: var(--gold-dark); }
+.section-title span { color: var(--accent-dark); }
 
 .section-sub {
-  font-size: 1rem;
-  color: var(--gray-mid);
-  line-height: 1.7;
-  max-width: 500px;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.75;
+  max-width: 480px;
   margin-bottom: 44px;
-  font-weight: 400;
-  letter-spacing: 0;
 }
+
+#imoveis { background: var(--bg-page); }
+#diferenciais { background: var(--bg-section); }
 
 /* TIPOS */
 .types-grid {
@@ -330,11 +406,10 @@ nav {
 }
 
 .type-card {
-  background: var(--white);
-  border: 1px solid var(--gray-light);
-  border-radius: 16px;
-  padding: 28px 22px;
-  cursor: pointer;
+  background: var(--bg-section);
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  padding: 30px 24px;
   transition: all 0.25s;
   position: relative;
   overflow: hidden;
@@ -345,47 +420,55 @@ nav {
   position: absolute;
   bottom: 0; left: 0; right: 0;
   height: 3px;
-  background: var(--gold);
+  background: var(--accent);
   transform: scaleX(0);
   transform-origin: left;
   transition: transform 0.3s;
 }
 
-.type-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(26,58,40,0.1); border-color: rgba(201,168,76,0.4); }
+.type-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px rgba(28,20,16,0.1);
+  border-color: var(--border-accent);
+}
+
 .type-card:hover::after { transform: scaleX(1); }
 
 .type-icon {
-  width: 44px; height: 44px;
-  background: rgba(45,106,69,0.08);
+  width: 46px; height: 46px;
+  background: rgba(200,169,110,0.12);
   border-radius: 11px;
-  display: flex; align-items: center; justify-content: center;
-  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
 }
 
+.type-icon svg { stroke: var(--accent-dark); }
+
 .type-title {
-  font-family: var(--font-display);
   font-weight: 700;
   font-size: 0.95rem;
-  color: var(--green-dark);
-  margin-bottom: 6px;
+  color: var(--text-primary);
+  margin-bottom: 8px;
 }
 
 .type-desc {
   font-size: 0.8rem;
-  color: var(--gray-mid);
-  line-height: 1.65;
-  font-weight: 400;
+  color: var(--text-secondary);
+  line-height: 1.7;
 }
 
 /* LOTES */
 .lotes-section {
-  background: var(--green-dark);
+  background: var(--bg-dark);
   padding: 80px 5%;
 }
 
-.lotes-section .section-title { color: var(--white); }
-.lotes-section .section-label { color: rgba(201,168,76,0.8); }
-.lotes-section .section-sub { color: rgba(255,255,255,0.5); }
+.lotes-section .section-label { color: rgba(200,169,110,0.7); }
+.lotes-section .section-title { color: var(--text-light); }
+.lotes-section .section-title span { color: var(--accent); }
+.lotes-section .section-sub { color: var(--text-muted); }
 
 .lotes-grid {
   display: grid;
@@ -395,72 +478,72 @@ nav {
 
 .lote-card {
   background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(201,168,76,0.15);
+  border: 1px solid rgba(200,169,110,0.12);
   border-radius: 16px;
   overflow: hidden;
   transition: all 0.25s;
 }
 
-.lote-card:hover { transform: translateY(-4px); border-color: rgba(201,168,76,0.4); }
+.lote-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(200,169,110,0.35);
+}
 
 .lote-thumb {
   height: 150px;
-  background: linear-gradient(135deg, var(--green-mid), var(--green-dark));
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
 }
 
-.lote-thumb-icon {
-  opacity: 0.25;
+.lote-card:nth-child(1) .lote-thumb {
+  background: linear-gradient(145deg, #6B5A3A, #3D2E1A);
 }
+
+.lote-card:nth-child(2) .lote-thumb {
+  background: linear-gradient(145deg, #5A6B3A, #2E3D1A);
+}
+
+.lote-card:nth-child(3) .lote-thumb {
+  background: linear-gradient(145deg, #4A5A6B, #1A2E3D);
+}
+
+.lote-thumb-icon { opacity: 0.25; }
 
 .lote-badge-destaque {
   position: absolute;
   top: 12px; left: 12px;
-  background: var(--gold);
-  color: var(--green-dark);
-  font-size: 0.68rem;
+  background: var(--accent);
+  color: var(--bg-darker);
+  font-size: 0.65rem;
   font-weight: 700;
   padding: 4px 10px;
   border-radius: 6px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  font-family: var(--font-body);
 }
 
-.lote-body { padding: 20px; }
+.lote-body {
+  padding: 20px;
+  background: rgba(255,255,255,0.04);
+}
 
 .lote-tag {
-  display: inline-block;
-  background: rgba(201,168,76,0.12);
-  color: var(--gold-light);
-  font-size: 0.68rem;
+  background: rgba(200,169,110,0.12);
+  color: var(--accent-light);
+  font-size: 0.65rem;
   font-weight: 600;
   padding: 3px 10px;
   border-radius: 6px;
-  margin-bottom: 10px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  font-family: var(--font-body);
+  display: inline-block;
+  margin-bottom: 10px;
 }
 
-.lote-title {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.98rem;
-  color: var(--white);
-  margin-bottom: 6px;
-}
-
-.lote-info {
-  font-size: 0.78rem;
-  color: rgba(255,255,255,0.45);
-  margin-bottom: 16px;
-  line-height: 1.6;
-  font-weight: 400;
-}
+.lote-title { color: var(--text-light); font-weight: 700; font-size: 0.98rem; margin-bottom: 6px; }
+.lote-info  { color: var(--text-muted); font-size: 0.78rem; line-height: 1.6; margin-bottom: 16px; }
 
 .lote-price {
   display: flex;
@@ -469,36 +552,300 @@ nav {
   margin-bottom: 14px;
 }
 
-.lote-price-value {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.4rem;
-  color: var(--gold);
-  letter-spacing: -0.5px;
-}
-
-.lote-price-label {
-  font-size: 0.75rem;
-  color: rgba(255,255,255,0.35);
-  font-weight: 400;
-}
+.lote-price-value { color: var(--accent); font-weight: 800; font-size: 1.4rem; letter-spacing: -0.5px; }
+.lote-price-label { color: rgba(247,243,238,0.35); font-size: 0.75rem; }
 
 .lote-cta {
   display: block;
   text-align: center;
-  background: rgba(201,168,76,0.1);
-  border: 1px solid rgba(201,168,76,0.25);
-  color: var(--gold-light);
+  background: rgba(200,169,110,0.1);
+  border: 1px solid rgba(200,169,110,0.2);
+  color: var(--accent-light);
   padding: 10px;
   border-radius: 10px;
   font-size: 0.82rem;
   font-weight: 600;
   text-decoration: none;
   transition: all 0.2s;
-  font-family: var(--font-body);
 }
 
-.lote-cta:hover { background: var(--gold); color: var(--green-dark); }
+.lote-cta:hover { background: var(--accent); color: var(--bg-darker); }
+
+.lote-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lote-simular {
+  display: block;
+  width: 100%;
+  text-align: center;
+  background: var(--accent);
+  border: none;
+  color: var(--bg-darker);
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.lote-simular:hover {
+  background: var(--accent-light);
+  transform: translateY(-1px);
+}
+
+.lote-price-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+/* LOCALIZAÇÃO */
+.localizacao-section {
+  background: var(--bg-section);
+  padding: 80px 5%;
+}
+
+.localizacao-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 32px;
+  align-items: start;
+  margin-top: 8px;
+}
+
+.localizacao-info h3 {
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.localizacao-info p {
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  line-height: 1.75;
+  margin-bottom: 20px;
+}
+
+.localizacao-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.localizacao-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+
+.localizacao-list svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  stroke: var(--accent-dark);
+}
+
+.localizacao-map-wrap {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+  box-shadow: 0 8px 32px rgba(28,20,16,0.08);
+  min-height: 380px;
+  background: var(--bg-section);
+}
+
+.localizacao-map-wrap iframe {
+  display: block;
+  width: 100%;
+  height: 420px;
+  border: 0;
+}
+
+.localizacao-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+  color: var(--accent-dark);
+  font-weight: 600;
+  font-size: 0.88rem;
+  text-decoration: none;
+}
+
+.localizacao-link:hover { color: var(--accent); }
+
+/* SIMULADOR */
+.simulador-section {
+  background: var(--bg-page);
+  padding: 80px 5%;
+  text-align: center;
+}
+
+.simulador-header {
+  max-width: 560px;
+  margin: 0 auto 40px;
+}
+
+.simulador-title {
+  font-weight: 700;
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  letter-spacing: -0.5px;
+}
+
+.simulador-sub {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 16px;
+}
+
+.simulador-divider {
+  width: 48px;
+  height: 4px;
+  background: var(--accent);
+  border-radius: 2px;
+  margin: 0 auto;
+}
+
+.simulador-card {
+  max-width: 720px;
+  margin: 0 auto;
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: 20px;
+  padding: 36px 32px;
+  text-align: left;
+  box-shadow: 0 12px 40px rgba(28,20,16,0.07);
+}
+
+.sim-field { margin-bottom: 20px; }
+
+.sim-label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.sim-select,
+.sim-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-section);
+  transition: border-color 0.2s;
+}
+
+.sim-select:focus,
+.sim-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.sim-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.sim-btn-calc {
+  width: 100%;
+  margin-top: 8px;
+  padding: 14px;
+  background: var(--accent);
+  color: var(--bg-darker);
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s;
+}
+
+.sim-btn-calc:hover { background: var(--accent-light); }
+
+.sim-result {
+  margin-top: 28px;
+  padding: 24px;
+  background: var(--bg-section);
+  border-radius: 14px;
+  border: 1px solid var(--border-light);
+  display: none;
+}
+
+.sim-result.visible { display: block; }
+
+.sim-result-title {
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent-dark);
+  margin-bottom: 16px;
+}
+
+.sim-result-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+}
+
+.sim-result-item span {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.sim-result-item strong {
+  font-size: 1.25rem;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+}
+
+.sim-result-note {
+  margin-top: 14px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.sim-wa {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 10px 18px;
+  background: #25d366;
+  color: white;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.sim-wa:hover { background: #1db954; }
+
+.sim-panel { display: none; }
+.sim-panel.active { display: block; }
 
 /* DIFERENCIAIS */
 .diferenciais-grid {
@@ -508,42 +855,49 @@ nav {
 }
 
 .diferencial-card {
-  background: var(--white);
-  border: 1px solid var(--gray-light);
+  background: var(--bg-page);
+  border: 1px solid var(--border-light);
   border-radius: 16px;
   padding: 28px;
   transition: all 0.2s;
 }
 
-.diferencial-card:hover { border-color: rgba(45,106,69,0.3); transform: translateY(-2px); }
+.diferencial-card:hover {
+  border-color: var(--border-accent);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(28,20,16,0.08);
+}
 
 .diferencial-icon {
   width: 46px; height: 46px;
-  background: rgba(45,106,69,0.08);
+  background: rgba(200,169,110,0.1);
   border-radius: 12px;
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-bottom: 16px;
 }
+
+.diferencial-icon svg { stroke: var(--accent-dark); }
 
 .diferencial-title {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 0.95rem;
-  color: var(--green-dark);
+  color: var(--text-primary);
   margin-bottom: 8px;
 }
 
 .diferencial-desc {
   font-size: 0.82rem;
-  color: var(--gray-mid);
+  color: var(--text-secondary);
   line-height: 1.7;
-  font-weight: 400;
 }
 
 /* CONTATO */
 .contato-section {
-  background: var(--green-dark);
-  padding: 90px 5%;
+  background: var(--bg-dark);
+  padding: 100px 5%;
   text-align: center;
   position: relative;
   overflow: hidden;
@@ -554,9 +908,10 @@ nav {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(201,168,76,0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(201,168,76,0.04) 1px, transparent 1px);
-  background-size: 40px 40px;
+    linear-gradient(rgba(200,169,110,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(200,169,110,0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
 }
 
 .contato-content { position: relative; z-index: 2; }
@@ -564,24 +919,23 @@ nav {
 .contato-title {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: clamp(2rem, 4.5vw, 3.2rem);
-  color: var(--white);
-  letter-spacing: -0.5px;
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  color: var(--text-light);
+  letter-spacing: -1px;
   margin-bottom: 16px;
-  line-height: 1.08;
+  line-height: 1.1;
 }
 
-.contato-title span { color: var(--gold); }
+.contato-title span { color: var(--accent); }
 
 .contato-sub {
   font-size: 0.95rem;
-  color: rgba(255,255,255,0.55);
+  color: var(--text-muted);
   margin-bottom: 36px;
   max-width: 420px;
   margin-left: auto;
   margin-right: auto;
-  line-height: 1.7;
-  font-weight: 400;
+  line-height: 1.75;
 }
 
 .contato-actions {
@@ -603,16 +957,15 @@ nav {
   font-size: 0.9rem;
   text-decoration: none;
   transition: all 0.2s;
-  font-family: var(--font-body);
 }
 
 .btn-whatsapp:hover { background: #1db954; transform: translateY(-2px); }
 
 /* FOOTER */
 footer {
-  background: #0f1f16;
-  padding: 36px 5% 28px;
-  border-top: 1px solid rgba(201,168,76,0.1);
+  background: var(--bg-darker);
+  padding: 40px 5% 28px;
+  border-top: 1px solid rgba(200,169,110,0.1);
 }
 
 .footer-top {
@@ -626,16 +979,6 @@ footer {
   border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 
-.footer-logo {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.2rem;
-  color: var(--white);
-  letter-spacing: -0.5px;
-}
-
-.footer-logo span { color: var(--gold); }
-
 .footer-links {
   display: flex;
   gap: 22px;
@@ -644,14 +987,13 @@ footer {
 }
 
 .footer-links a {
-  color: rgba(255,255,255,0.35);
+  color: rgba(247,243,238,0.3);
   text-decoration: none;
   font-size: 0.82rem;
   transition: color 0.2s;
-  font-family: var(--font-body);
 }
 
-.footer-links a:hover { color: var(--gold); }
+.footer-links a:hover { color: var(--accent); }
 
 .footer-bottom {
   display: flex;
@@ -663,22 +1005,27 @@ footer {
 
 .footer-copy, .footer-creci {
   font-size: 0.75rem;
-  color: rgba(255,255,255,0.25);
-  font-family: var(--font-body);
+  color: rgba(247,243,238,0.2);
 }
 
 /* MOBILE */
 @media (max-width: 900px) {
-  .hero-float { display: none; }
-  .hero-inner { flex-direction: column; }
+  .localizacao-grid { grid-template-columns: 1fr; }
+  .localizacao-map-wrap iframe { height: 320px; }
 }
 
 @media (max-width: 640px) {
   .nav-links { display: none; }
-  .hero { padding: 90px 5% 60px; }
+  .hero-title { letter-spacing: -0.5px; }
+  .hero-scroll-arrow { display: none; }
+  .stats-bar { flex-wrap: wrap; gap: 20px; padding: 28px 5%; }
+  .stat-item { max-width: none; flex: 1 1 140px; padding: 0 12px; }
+  .stat-item + .stat-item { border-left: none; }
+  .sim-grid { grid-template-columns: 1fr; }
+  .simulador-card { padding: 24px 20px; }
 }
 
-/* ANIMAÇÕES */
+/* ANIMAÇÕES HERO */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(18px); }
   to { opacity: 1; transform: translateY(0); }
@@ -688,10 +1035,6 @@ footer {
 .hero-title { animation: fadeUp 0.55s 0.08s ease both; }
 .hero-sub { animation: fadeUp 0.55s 0.16s ease both; }
 .hero-actions { animation: fadeUp 0.55s 0.24s ease both; }
-.hero-stats { animation: fadeUp 0.55s 0.32s ease both; }
-.float-card:nth-child(1) { animation: fadeUp 0.6s 0.28s ease both; }
-.float-card:nth-child(2) { animation: fadeUp 0.6s 0.4s ease both; }
-.float-card:nth-child(3) { animation: fadeUp 0.6s 0.52s ease both; }
 </style>
 </head>
 <body>
@@ -700,140 +1043,94 @@ footer {
 <nav>
   <a href="#" class="nav-logo">
     <img
-      src="{{ asset('img/logo-full.png') }}"
+      src="{{ asset('img/light-logo-full.png') }}"
       alt="Sid360"
-      height="38"
-      style="height:38px;width:auto;display:block;max-width:160px;"
-      onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
+      class="nav-logo-img"
     >
-    <div style="display:none;align-items:center;gap:10px;">
-      <div style="width:36px;height:36px;background:#c9a84c;border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:'Syne',Arial,sans-serif;font-weight:800;font-size:1.1rem;color:#1a3a28;">S</div>
-      <span style="font-family:'Syne',Arial,sans-serif;font-weight:800;font-size:1.2rem;color:#fff;letter-spacing:-0.5px;">Sid<span style="color:#c9a84c;">360</span></span>
-    </div>
   </a>
   <ul class="nav-links">
-    <li><a href="#imoveis">Imóveis</a></li>
-    <li><a href="#lotes">Loteamentos</a></li>
-    <li><a href="#diferenciais">Diferenciais</a></li>
+    <li><a href="#lotes">Loteamento</a></li>
+    <li><a href="#localizacao">Localização</a></li>
+    <li><a href="#simulador">Simular</a></li>
     <li><a href="#contato" class="nav-cta">Falar com Corretor</a></li>
   </ul>
 </nav>
 
 <!-- HERO -->
-<section class="hero">
-  <div class="hero-bg"></div>
-  <div class="hero-grid"></div>
-  <div class="hero-inner">
+<section class="hero" id="hero">
+  <div class="hero-media">
+    <video
+      class="hero-video"
+      autoplay
+      muted
+      loop
+      playsinline
+      poster="{{ asset('img/slide1.jpg') }}"
+    >
+      <source src="{{ asset('video/loteamento.mp4') }}" type="video/mp4">
+    </video>
 
-    <div class="hero-content">
-      <div class="hero-badge">
-        <span class="hero-badge-dot"></span>
-        Cafarnaum · Bahia · Brasil
-      </div>
-      <h1 class="hero-title">
-        O imóvel certo<br>para o seu <span>futuro</span>
-      </h1>
-      <p class="hero-sub">
-        Lotes, casas, terrenos rurais e comerciais em Cafarnaum e região. Negociação direta, transparente e segura com quem entende do mercado local.
-      </p>
-      <div class="hero-actions">
-        <a href="https://wa.me/5574988230151" class="btn-primary">Falar no WhatsApp</a>
-        <a href="#imoveis" class="btn-secondary">Ver Imóveis &rarr;</a>
-      </div>
-      <div class="hero-stats">
-        <div class="hero-stat">
-          <div class="hero-stat-value">+10</div>
-          <div class="hero-stat-label">Anos de experiência</div>
-        </div>
-        <div class="hero-divider"></div>
-        <div class="hero-stat">
-          <div class="hero-stat-value">+200</div>
-          <div class="hero-stat-label">Negócios realizados</div>
-        </div>
-        <div class="hero-divider"></div>
-        <div class="hero-stat">
-          <div class="hero-stat-value">100%</div>
-          <div class="hero-stat-label">Segurança jurídica</div>
-        </div>
-      </div>
+    <div class="hero-slides" id="heroSlides">
+      <div class="hero-slide active" style="background-image: url('{{ asset('img/slide1.jpg') }}')"></div>
+      <div class="hero-slide" style="background-image: url('{{ asset('img/slide2.jpg') }}')"></div>
+      <div class="hero-slide" style="background-image: url('{{ asset('img/slide3.jpg') }}')"></div>
     </div>
 
-    <div class="hero-float">
-      <div class="float-card">
-        <div class="float-card-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c9a84c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        </div>
-        <div class="float-card-value">140 lotes</div>
-        <div class="float-card-label">Novo loteamento disponível</div>
-      </div>
-      <div class="float-card">
-        <div class="float-card-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c9a84c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-        </div>
-        <div class="float-card-value">Frente à BR</div>
-        <div class="float-card-label">Localização privilegiada</div>
-      </div>
-      <div class="float-card">
-        <div class="float-card-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c9a84c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        </div>
-        <div class="float-card-value">A partir de R$25k</div>
-        <div class="float-card-label">Entrada facilitada</div>
-      </div>
-    </div>
-
+    <div class="hero-overlay"></div>
   </div>
-</section>
 
-<!-- TIPOS -->
-<section class="section" id="imoveis">
-  <div class="section-label">O que negociamos</div>
-  <h2 class="section-title">Tudo que você precisa,<br><span>num só lugar</span></h2>
-  <p class="section-sub">Do lote rural ao imóvel comercial, atendemos todos os perfis com expertise e conhecimento do mercado de Cafarnaum.</p>
-
-  <div class="types-grid">
-    <div class="type-card">
-      <div class="type-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2d6a45" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      </div>
-      <div class="type-title">Casas</div>
-      <div class="type-desc">Residências prontas para morar ou na planta, em ótimas localizações.</div>
+  <div class="hero-content" id="heroContent">
+    <div class="hero-badge">
+      <span class="hero-badge-dot"></span>
+      Cafarnaum · Bahia · Brasil
     </div>
-    <div class="type-card">
-      <div class="type-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2d6a45" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-      </div>
-      <div class="type-title">Comércio</div>
-      <div class="type-desc">Pontos comerciais e galpões para seu negócio crescer.</div>
-    </div>
-    <div class="type-card">
-      <div class="type-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2d6a45" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><rect x="9" y="14" width="6" height="7"/></svg>
-      </div>
-      <div class="type-title">Terreno Residencial</div>
-      <div class="type-desc">Lotes em loteamentos regulares para construir do jeito que você quer.</div>
-    </div>
-    <div class="type-card">
-      <div class="type-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2d6a45" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22V12a10 10 0 0 1 20 0v10"/><path d="M6 22V16a6 6 0 0 1 12 0v6"/></svg>
-      </div>
-      <div class="type-title">Terreno Rural</div>
-      <div class="type-desc">Chácaras, fazendas e propriedades rurais na região.</div>
-    </div>
-    <div class="type-card">
-      <div class="type-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2d6a45" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v3"/><rect x="9" y="11" width="14" height="10" rx="2"/><line x1="12" y1="11" x2="12" y2="21"/><line x1="9" y1="16" x2="23" y2="16"/></svg>
-      </div>
-      <div class="type-title">Frente de Rodovia</div>
-      <div class="type-desc">Lotes com visibilidade privilegiada na BR, ideais para investimento.</div>
+    <h1 class="hero-title">
+      O imóvel certo<br>para o seu <span>futuro</span>
+    </h1>
+    <p class="hero-sub">
+      Novo loteamento em Cafarnaum com lotes residenciais e frente à rodovia.
+      Simule parcelas, veja a localização e negocie direto com o corretor.
+    </p>
+    <div class="hero-actions">
+      <a href="https://wa.me/5574988230151" class="btn-primary">Falar no WhatsApp</a>
+      <a href="#lotes" class="btn-secondary">Ver Loteamento &rarr;</a>
     </div>
   </div>
+
+  <div class="hero-dots" id="heroDots">
+    <button type="button" class="hero-dot active" aria-label="Slide 1" onclick="goToSlide(0)"></button>
+    <button type="button" class="hero-dot" aria-label="Slide 2" onclick="goToSlide(1)"></button>
+    <button type="button" class="hero-dot" aria-label="Slide 3" onclick="goToSlide(2)"></button>
+  </div>
+
+  <a href="#lotes" class="hero-scroll-arrow" aria-label="Rolar para loteamento">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+      <line x1="12" y1="5" x2="12" y2="19"/>
+      <polyline points="19 12 12 19 5 12"/>
+    </svg>
+  </a>
 </section>
+
+<!-- STATS -->
+<div class="stats-bar">
+  <div class="stat-item">
+    <div class="stat-value">+10</div>
+    <div class="stat-label">Anos de experiência</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value">+200</div>
+    <div class="stat-label">Negócios realizados</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-value">100%</div>
+    <div class="stat-label">Segurança jurídica</div>
+  </div>
+</div>
 
 <!-- LOTES DESTAQUE -->
 <section class="lotes-section" id="lotes">
   <div class="section-label">Loteamento em destaque</div>
-  <h2 class="section-title" style="color:var(--white)">Lotes disponíveis <span style="color:var(--gold)">agora</span></h2>
+  <h2 class="section-title">Lotes disponíveis <span style="color:var(--accent)">agora</span></h2>
   <p class="section-sub" style="margin-bottom:40px">Novo loteamento com infraestrutura completa em Cafarnaum. Escolha seu lote e garanta já.</p>
 
   <div class="lotes-grid">
@@ -848,14 +1145,17 @@ footer {
         <div class="lote-info">Visibilidade máxima · Área privilegiada · Ideal para comércio</div>
         <div class="lote-price">
           <div class="lote-price-value">R$ 65.000</div>
-          <div class="lote-price-label">ou R$15k + R$2k/mês</div>
         </div>
-        <a href="https://wa.me/5574988230151?text=Olá, tenho interesse no lote frente à BR!" class="lote-cta">Tenho Interesse</a>
+        <p class="lote-price-hint">Simule entrada e parcelas conforme seu orçamento</p>
+        <div class="lote-actions">
+          <button type="button" class="lote-simular" data-lote="frente-br">Simular Parcelas</button>
+          <a href="https://wa.me/5574988230151?text=Olá, tenho interesse no lote frente à BR!" class="lote-cta">Tenho Interesse</a>
+        </div>
       </div>
     </div>
 
     <div class="lote-card">
-      <div class="lote-thumb" style="background: linear-gradient(135deg, #2d5a3a, #1a3a28)">
+      <div class="lote-thumb">
         <svg class="lote-thumb-icon" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       </div>
       <div class="lote-body">
@@ -864,16 +1164,19 @@ footer {
         <div class="lote-info">Loteamento regular · Infraestrutura completa · Ótima localização</div>
         <div class="lote-price">
           <div class="lote-price-value">R$ 25.000</div>
-          <div class="lote-price-label">ou R$5k + R$1k/mês</div>
         </div>
-        <a href="https://wa.me/5574988230151?text=Olá, tenho interesse em um lote residencial!" class="lote-cta">Tenho Interesse</a>
+        <p class="lote-price-hint">Simule entrada e parcelas conforme seu orçamento</p>
+        <div class="lote-actions">
+          <button type="button" class="lote-simular" data-lote="residencial">Simular Parcelas</button>
+          <a href="https://wa.me/5574988230151?text=Olá, tenho interesse em um lote residencial!" class="lote-cta">Tenho Interesse</a>
+        </div>
       </div>
     </div>
 
     <div class="lote-card">
-      <div class="lote-thumb" style="background: linear-gradient(135deg, #3a5a2a, #1f3a18)">
+      <div class="lote-thumb">
         <svg class="lote-thumb-icon" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        <div class="lote-badge-destaque" style="background:var(--green-light);color:white">À Vista</div>
+        <div class="lote-badge-destaque">À Vista</div>
       </div>
       <div class="lote-body">
         <div class="lote-tag">Oferta Especial</div>
@@ -881,10 +1184,172 @@ footer {
         <div class="lote-info">Condições especiais para pagamento à vista · Melhor preço garantido</div>
         <div class="lote-price">
           <div class="lote-price-value">Consulte</div>
-          <div class="lote-price-label">preço especial à vista</div>
         </div>
-        <a href="https://wa.me/5574988230151?text=Olá, quero saber o preço à vista dos lotes!" class="lote-cta">Consultar Preço</a>
+        <p class="lote-price-hint">Condições especiais para pagamento à vista</p>
+        <div class="lote-actions">
+          <button type="button" class="lote-simular" data-lote="avista">Simular à Vista</button>
+          <a href="https://wa.me/5574988230151?text=Olá, quero saber o preço à vista dos lotes!" class="lote-cta">Consultar Preço</a>
+        </div>
       </div>
+    </div>
+  </div>
+</section>
+
+@php
+  $loteamento = config('site.loteamento');
+  $mapsEmbed = $loteamento['maps_embed_url']
+    ?? 'https://maps.google.com/maps?q=' . $loteamento['lat'] . ',' . $loteamento['lng'] . '&hl=pt-BR&z=16&output=embed';
+  $mapsLink = 'https://www.google.com/maps/search/?api=1&query=' . $loteamento['lat'] . ',' . $loteamento['lng'];
+@endphp
+
+<!-- LOCALIZAÇÃO -->
+<section class="localizacao-section" id="localizacao">
+  <div class="section-label">Onde fica</div>
+  <h2 class="section-title">Localização do <span>loteamento</span></h2>
+  <p class="section-sub">Novo empreendimento em Cafarnaum com fácil acesso e infraestrutura em implantação. Veja no mapa e planeje sua visita.</p>
+
+  <div class="localizacao-grid">
+    <div class="localizacao-info">
+      <h3>{{ $loteamento['name'] }}</h3>
+      <p>{{ $loteamento['address'] }}. Região em expansão, ideal para moradia ou investimento com valorização.</p>
+      <ul class="localizacao-list">
+        <li>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Acesso pela região de Cafarnaum — Bahia
+        </li>
+        <li>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v3"/><rect x="9" y="11" width="14" height="10" rx="2"/></svg>
+          Lotes frente à rodovia e residenciais disponíveis
+        </li>
+        <li>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Infraestrutura do loteamento em andamento
+        </li>
+      </ul>
+      <a href="{{ $mapsLink }}" target="_blank" rel="noopener noreferrer" class="localizacao-link">
+        Abrir no Google Maps &rarr;
+      </a>
+    </div>
+    <div class="localizacao-map-wrap">
+      <iframe
+        src="{{ $mapsEmbed }}"
+        allowfullscreen
+        loading="lazy"
+        referrerpolicy="no-referrer-when-downgrade"
+        title="Mapa — {{ $loteamento['name'] }}"
+      ></iframe>
+    </div>
+  </div>
+</section>
+
+<!-- SIMULADOR -->
+<section class="simulador-section" id="simulador">
+  <div class="simulador-header">
+    <h2 class="simulador-title">Simulação de Parcelamento</h2>
+    <p class="simulador-sub">Faça uma simulação e descubra as melhores condições para realizar o sonho de viver aqui</p>
+    <div class="simulador-divider"></div>
+  </div>
+
+  <div class="simulador-card">
+    <div class="sim-field">
+      <label class="sim-label" for="simMode">Escolha a forma de busca:</label>
+      <select id="simMode" class="sim-select">
+        <option value="price">Por Preço do Lote</option>
+        <option value="parcela">Por Valor da Parcela</option>
+      </select>
+    </div>
+
+    <div class="sim-field">
+      <label class="sim-label" for="simLoteType">Tipo de lote:</label>
+      <select id="simLoteType" class="sim-select">
+        <option value="frente-br">Lote Frente à Rodovia — R$ 65.000</option>
+        <option value="residencial">Lote Residencial 20×30 — R$ 25.000</option>
+        <option value="avista">Compra à Vista — consulte condições</option>
+      </select>
+    </div>
+
+    <div id="simPanelPrice" class="sim-panel active">
+      <div class="sim-grid">
+        <div class="sim-field">
+          <label class="sim-label" for="simTotal">Valor total (R$)</label>
+          <input type="number" id="simTotal" class="sim-input" min="0" step="1000">
+        </div>
+        <div class="sim-field">
+          <label class="sim-label" for="simEntradaPrice">Entrada (R$)</label>
+          <input type="number" id="simEntradaPrice" class="sim-input" min="0" step="500">
+        </div>
+      </div>
+      <div class="sim-field">
+        <label class="sim-label" for="simParcelas">Número de parcelas</label>
+        <input type="number" id="simParcelas" class="sim-input" min="1" max="120" value="24">
+      </div>
+    </div>
+
+    <div id="simPanelParcela" class="sim-panel">
+      <div class="sim-grid">
+        <div class="sim-field">
+          <label class="sim-label" for="simEntradaParcela">Entrada (R$)</label>
+          <input type="number" id="simEntradaParcela" class="sim-input" min="0" step="500">
+        </div>
+        <div class="sim-field">
+          <label class="sim-label" for="simParcelaMensal">Parcela mensal desejada (R$)</label>
+          <input type="number" id="simParcelaMensal" class="sim-input" min="0" step="100">
+        </div>
+      </div>
+    </div>
+
+    <button type="button" class="sim-btn-calc" id="simCalcular">Calcular simulação</button>
+
+    <div class="sim-result" id="simResult">
+      <div class="sim-result-title">Resultado da simulação</div>
+      <div class="sim-result-grid" id="simResultGrid"></div>
+      <p class="sim-result-note" id="simResultNote">Valores estimados. Condições finais confirmadas diretamente com o corretor.</p>
+      <a href="#" class="sim-wa" id="simWaLink" target="_blank" rel="noopener">Enviar simulação no WhatsApp</a>
+    </div>
+  </div>
+</section>
+
+<!-- TIPOS -->
+<section class="section" id="imoveis">
+  <div class="section-label">O que negociamos</div>
+  <h2 class="section-title">Tudo que você precisa,<br><span>num só lugar</span></h2>
+  <p class="section-sub">Do lote rural ao imóvel comercial, atendemos todos os perfis com expertise e conhecimento do mercado de Cafarnaum.</p>
+
+  <div class="types-grid">
+    <div class="type-card">
+      <div class="type-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </div>
+      <div class="type-title">Casas</div>
+      <div class="type-desc">Residências prontas para morar ou na planta, em ótimas localizações.</div>
+    </div>
+    <div class="type-card">
+      <div class="type-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+      </div>
+      <div class="type-title">Comércio</div>
+      <div class="type-desc">Pontos comerciais e galpões para seu negócio crescer.</div>
+    </div>
+    <div class="type-card">
+      <div class="type-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><rect x="9" y="14" width="6" height="7"/></svg>
+      </div>
+      <div class="type-title">Terreno Residencial</div>
+      <div class="type-desc">Lotes em loteamentos regulares para construir do jeito que você quer.</div>
+    </div>
+    <div class="type-card">
+      <div class="type-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22V12a10 10 0 0 1 20 0v10"/><path d="M6 22V16a6 6 0 0 1 12 0v6"/></svg>
+      </div>
+      <div class="type-title">Terreno Rural</div>
+      <div class="type-desc">Chácaras, fazendas e propriedades rurais na região.</div>
+    </div>
+    <div class="type-card">
+      <div class="type-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v3"/><rect x="9" y="11" width="14" height="10" rx="2"/><line x1="12" y1="11" x2="12" y2="21"/><line x1="9" y1="16" x2="23" y2="16"/></svg>
+      </div>
+      <div class="type-title">Frente de Rodovia</div>
+      <div class="type-desc">Lotes com visibilidade privilegiada na BR, ideais para investimento.</div>
     </div>
   </div>
 </section>
@@ -898,28 +1363,28 @@ footer {
   <div class="diferenciais-grid">
     <div class="diferencial-card">
       <div class="diferencial-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2d6a45" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
       </div>
       <div class="diferencial-title">Negociação Direta</div>
       <div class="diferencial-desc">Sem intermediários. Você fala direto com o corretor que conhece todos os detalhes do imóvel.</div>
     </div>
     <div class="diferencial-card">
       <div class="diferencial-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2d6a45" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
       </div>
       <div class="diferencial-title">Documentação Segura</div>
       <div class="diferencial-desc">Toda a documentação verificada e regularizada. Compre com segurança jurídica total.</div>
     </div>
     <div class="diferencial-card">
       <div class="diferencial-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2d6a45" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
       </div>
       <div class="diferencial-title">Conhecimento Local</div>
       <div class="diferencial-desc">Mais de 10 anos no mercado imobiliário de Cafarnaum e região. Acesso às melhores oportunidades.</div>
     </div>
     <div class="diferencial-card">
       <div class="diferencial-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2d6a45" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       </div>
       <div class="diferencial-title">Suporte Completo</div>
       <div class="diferencial-desc">Do primeiro contato à escritura. Acompanhamento em todas as etapas da negociação.</div>
@@ -934,7 +1399,7 @@ footer {
     <p class="contato-sub">Fale agora mesmo com o Sid. Atendimento rápido, direto e sem complicação.</p>
     <div class="contato-actions">
       <a href="https://wa.me/5574988230151" class="btn-whatsapp">(74) 9 8823-0151 · WhatsApp</a>
-      <a href="#lotes" class="btn-secondary" style="border-color:rgba(255,255,255,0.2);color:rgba(255,255,255,0.8)">Ver Lotes &rarr;</a>
+      <a href="#lotes" class="btn-secondary">Ver Lotes &rarr;</a>
     </div>
   </div>
 </section>
@@ -944,26 +1409,205 @@ footer {
   <div class="footer-top">
     <div class="footer-logo">
       <img
-        src="{{ asset('img/logo-full.png') }}"
+        src="{{ asset('img/light-logo-full.png') }}"
         alt="Sid360"
-        height="28"
-        style="height:28px;width:auto;opacity:0.85;"
-        onerror="this.style.display='none';this.nextElementSibling.style.display='inline';"
+        class="footer-logo-img"
       >
-      <span style="display:none;font-family:'Syne',Arial,sans-serif;font-weight:800;font-size:1.1rem;color:#fff;">Sid<span style="color:#c9a84c;">360</span></span>
     </div>
     <ul class="footer-links">
-      <li><a href="#imoveis">Imóveis</a></li>
-      <li><a href="#lotes">Loteamentos</a></li>
-      <li><a href="#diferenciais">Sobre</a></li>
+      <li><a href="#lotes">Loteamento</a></li>
+      <li><a href="#localizacao">Localização</a></li>
+      <li><a href="#simulador">Simular</a></li>
       <li><a href="#contato">Contato</a></li>
     </ul>
   </div>
   <div class="footer-bottom">
-    <div class="footer-copy">© 2026 Sid360 Imóveis · Cafarnaum, Bahia</div>
+    <div class="footer-copy">&copy; {{ date('Y') }} Sid360 Imóveis · Cafarnaum, Bahia</div>
     <div class="footer-creci">CRECI · Corretor Sid Nunes</div>
   </div>
 </footer>
+
+<script>
+(function() {
+  const slides = document.querySelectorAll('.hero-slide');
+  const dots   = document.querySelectorAll('.hero-dot');
+  let current  = 0;
+  let timer;
+
+  function goToSlide(n) {
+    slides[current].classList.remove('active');
+    dots[current].classList.remove('active');
+    current = (n + slides.length) % slides.length;
+    slides[current].classList.add('active');
+    dots[current].classList.add('active');
+    resetTimer();
+  }
+
+  function resetTimer() {
+    clearInterval(timer);
+    timer = setInterval(function() { goToSlide(current + 1); }, 5000);
+  }
+
+  window.goToSlide = goToSlide;
+  resetTimer();
+
+  const heroContent = document.getElementById('heroContent');
+  const heroSlide   = function() { return document.querySelector('.hero-slide.active'); };
+
+  window.addEventListener('scroll', function() {
+    const scrollY = window.scrollY;
+    const maxScroll = window.innerHeight;
+
+    if (scrollY > maxScroll) return;
+
+    if (heroContent) {
+      heroContent.style.transform = 'translateY(' + (scrollY * 0.35) + 'px)';
+      heroContent.style.opacity   = String(1 - (scrollY / (maxScroll * 0.7)));
+    }
+
+    const slide = heroSlide();
+    if (slide) {
+      slide.style.transform = 'translateY(' + (scrollY * 0.2) + 'px)';
+    }
+  }, { passive: true });
+
+  const nav = document.querySelector('nav');
+  window.addEventListener('scroll', function() {
+    nav.classList.toggle('scrolled', window.scrollY > 60);
+  }, { passive: true });
+
+  // === SIMULADOR DE PARCELAS ===
+  const LOT_TYPES = {
+    'frente-br': { name: 'Lote Frente à Rodovia', total: 65000, entradaMin: 15000, parcelaRef: 2000 },
+    'residencial': { name: 'Lote Residencial 20×30', total: 25000, entradaMin: 5000, parcelaRef: 1000 },
+    'avista': { name: 'Compra à Vista', total: null, entradaMin: 0, desconto: 0.08 }
+  };
+
+  const simMode = document.getElementById('simMode');
+  const simLoteType = document.getElementById('simLoteType');
+  const simPanelPrice = document.getElementById('simPanelPrice');
+  const simPanelParcela = document.getElementById('simPanelParcela');
+  const simTotal = document.getElementById('simTotal');
+  const simEntradaPrice = document.getElementById('simEntradaPrice');
+  const simParcelas = document.getElementById('simParcelas');
+  const simEntradaParcela = document.getElementById('simEntradaParcela');
+  const simParcelaMensal = document.getElementById('simParcelaMensal');
+  const simResult = document.getElementById('simResult');
+  const simResultGrid = document.getElementById('simResultGrid');
+  const simResultNote = document.getElementById('simResultNote');
+  const simWaLink = document.getElementById('simWaLink');
+
+  function formatBRL(n) {
+    return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+  }
+
+  function applyLoteType(key) {
+    const lot = LOT_TYPES[key];
+    if (!lot) return;
+    simLoteType.value = key;
+    if (lot.total) {
+      simTotal.value = lot.total;
+      simEntradaPrice.value = lot.entradaMin;
+      simEntradaParcela.value = lot.entradaMin;
+      simParcelaMensal.value = lot.parcelaRef;
+      const restante = lot.total - lot.entradaMin;
+      const parcelas = Math.max(1, Math.round(restante / lot.parcelaRef));
+      simParcelas.value = parcelas;
+    } else {
+      simTotal.value = '';
+      simEntradaPrice.value = 0;
+      simEntradaParcela.value = 0;
+      simParcelaMensal.value = '';
+      simParcelas.value = 1;
+    }
+  }
+
+  simMode.addEventListener('change', function() {
+    const byPrice = simMode.value === 'price';
+    simPanelPrice.classList.toggle('active', byPrice);
+    simPanelParcela.classList.toggle('active', !byPrice);
+    simResult.classList.remove('visible');
+  });
+
+  simLoteType.addEventListener('change', function() {
+    applyLoteType(simLoteType.value);
+    simResult.classList.remove('visible');
+  });
+
+  function renderResult(items, note, waText) {
+    simResultGrid.innerHTML = items.map(function(item) {
+      return '<div class="sim-result-item"><span>' + item.label + '</span><strong>' + item.value + '</strong></div>';
+    }).join('');
+    simResultNote.textContent = note;
+    simWaLink.href = 'https://wa.me/5574988230151?text=' + encodeURIComponent(waText);
+    simResult.classList.add('visible');
+  }
+
+  document.getElementById('simCalcular').addEventListener('click', function() {
+    const key = simLoteType.value;
+    const lot = LOT_TYPES[key];
+    const mode = simMode.value;
+
+    if (key === 'avista') {
+      renderResult(
+        [{ label: 'Modalidade', value: 'À vista' }, { label: 'Desconto estimado', value: 'até 8%' }],
+        'Valor final e desconto confirmados com o corretor. Simulação indicativa.',
+        'Olá! Fiz uma simulação de compra à vista no loteamento. Gostaria de saber o valor com desconto.'
+      );
+      return;
+    }
+
+    if (mode === 'price') {
+      const total = Number(simTotal.value) || 0;
+      const entrada = Number(simEntradaPrice.value) || 0;
+      const parcelas = Math.max(1, Number(simParcelas.value) || 1);
+      if (total <= 0) return alert('Informe o valor total do lote.');
+      if (entrada >= total) return alert('A entrada deve ser menor que o valor total.');
+      const restante = total - entrada;
+      const mensal = restante / parcelas;
+      const wa = 'Olá! Simulei o lote "' + lot.name + '": entrada ' + formatBRL(entrada) + ', ' + parcelas + 'x de ' + formatBRL(mensal) + '. Tenho interesse!';
+      renderResult(
+        [
+          { label: 'Valor total', value: formatBRL(total) },
+          { label: 'Entrada', value: formatBRL(entrada) },
+          { label: 'Parcelas', value: String(parcelas) + 'x' },
+          { label: 'Parcela mensal', value: formatBRL(mensal) }
+        ],
+        'Simulação sem juros. Condições finais podem variar — confirme com o corretor.',
+        wa
+      );
+    } else {
+      const total = Number(simTotal.value) || LOT_TYPES[key].total || 0;
+      const entrada = Number(simEntradaParcela.value) || 0;
+      const mensal = Number(simParcelaMensal.value) || 0;
+      if (total <= 0 || mensal <= 0) return alert('Informe o valor do lote e a parcela desejada.');
+      if (entrada >= total) return alert('A entrada deve ser menor que o valor total.');
+      const restante = total - entrada;
+      const parcelas = Math.ceil(restante / mensal);
+      renderResult(
+        [
+          { label: 'Valor total', value: formatBRL(total) },
+          { label: 'Entrada', value: formatBRL(entrada) },
+          { label: 'Parcela desejada', value: formatBRL(mensal) },
+          { label: 'Parcelas estimadas', value: '~' + parcelas + 'x' }
+        ],
+        'Quantidade de parcelas estimada para atingir a parcela informada (sem juros).',
+        'Olá! Simulei "' + lot.name + '" com entrada ' + formatBRL(entrada) + ' e parcelas de ' + formatBRL(mensal) + '. Tenho interesse!'
+      );
+    }
+  });
+
+  document.querySelectorAll('.lote-simular').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const key = btn.getAttribute('data-lote');
+      applyLoteType(key);
+      document.getElementById('simulador').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  applyLoteType('residencial');
+})();
+</script>
 
 </body>
 </html>

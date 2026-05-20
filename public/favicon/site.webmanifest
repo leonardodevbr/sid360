@@ -1,6 +1,6 @@
 {
-  "name": "Sistema de Concessão de Diárias",
-  "short_name": "DiariaSys",
+  "name": "Sid360",
+  "short_name": "Sid360",
   "icons": [
     {
       "src": "/favicon/web-app-manifest-192x192.png",
@@ -15,7 +15,7 @@
       "purpose": "maskable"
     }
   ],
-  "theme_color": "#fcfcfc",
-  "background_color": "#fcfcfc",
+  "theme_color": "#ffffff",
+  "background_color": "#ffffff",
   "display": "standalone"
 }
