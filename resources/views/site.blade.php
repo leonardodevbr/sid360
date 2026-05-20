@@ -4,17 +4,50 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
 
-{{-- Favicon --}}
-<link rel="icon" type="image/png" href="{{ asset('favicon/favicon-96x96.png') }}" sizes="96x96" />
-<link rel="icon" type="image/svg+xml" href="{{ asset('favicon/favicon.svg') }}" />
-<link rel="shortcut icon" href="{{ asset('favicon/favicon.ico') }}" />
-<link rel="apple-touch-icon" sizes="180x180" href="{{ asset('favicon/apple-touch-icon.png') }}" />
-<meta name="apple-mobile-web-app-title" content="{{ config('app.name') }}" />
-<link rel="manifest" href="{{ asset('favicon/site.webmanifest') }}" />
+{{-- ===== SEO BÁSICO ===== --}}
+<title>Sid360 — Imóveis em Cafarnaum-BA | Lotes, Casas e Terrenos</title>
+<meta name="description" content="Corretor de imóveis em Cafarnaum-BA. Lotes residenciais, comerciais e rurais com negociação direta. Novo loteamento com infraestrutura completa. Fale com o Sid: (74) 9 8823-0151.">
+<meta name="keywords" content="imóveis Cafarnaum, lotes Cafarnaum, corretor Cafarnaum, terrenos Cafarnaum BA, loteamento Cafarnaum, imóveis Bahia, lotes residenciais, terreno rural Cafarnaum">
+<meta name="author" content="Sid Nunes — Corretor de Imóveis">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+<meta name="googlebot" content="index, follow">
+<link rel="canonical" href="https://sid360.com.br/">
 
-<title>{{ config('app.name', 'Sid360') }} — Imóveis Residencial, Comercial e Rural</title>
-<meta name="description" content="Lotes, casas, terrenos rurais e comerciais em Cafarnaum-BA. Negociação direta com o Sid, corretor de confiança da região.">
+{{-- ===== OPEN GRAPH (Facebook, WhatsApp, LinkedIn) ===== --}}
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Sid360 Imóveis">
+<meta property="og:title" content="Sid360 — Imóveis em Cafarnaum-BA">
+<meta property="og:description" content="Lotes, casas e terrenos rurais em Cafarnaum e região. Negociação direta com o Sid, corretor de confiança há mais de 10 anos.">
+<meta property="og:url" content="https://sid360.com.br/">
+<meta property="og:image" content="https://sid360.com.br/img/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Sid360 — Loteamento em Cafarnaum-BA">
+<meta property="og:locale" content="pt_BR">
+
+{{-- ===== TWITTER CARD ===== --}}
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Sid360 — Imóveis em Cafarnaum-BA">
+<meta name="twitter:description" content="Lotes, casas e terrenos rurais em Cafarnaum e região. Negociação direta com o Sid.">
+<meta name="twitter:image" content="https://sid360.com.br/img/og-image.jpg">
+
+{{-- ===== GEO / LOCAL SEO ===== --}}
+<meta name="geo.region" content="BR-BA">
+<meta name="geo.placename" content="Cafarnaum, Bahia, Brasil">
+<meta name="geo.position" content="-11.4667;-39.9833">
+<meta name="ICBM" content="-11.4667, -39.9833">
+
+{{-- ===== FAVICON ===== --}}
+<link rel="icon" type="image/svg+xml" href="{{ asset('img/favicon.svg') }}">
+<link rel="icon" type="image/png" sizes="96x96" href="{{ asset('favicon/favicon-96x96.png') }}">
+<link rel="shortcut icon" href="{{ asset('favicon/favicon.ico') }}">
+<link rel="apple-touch-icon" sizes="180x180" href="{{ asset('favicon/apple-touch-icon.png') }}">
+<link rel="manifest" href="{{ asset('site.webmanifest') }}">
+<meta name="theme-color" content="#2A1F14">
+<meta name="msapplication-TileColor" content="#2A1F14">
+<meta name="apple-mobile-web-app-title" content="Sid360">
 <style>
 :root {
   --accent:        #C8A96E;
@@ -1607,6 +1640,123 @@ footer {
 
   applyLoteType('residencial');
 })();
+</script>
+
+{{-- ===== SCHEMA.ORG STRUCTURED DATA ===== --}}
+<script type="application/ld+json">
+@verbatim
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "RealEstateAgent",
+      "@id": "https://sid360.com.br/#agent",
+      "name": "Sid360 Imóveis",
+      "alternateName": "Sid Nunes Corretor",
+      "description": "Corretor de imóveis em Cafarnaum-BA especializado em lotes residenciais, comerciais e terrenos rurais.",
+      "url": "https://sid360.com.br",
+      "telephone": "+55-74-9-8823-0151",
+      "email": "contato@sid360.com.br",
+      "image": "https://sid360.com.br/img/og-image.jpg",
+      "logo": "https://sid360.com.br/img/logo-full.png",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Centro",
+        "addressLocality": "Cafarnaum",
+        "addressRegion": "BA",
+        "postalCode": "44780-000",
+        "addressCountry": "BR"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": -11.4667,
+        "longitude": -39.9833
+      },
+      "areaServed": {
+        "@type": "City",
+        "name": "Cafarnaum",
+        "sameAs": "https://www.wikidata.org/wiki/Q1022777"
+      },
+      "sameAs": [
+        "https://wa.me/5574988230151"
+      ],
+      "openingHoursSpecification": [
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday"],
+          "opens": "08:00",
+          "closes": "18:00"
+        },
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": "Saturday",
+          "opens": "08:00",
+          "closes": "12:00"
+        }
+      ],
+      "priceRange": "R$25.000 - R$65.000"
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://sid360.com.br/#website",
+      "url": "https://sid360.com.br",
+      "name": "Sid360 Imóveis",
+      "description": "Site oficial de Sid360 Imóveis — Cafarnaum, Bahia",
+      "publisher": { "@id": "https://sid360.com.br/#agent" },
+      "inLanguage": "pt-BR"
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://sid360.com.br/#webpage",
+      "url": "https://sid360.com.br",
+      "name": "Sid360 — Imóveis em Cafarnaum-BA | Lotes, Casas e Terrenos",
+      "isPartOf": { "@id": "https://sid360.com.br/#website" },
+      "about": { "@id": "https://sid360.com.br/#agent" },
+      "description": "Corretor de imóveis em Cafarnaum-BA. Lotes residenciais, comerciais e rurais com negociação direta.",
+      "inLanguage": "pt-BR",
+      "breadcrumb": {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Início", "item": "https://sid360.com.br" }
+        ]
+      }
+    },
+    {
+      "@type": "LandAndFarms",
+      "@id": "https://sid360.com.br/#loteamento",
+      "name": "Novo Loteamento Cafarnaum — Lotes Frente à BR",
+      "description": "Loteamento em Cafarnaum-BA com lotes residenciais e comerciais. Localização privilegiada frente à rodovia, infraestrutura completa.",
+      "url": "https://sid360.com.br/#lotes",
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Lote Residencial 20x30",
+          "description": "Lote residencial em loteamento regular com infraestrutura completa",
+          "price": "25000",
+          "priceCurrency": "BRL",
+          "availability": "https://schema.org/InStock",
+          "seller": { "@id": "https://sid360.com.br/#agent" }
+        },
+        {
+          "@type": "Offer",
+          "name": "Lote Comercial Frente à Rodovia",
+          "description": "Lote comercial com visibilidade privilegiada na rodovia BR",
+          "price": "65000",
+          "priceCurrency": "BRL",
+          "availability": "https://schema.org/InStock",
+          "seller": { "@id": "https://sid360.com.br/#agent" }
+        }
+      ],
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Cafarnaum",
+        "addressRegion": "BA",
+        "addressCountry": "BR"
+      }
+    }
+  ]
+}
+@endverbatim
 </script>
 
 </body>

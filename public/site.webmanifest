@@ -1,0 +1,21 @@
+{
+  "name": "Sid360 Imóveis",
+  "short_name": "Sid360",
+  "description": "Imóveis em Cafarnaum-BA — Lotes, Casas e Terrenos",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#2A1F14",
+  "theme_color": "#2A1F14",
+  "icons": [
+    {
+      "src": "/img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
