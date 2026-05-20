@@ -1783,7 +1783,7 @@ footer {
   const poweredByBtn = document.getElementById('poweredByBtn');
   if (poweredByBtn) {
     poweredByBtn.addEventListener('click', function () {
-      const contato = 'Leonardo Nunes — Dev\nWhatsApp: (74) 9 8801-0032\nE-mail: leoontech@gmail.com';
+      const contato = 'Leonardo Nunes — Dev\nWhatsApp: (61) 9 9249-5212\nE-mail: adsleonardo.o@gmail.com';
       navigator.clipboard.writeText(contato).then(function () {
         poweredByBtn.textContent = 'Contato copiado!';
         poweredByBtn.classList.add('footer-poweredby-copied');
