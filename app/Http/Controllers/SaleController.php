@@ -125,13 +125,30 @@ class SaleController extends Controller
         return $pdf->download("carne-venda-{$sale->id}.pdf");
     }
 
-    public function carnePreview(string|int $id): View
+    public function carnePreviewHtml(string|int $id): Response
     {
+        if (! app()->isLocal()) {
+            abort(404);
+        }
+
         $this->authorize('sales.view');
 
         $sale = $this->findSaleForCarne($id);
 
-        return view('pdf.carne', ['sale' => $sale]);
+        return response()
+            ->view('pdf.carne', ['sale' => $sale, 'isPreview' => true])
+            ->header('Content-Type', 'text/html; charset=UTF-8');
+    }
+
+    public function carnePreview(string|int $id): View
+    {
+        if (! app()->isLocal()) {
+            abort(404);
+        }
+
+        $sale = $this->findSaleForCarne($id);
+
+        return view('pdf.carne', ['sale' => $sale, 'isPreview' => true]);
     }
 
     private function findSaleForCarne(string|int $id): Sale

@@ -61,3 +61,12 @@ export async function downloadCarne(saleId) {
   link.click();
   window.URL.revokeObjectURL(url);
 }
+
+export async function fetchCarnePreviewHtml(saleId) {
+  const { data } = await api.get(`/sales/${saleId}/carne/preview`, {
+    responseType: 'text',
+    headers: { Accept: 'text/html' },
+  });
+
+  return data;
+}

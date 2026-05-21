@@ -19,6 +19,36 @@ import ProfileIndex from '@/views/Profile/Index.vue';
 import PortalLayout from '@/layouts/PortalLayout.vue';
 import PortalPayments from '@/views/Portal/Payments.vue';
 
+const portalRoutes = [
+  {
+    path: '/pagamentos',
+    component: PortalLayout,
+    children: [
+      {
+        path: '',
+        name: 'portal.payments',
+        component: PortalPayments,
+        meta: { title: 'Meus pagamentos' },
+      },
+    ],
+  },
+];
+
+const devRoutes = import.meta.env.DEV
+  ? [
+      {
+        path: '/app/sales/:id/carne/preview',
+        name: 'sales.carne.preview',
+        component: () => import('@/views/Sales/CarnePreview.vue'),
+        meta: {
+          requiresAuth: true,
+          permission: 'sales.view',
+          title: 'Preview carnê',
+        },
+      },
+    ]
+  : [];
+
 const routes = [
   {
     path: '/login',
@@ -59,18 +89,8 @@ const routes = [
     ],
     meta: { guestOnly: true },
   },
-  {
-    path: '/pagamentos',
-    component: PortalLayout,
-    children: [
-      {
-        path: '',
-        name: 'portal.payments',
-        component: PortalPayments,
-        meta: { title: 'Meus pagamentos' },
-      },
-    ],
-  },
+  ...portalRoutes,
+  ...devRoutes,
   {
     path: '/app',
     component: DefaultLayout,

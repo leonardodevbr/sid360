@@ -58,6 +58,15 @@
             <DocumentTextIcon class="mr-2 h-4 w-4" />
             Imprimir Carnê
           </Button>
+          <Button
+            v-if="showCarnePreview && financingInstallments.length"
+            type="button"
+            variant="outline"
+            @click="openCarnePreview"
+          >
+            <EyeIcon class="mr-2 h-4 w-4" />
+            Preview HTML
+          </Button>
         </div>
 
         <div class="mt-5 border-t border-slate-100 pt-5">
@@ -390,11 +399,13 @@ import {
   DocumentArrowDownIcon,
   DocumentCheckIcon,
   DocumentTextIcon,
+  EyeIcon,
   PrinterIcon,
 } from '@heroicons/vue/24/outline';
 
 const saleStatusClass = (status) => saleStatusClassHelper(status);
 const saleStatusLabel = (status) => saleStatusLabelHelper(status);
+const showCarnePreview = import.meta.env.DEV;
 const installStatusClass = (status) => installmentStatusClassHelper(status);
 const installStatusLabel = (status) => installmentStatusLabelHelper(status);
 const installmentTypeLabel = (type) => installmentTypeLabelHelper(type);
@@ -505,6 +516,15 @@ async function handleDownloadCarne() {
   } finally {
     downloadingCarne.value = false;
   }
+}
+
+function openCarnePreview() {
+  const previewRoute = router.resolve({
+    name: 'sales.carne.preview',
+    params: { id: sale.value.id },
+  });
+
+  window.open(previewRoute.href, '_blank');
 }
 
 function openFilePicker() {

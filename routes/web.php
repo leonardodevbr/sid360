@@ -10,7 +10,6 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', fn () => view('site'));
 
 Route::get('/sales/{id}/carne/preview', [SaleController::class, 'carnePreview'])
-    ->middleware('auth:sanctum')
     ->whereNumber('id');
 
 Route::get('/sitemap.xml', function () {
