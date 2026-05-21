@@ -21,11 +21,17 @@ class SendInstallmentReminderJob implements ShouldQueue
 
     public function __construct(
         private readonly Installment $installment,
-        private readonly string $type // 'upcoming' | 'overdue' | 'welcome'
+        private readonly string $type // 'upcoming' | 'overdue'
     ) {}
 
     public function handle(WhatsappService $whatsapp): void
     {
+        $this->installment->refresh();
+
+        if ($this->alreadySent()) {
+            return;
+        }
+
         $sale = $this->installment->sale()->with(['client', 'lot.development'])->first();
         $client = $sale?->client;
 
@@ -79,6 +85,30 @@ class SendInstallmentReminderJob implements ShouldQueue
             return;
         }
 
-        $whatsapp->send($client->phone, $message);
+        if (! $whatsapp->send($client->phone, $message)) {
+            return;
+        }
+
+        $this->installment->update([
+            $this->sentAtColumn() => now(),
+        ]);
+    }
+
+    private function alreadySent(): bool
+    {
+        return match ($this->type) {
+            'upcoming' => $this->installment->whatsapp_reminder_sent_at !== null,
+            'overdue' => $this->installment->whatsapp_overdue_sent_at !== null,
+            default => true,
+        };
+    }
+
+    private function sentAtColumn(): string
+    {
+        return match ($this->type) {
+            'upcoming' => 'whatsapp_reminder_sent_at',
+            'overdue' => 'whatsapp_overdue_sent_at',
+            default => 'whatsapp_reminder_sent_at',
+        };
     }
 }

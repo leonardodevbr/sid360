@@ -27,6 +27,7 @@ class SendInstallmentReminders extends Command
             ->where('status', Installment::STATUS_PENDING)
             ->whereDate('due_date', $upcomingDate)
             ->where('type', '!=', Installment::TYPE_DOWN_PAYMENT)
+            ->whereNull('whatsapp_reminder_sent_at')
             ->with(['sale.client'])
             ->get();
 
@@ -44,6 +45,7 @@ class SendInstallmentReminders extends Command
             ->where('status', Installment::STATUS_PENDING)
             ->whereDate('due_date', $overdueDate)
             ->where('type', '!=', Installment::TYPE_DOWN_PAYMENT)
+            ->whereNull('whatsapp_overdue_sent_at')
             ->with(['sale.client'])
             ->get();
 

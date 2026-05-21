@@ -39,9 +39,18 @@
             <td class="px-4 py-3 text-slate-600">{{ formatDate(sale.sale_date) }}</td>
             <td class="px-4 py-3 text-right font-medium text-slate-800">{{ formatCurrency(sale.total_value) }}</td>
             <td class="px-4 py-3 text-center">
-              <span :class="saleStatusClass(sale.status)" class="rounded-full px-2 py-0.5 text-xs font-semibold">
-                {{ saleStatusLabel(sale.status) }}
-              </span>
+              <div class="flex flex-col items-center gap-1">
+                <span :class="saleStatusClass(sale.status)" class="rounded-full px-2 py-0.5 text-xs font-semibold">
+                  {{ saleStatusLabel(sale.status) }}
+                </span>
+                <span
+                  v-if="sale.has_overdue_installments"
+                  class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700"
+                  :title="`${sale.overdue_installments_count} parcela(s) em atraso`"
+                >
+                  {{ sale.overdue_installments_count }} em atraso
+                </span>
+              </div>
             </td>
             <td class="px-4 py-3 text-right">
               <div class="flex justify-end gap-2">

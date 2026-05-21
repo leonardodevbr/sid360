@@ -34,6 +34,8 @@ class SaleResource extends JsonResource
             'first_due_date' => $this->first_due_date?->toDateString(),
             'payment_day' => $this->payment_day,
             'status' => $this->status,
+            'overdue_installments_count' => (int) ($this->overdue_installments_count ?? 0),
+            'has_overdue_installments' => (int) ($this->overdue_installments_count ?? 0) > 0,
             'notes' => $this->notes,
             'has_signed_contract' => $this->signed_contract_path !== null,
             'signed_contract_original_name' => $this->signed_contract_original_name,

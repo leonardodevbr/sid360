@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -30,6 +31,8 @@ class Installment extends Model
         'value',
         'paid_at',
         'status',
+        'whatsapp_reminder_sent_at',
+        'whatsapp_overdue_sent_at',
     ];
 
     /**
@@ -41,7 +44,20 @@ class Installment extends Model
             'due_date' => 'date',
             'paid_at' => 'date',
             'value' => 'integer',
+            'whatsapp_reminder_sent_at' => 'datetime',
+            'whatsapp_overdue_sent_at' => 'datetime',
         ];
+    }
+
+    /**
+     * @param  Builder<Installment>  $query
+     * @return Builder<Installment>
+     */
+    public function scopeOverdue(Builder $query): Builder
+    {
+        return $query
+            ->where('status', self::STATUS_PENDING)
+            ->whereDate('due_date', '<', now()->toDateString());
     }
 
     /**
