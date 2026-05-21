@@ -1,6 +1,6 @@
 import Swal from 'sweetalert2';
 
-const defaultConfig = {
+export const swalDefaultConfig = {
   buttonsStyling: false,
   customClass: {
     confirmButton: 'px-4 py-2 rounded text-sm font-medium transition-colors text-white ml-2',
@@ -12,23 +12,26 @@ const defaultConfig = {
   allowEscapeKey: true,
 };
 
+const dangerConfirmClass = `${swalDefaultConfig.customClass.confirmButton} swal2-confirm--danger`;
+
 export function useAlert() {
   const confirm = async (
     title,
     text = 'Essa ação não pode ser desfeita.',
     confirmButtonText = 'Sim, excluir',
-    confirmButtonColor = 'red'
   ) => {
     const result = await Swal.fire({
-      ...defaultConfig,
+      ...swalDefaultConfig,
+      customClass: {
+        ...swalDefaultConfig.customClass,
+        confirmButton: dangerConfirmClass,
+      },
       title,
       text,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonText,
       cancelButtonText: 'Cancelar',
-      confirmButtonColor: confirmButtonColor === 'red' ? '#dc2626' : '#2563eb',
-      cancelButtonColor: '#64748b',
       reverseButtons: true,
       focusCancel: true,
     });
@@ -38,34 +41,31 @@ export function useAlert() {
 
   const success = async (title, text = '') => {
     await Swal.fire({
-      ...defaultConfig,
+      ...swalDefaultConfig,
       title,
       text,
       icon: 'success',
       confirmButtonText: 'OK',
-      confirmButtonColor: '#2563eb',
     });
   };
 
   const error = async (title, text = '') => {
     await Swal.fire({
-      ...defaultConfig,
+      ...swalDefaultConfig,
       title,
       text,
       icon: 'error',
       confirmButtonText: 'OK',
-      confirmButtonColor: '#dc2626',
     });
   };
 
   const info = async (title, text = '') => {
     await Swal.fire({
-      ...defaultConfig,
+      ...swalDefaultConfig,
       title,
       text,
       icon: 'info',
       confirmButtonText: 'OK',
-      confirmButtonColor: '#2563eb',
     });
   };
 

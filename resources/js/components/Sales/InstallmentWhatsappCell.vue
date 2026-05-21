@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import Swal from 'sweetalert2';
 import { ChatBubbleLeftRightIcon } from '@heroicons/vue/24/outline';
+import { swalDefaultConfig } from '@/composables/useAlert';
 import { useSettingsStore } from '@/stores/settings';
 import { formatCurrency } from '@/utils/format';
 import {
@@ -86,11 +87,11 @@ function automaticNotificationHtml() {
 async function startManualChat() {
   if (!hasPhone.value) {
     await Swal.fire({
+      ...swalDefaultConfig,
       title: 'Telefone não cadastrado',
       text: 'Este cliente não possui WhatsApp/telefone no cadastro.',
       icon: 'warning',
       confirmButtonText: 'OK',
-      confirmButtonColor: '#1E5F8E',
     });
     return;
   }
@@ -100,6 +101,7 @@ async function startManualChat() {
     : `Parcela ${props.installment.number}`;
 
   const result = await Swal.fire({
+    ...swalDefaultConfig,
     title: 'Iniciar conversa no WhatsApp',
     html: `
       <div class="text-left text-sm text-slate-600 space-y-3">
@@ -114,8 +116,6 @@ async function startManualChat() {
     showCancelButton: true,
     confirmButtonText: 'Abrir WhatsApp',
     cancelButtonText: 'Cancelar',
-    confirmButtonColor: '#1E5F8E',
-    cancelButtonColor: '#64748b',
     reverseButtons: true,
     focusCancel: true,
   });
@@ -136,10 +136,11 @@ async function startManualChat() {
   const url = buildWhatsAppUrl(props.sale.client.phone, message);
   if (!url) {
     await Swal.fire({
+      ...swalDefaultConfig,
       title: 'Número inválido',
       text: 'Não foi possível montar o link do WhatsApp.',
       icon: 'error',
-      confirmButtonColor: '#dc2626',
+      confirmButtonText: 'OK',
     });
     return;
   }
