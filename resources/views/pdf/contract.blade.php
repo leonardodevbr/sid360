@@ -3,33 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
   @page {
-    margin-top: 71pt;
-    margin-bottom: 85pt;
-    margin-left: 0;
-    margin-right: 0;
-  }
-
-  html, body {
-    margin: 0;
-    padding: 0;
+    size: A4 portrait;
+    margin: 71pt 85pt 85pt 85pt;
   }
 
   body {
+    margin: 0;
+    padding: 0;
     font-family: 'Times New Roman', Times, serif;
     font-size: 12pt;
     line-height: 1.65;
     color: #000;
-    padding-left: 85pt;
-    padding-right: 85pt;
   }
 
   .doc-header {
     text-align: center;
-    margin-bottom: 28pt;
-    padding-bottom: 14pt;
+    margin: 0 0 28pt;
+    padding: 0 0 14pt;
     border-bottom: 1pt solid #000;
   }
 
@@ -63,11 +54,12 @@
     text-transform: uppercase;
     letter-spacing: 0.8pt;
     line-height: 1.4;
+    margin: 0;
   }
 
   p {
     text-align: justify;
-    margin-bottom: 12pt;
+    margin: 0 0 12pt;
     text-indent: 0;
   }
 
@@ -79,20 +71,19 @@
     font-weight: bold;
     text-transform: uppercase;
     font-size: 11.5pt;
-    margin-top: 20pt;
-    margin-bottom: 8pt;
+    margin: 20pt 0 8pt;
   }
 
   .sub-title {
     font-weight: bold;
-    margin-top: 14pt;
-    margin-bottom: 6pt;
+    margin: 14pt 0 6pt;
   }
 
   .divider {
     border: none;
     border-top: 1pt solid #000;
     margin: 22pt 0;
+    height: 0;
   }
 
   .local-data {
@@ -104,7 +95,7 @@
   .signatures {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 8pt;
+    margin: 8pt 0 0;
   }
 
   .signatures td {
@@ -137,7 +128,7 @@
   .witnesses {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 36pt;
+    margin: 36pt 0 0;
   }
 
   .witnesses td {

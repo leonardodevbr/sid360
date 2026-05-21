@@ -94,13 +94,17 @@ class SaleController extends Controller
         $pdf = Pdf::loadView('pdf.contract', ['sale' => $sale])
             ->setPaper('a4', 'portrait');
 
-        $pdf->getCanvas()->page_script(function (int $pageNumber, int $pageCount, $canvas, $fontMetrics): void {
+        $pdf->render();
+
+        $fontMetrics = $pdf->getDomPDF()->getFontMetrics();
+        $font = $fontMetrics->getFont('Times-Roman', 'normal');
+
+        $pdf->getCanvas()->page_script(function (int $pageNumber, int $pageCount, $canvas, $fontMetrics) use ($font): void {
             $text = "{$pageNumber}/{$pageCount}";
-            $font = $fontMetrics->getFont('Times-Roman', 'normal');
             $size = 9;
             $width = $fontMetrics->getTextWidth($text, $font, $size);
             $x = ($canvas->get_width() - $width) / 2;
-            $y = $canvas->get_height() - 50;
+            $y = $canvas->get_height() - 55;
 
             $canvas->text($x, $y, $text, $font, $size, [0.35, 0.35, 0.35]);
         });
