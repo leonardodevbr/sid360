@@ -534,10 +534,22 @@
         <CurrencyInput v-model="form.total_value" label="Valor total (tabela) *" />
 
         <div class="rounded-lg border border-slate-200 bg-slate-50/80 p-4 space-y-3">
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Venda à vista</p>
-          <p class="text-xs text-slate-500">
-            Preencha o valor final, o desconto em reais ou em percentual. Qualquer um dos campos ativa a venda à vista.
-          </p>
+          <div class="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Venda à vista</p>
+              <p class="mt-0.5 text-xs text-slate-500">
+                Preencha o valor final, o desconto em reais ou em percentual. Qualquer um dos campos ativa a venda à vista.
+              </p>
+            </div>
+            <button
+              v-if="isCashSale"
+              type="button"
+              class="shrink-0 text-xs font-medium text-[#c23028] hover:text-[#d44840]"
+              @click="clearCashSaleFields"
+            >
+              Limpar venda à vista
+            </button>
+          </div>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <CurrencyInput
               :model-value="form.cash_value"
@@ -1266,6 +1278,21 @@ function onDiscountPercentInput(event) {
   discountEditSource.value = 'percent';
   form.value.discount_percent = event.target.value;
   syncCashDiscountFromDiscountPercent();
+}
+
+function clearCashSaleFields() {
+  discountEditSource.value = null;
+  form.value.cash_value = 0;
+  form.value.discount_amount = 0;
+  form.value.discount_percent = '';
+  if (!form.value.installments_count) {
+    form.value.installments_count = '1';
+  }
+  if (!entradaEditadaManualmente.value) {
+    suggestDownPayment();
+  } else {
+    recalcular();
+  }
 }
 
 const effectiveDownPaymentPercent = computed(() => {
