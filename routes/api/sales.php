@@ -5,8 +5,10 @@ declare(strict_types=1);
 use App\Http\Controllers\InstallmentController;
 use App\Http\Controllers\SaleController;
 use App\Http\Resources\InstallmentInteractionResource;
+use App\Models\Installment;
 use App\Models\InstallmentInteraction;
 use App\Models\Sale;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->group(function (): void {
@@ -20,13 +22,32 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/sales/{id}/signed-contract', [SaleController::class, 'uploadSignedContract']);
     Route::get('/sales/{id}/signed-contract', [SaleController::class, 'signedContract']);
     Route::get('/sales/{id}/installments', [InstallmentController::class, 'bySale']);
-    Route::get('/sales/{id}/interactions', function (string|int $id) {
+    Route::get('/sales/{id}/interactions', function (Request $request, string|int $id) {
         $sale = Sale::query()->findOrFail((int) $id);
         $interactions = InstallmentInteraction::query()
             ->where('sale_id', $sale->id)
+            ->with('installment')
             ->latest()
             ->limit(50)
             ->get();
+
+        $referencedIds = $interactions
+            ->flatMap(function (InstallmentInteraction $interaction): array {
+                return array_merge(
+                    $interaction->installment_id ? [$interaction->installment_id] : [],
+                    is_array($interaction->meta['installment_ids'] ?? null)
+                        ? $interaction->meta['installment_ids']
+                        : [],
+                );
+            })
+            ->unique()
+            ->values()
+            ->all();
+
+        $request->attributes->set(
+            'installments_by_id',
+            Installment::query()->whereIn('id', $referencedIds)->get()->keyBy('id'),
+        );
 
         return InstallmentInteractionResource::collection($interactions);
     });

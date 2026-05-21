@@ -33,11 +33,22 @@ class WhatsappWebhookController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        $data = $request->input('data', []);
-        $from = $data['from'] ?? $data['sender']['id'] ?? null;
-        $body = trim($data['body'] ?? $data['content'] ?? '');
+        $payload = $this->resolvePayload($request);
 
-        if (! $from || $body === '') {
+        if ($request->boolean('fromMe') || ($payload['fromMe'] ?? false)) {
+            return response()->json(['ok' => true]);
+        }
+
+        $from = $payload['from'] ?? $payload['chatId'] ?? $payload['sender']['id'] ?? null;
+        $option = $this->extractOption($payload);
+
+        if (! is_string($from) || $from === '' || $option === '') {
+            Log::info('WhatsApp webhook: ignored message', [
+                'from' => $from,
+                'type' => $payload['type'] ?? null,
+                'option' => $option,
+            ]);
+
             return response()->json(['ok' => true]);
         }
 
@@ -45,33 +56,83 @@ class WhatsappWebhookController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        $phone = preg_replace('/[^0-9]/', '', $from) ?? '';
-
-        $this->processReply($phone, $body);
+        $this->processReply($payload, $from, $option);
 
         return response()->json(['ok' => true]);
     }
 
-    private function processReply(string $phone, string $body): void
+    /**
+     * WPPConnect pode enviar o payload na raiz ou dentro de "data".
+     *
+     * @return array<string, mixed>
+     */
+    private function resolvePayload(Request $request): array
+    {
+        $root = $request->all();
+        $nested = is_array($root['data'] ?? null) ? $root['data'] : [];
+
+        return array_merge($root, $nested);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function extractOption(array $payload): string
+    {
+        $rowId = data_get($payload, 'listResponse.singleSelectReply.selectedRowId')
+            ?? data_get($payload, 'selectedRowId');
+
+        if (is_string($rowId) && $rowId !== '') {
+            return trim($rowId);
+        }
+
+        $body = trim((string) ($payload['body'] ?? $payload['content'] ?? ''));
+
+        if ($body === '') {
+            return '';
+        }
+
+        if (preg_match('/^[1-3]$/', $body)) {
+            return $body;
+        }
+
+        return $this->mapBodyToOption($body);
+    }
+
+    private function mapBodyToOption(string $body): string
+    {
+        $lower = mb_strtolower($body);
+
+        if (str_contains($lower, 'regularizar') || str_contains($lower, 'ciência') || str_contains($lower, 'ciencia')) {
+            return '1';
+        }
+
+        if (str_contains($lower, 'pix') || str_contains($lower, 'boleto')) {
+            return '2';
+        }
+
+        if (str_contains($lower, 'negociar') || str_contains($lower, 'corretor')) {
+            return '3';
+        }
+
+        return $body;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function processReply(array $payload, string $from, string $option): void
     {
         $windowHours = (int) Setting::get('whatsapp_reply_window_hours', 48);
         $since = Carbon::now()->subHours($windowHours);
-        $normalized = $this->normalizePhone($phone);
 
-        $lastOutbound = InstallmentInteraction::query()
-            ->where(function ($query) use ($phone, $normalized): void {
-                $query->where('phone', 'like', "%{$normalized}%")
-                    ->orWhere('phone', $phone);
-            })
-            ->where('direction', InstallmentInteraction::DIR_OUTBOUND)
-            ->where('type', InstallmentInteraction::TYPE_OVERDUE)
-            ->where('created_at', '>=', $since)
-            ->with(['sale.client', 'sale.lot.development', 'installment'])
-            ->latest()
-            ->first();
+        $lastOutbound = $this->findLastOutbound($payload, $from, $since);
 
         if (! $lastOutbound) {
-            Log::info('WhatsApp webhook: no recent outbound for phone', ['phone' => $phone]);
+            Log::info('WhatsApp webhook: no recent outbound for phone', [
+                'from' => $from,
+                'sale_id' => $this->extractSaleIdFromQuoted($payload),
+            ]);
 
             return;
         }
@@ -83,7 +144,8 @@ class WhatsappWebhookController extends Controller
             return;
         }
 
-        $option = trim($body);
+        $bodyText = trim((string) ($payload['body'] ?? $payload['content'] ?? $option));
+        $phone = preg_replace('/[^0-9]/', '', $from) ?? $from;
         $fmt = fn (int $v): string => 'R$ '.number_format($v / 100, 2, ',', '.');
 
         [$type, $replyMessage, $sidNotification] = match ($option) {
@@ -122,8 +184,18 @@ class WhatsappWebhookController extends Controller
             'phone' => $phone,
             'direction' => InstallmentInteraction::DIR_INBOUND,
             'type' => $type,
-            'message' => $body,
-            'meta' => ['option' => $option],
+            'message' => $bodyText,
+            'meta' => [
+                'option' => $option,
+                'from' => $from,
+                'message_type' => $payload['type'] ?? null,
+            ],
+        ]);
+
+        Log::info('WhatsApp webhook: processing reply', [
+            'sale_id' => $sale->id,
+            'option' => $option,
+            'type' => $type,
         ]);
 
         $this->whatsapp->sendAndRecord(
@@ -139,6 +211,63 @@ class WhatsappWebhookController extends Controller
             $sidPhone = (string) Setting::get('whatsapp_sid_phone', '5574988230151');
             $this->whatsapp->send($sidPhone, $sidNotification);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function findLastOutbound(array $payload, string $from, Carbon $since): ?InstallmentInteraction
+    {
+        $query = InstallmentInteraction::query()
+            ->where('direction', InstallmentInteraction::DIR_OUTBOUND)
+            ->where('type', InstallmentInteraction::TYPE_OVERDUE)
+            ->where('created_at', '>=', $since)
+            ->with(['sale.client', 'sale.lot.development', 'installment']);
+
+        $saleId = $this->extractSaleIdFromQuoted($payload);
+
+        if ($saleId !== null) {
+            $bySale = (clone $query)->where('sale_id', $saleId)->latest()->first();
+
+            if ($bySale) {
+                return $bySale;
+            }
+        }
+
+        $digits = preg_replace('/[^0-9]/', '', $from) ?? '';
+
+        if (strlen($digits) >= 10 && strlen($digits) <= 13) {
+            $normalized = $this->normalizePhone($digits);
+
+            return (clone $query)
+                ->where(function ($phoneQuery) use ($digits, $normalized): void {
+                    $phoneQuery->where('phone', 'like', "%{$normalized}%")
+                        ->orWhere('phone', 'like', "%{$digits}%");
+                })
+                ->latest()
+                ->first();
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function extractSaleIdFromQuoted(array $payload): ?int
+    {
+        $description = data_get($payload, 'quotedMsg.list.description')
+            ?? data_get($payload, 'quotedMsg.list.list.description');
+
+        if (! is_string($description)) {
+            return null;
+        }
+
+        if (preg_match('/contrato \*0*(\d+)\/\d+\*/u', $description, $matches)) {
+            return (int) $matches[1];
+        }
+
+        return null;
     }
 
     private function buildBoletoMessage(
@@ -164,23 +293,33 @@ class WhatsappWebhookController extends Controller
         }
 
         $summary = $this->penalty->summarize($overdue);
-        $lines = $this->penalty->formatLinesForMessage($summary);
         $total = $fmt($summary['total_corrected_cents']);
         $payDate = $summary['payment_date']->format('d/m/Y');
 
+        $parcelLines = $overdue->map(function (Installment $inst) use ($fmt, $summary): string {
+            $days = $this->penalty->daysOverdue($inst->due_date, $summary['payment_date']);
+            $corrected = $this->penalty->correctedAmountCents((int) $inst->value, $days);
+            $number = str_pad((string) $inst->number, 2, '0', STR_PAD_LEFT);
+
+            return "• Parcela *{$number}* — *{$fmt($corrected)}*";
+        })->implode("\n");
+
         return implode("\n", [
-            "💰 *{$client->name}*, aqui está o resumo atualizado:",
+            "✅ *{$client->name}*, recebemos seu pedido de pagamento!",
             '',
-            "📋 Contrato: *{$contractNo}*",
-            "🏠 Lote: Q{$sale->lot?->block} · L{$sale->lot?->number}",
+            "Contrato *{$contractNo}* · Q{$sale->lot?->block} · L{$sale->lot?->number}",
             '',
-            $lines,
+            '*Como pagar agora:*',
+            "1️⃣ Acesse: {$portalUrl}",
+            '2️⃣ Entre com seu CPF e escolha PIX ou boleto',
             '',
-            "💰 Total a pagar até *{$payDate}*: *{$total}*",
-            '⚠️ Valor estimado com multa de 2,5% ao mês.',
+            "*Débito em aberto ({$summary['count']} parcela(s)):*",
+            $parcelLines,
             '',
-            'Para pagar via PIX ou ver seu extrato completo:',
-            "🔗 *{$portalUrl}*",
+            "*Total até {$payDate}:* *{$total}*",
+            '_Valores com multa estimada de 2,5% a.m._',
+            '',
+            'Em breve os boletos individuais também estarão disponíveis no portal.',
             '',
             'Dúvidas: (74) 9 8823-0151',
             '_Sid360 Imóveis_',

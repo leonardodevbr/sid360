@@ -24,29 +24,6 @@ class SendOverdueInstallmentsSummaryJob implements ShouldQueue
 
     public int $tries = 2;
 
-    private const OPTIONS_BLOCK = <<<'TEXT'
-
-Responda com o número da opção desejada:
-*1* - Estou ciente, vou regularizar em breve
-*2* - Quero o link para pagar (PIX/boleto atualizado)
-*3* - Preciso negociar / falar com o corretor
-
-_Sid360 Imóveis · (74) 9 8823-0151_
-TEXT;
-
-    private const DEFAULT_TEMPLATE = <<<'TEXT'
-Olá, *{nome}*! ⚠️
-
-Identificamos *{qtd_atrasadas} parcela(s) em atraso* no contrato *{contrato}*:
-
-{parcelas_atrasadas}
-
-💰 Total em aberto: *{valor_total_atraso}*
-💰 Total corrigido (prev. p/ {data_pagamento_prevista}): *{valor_total_corrigido}*
-
-⚠️ Estimativa com multa de 2,5% ao mês (pró-rata por dia).
-TEXT.self::OPTIONS_BLOCK;
-
     public function __construct(private readonly int $saleId) {}
 
     public function handle(WhatsappService $whatsapp, InstallmentPenaltyService $penalty): void
@@ -95,39 +72,51 @@ TEXT.self::OPTIONS_BLOCK;
 
         $summary = $penalty->summarize($overdue);
         $fmt = fn (int $cents): string => 'R$ '.number_format($cents / 100, 2, ',', '.');
-
         $contractNo = str_pad((string) $sale->id, 4, '0', STR_PAD_LEFT)
             .'/'.$sale->sale_date?->format('Y');
 
-        $oldest = $summary['lines'][0] ?? null;
+        $lines = $penalty->formatLinesForMessage($summary);
+        $description = implode("\n", [
+            "⚠️ *{$sale->client->name}*, você tem *{$summary['count']} parcela(s) em atraso* no contrato *{$contractNo}*:",
+            '',
+            $lines,
+            '',
+            "💰 Total em aberto: *{$fmt($summary['total_value_cents'])}*",
+            "💰 Total corrigido (prev. p/ {$summary['payment_date']->format('d/m/Y')}): *{$fmt($summary['total_corrected_cents'])}*",
+            '',
+            '⚠️ Estimativa com multa de 2,5% ao mês (pró-rata por dia).',
+            '',
+            'Escolha uma opção abaixo 👇',
+        ]);
 
-        $vars = [
-            'nome' => $sale->client->name,
-            'contrato' => $contractNo,
-            'lote' => 'Q'.($sale->lot?->block ?? '?').' · L'.($sale->lot?->number ?? '?'),
-            'valor' => $oldest['value_formatted'] ?? $fmt($summary['total_value_cents']),
-            'vencimento' => $oldest['due_date'] ?? '–',
-            'dias_atraso' => (string) $summary['max_days_overdue'],
-            'qtd_atrasadas' => (string) $summary['count'],
-            'parcelas_atrasadas' => $penalty->formatLinesForMessage($summary),
-            'valor_total_atraso' => $fmt($summary['total_value_cents']),
-            'valor_total_corrigido' => $fmt($summary['total_corrected_cents']),
-            'valor_corrigido' => $summary['count'] === 1
-                ? ($oldest['corrected_formatted'] ?? $fmt($summary['total_corrected_cents']))
-                : $fmt($summary['total_corrected_cents']),
-            'data_pagamento_prevista' => $summary['payment_date']->format('d/m/Y'),
+        $sections = [
+            [
+                'title' => 'O que deseja fazer?',
+                'rows' => [
+                    [
+                        'rowId' => '1',
+                        'title' => '✅ Vou regularizar em breve',
+                        'description' => 'Confirmar ciência do débito',
+                    ],
+                    [
+                        'rowId' => '2',
+                        'title' => '💰 Quero PIX/boleto atualizado',
+                        'description' => 'Receber valor corrigido e link de pagamento',
+                    ],
+                    [
+                        'rowId' => '3',
+                        'title' => '🤝 Preciso negociar',
+                        'description' => 'Falar diretamente com o corretor',
+                    ],
+                ],
+            ],
         ];
 
-        $template = $this->resolveTemplate();
-        $message = $whatsapp->interpolate($template, $vars);
-
-        if ($message === '') {
-            return;
-        }
-
-        $sent = $whatsapp->sendAndRecord(
+        $sent = $whatsapp->sendListAndRecord(
             phone: $sale->client->phone,
-            message: $message,
+            description: $description,
+            buttonText: 'Ver opções',
+            sections: $sections,
             type: InstallmentInteraction::TYPE_OVERDUE,
             installmentId: $overdue->first()?->id,
             saleId: $sale->id,
@@ -150,26 +139,5 @@ TEXT.self::OPTIONS_BLOCK;
                 ->whereNull('whatsapp_overdue_sent_at')
                 ->update(['whatsapp_overdue_sent_at' => now()]);
         });
-    }
-
-    private function resolveTemplate(): string
-    {
-        $saved = (string) Setting::get('whatsapp_overdue_message', '');
-
-        if ($saved === '' || ! str_contains($saved, '{parcelas_atrasadas}')) {
-            return self::DEFAULT_TEMPLATE;
-        }
-
-        if (str_contains($saved, '*1*')) {
-            return $saved;
-        }
-
-        $body = preg_replace(
-            '/\n\nPara regularizar:.*$/s',
-            '',
-            rtrim($saved)
-        ) ?? rtrim($saved);
-
-        return $body.self::OPTIONS_BLOCK;
     }
 }

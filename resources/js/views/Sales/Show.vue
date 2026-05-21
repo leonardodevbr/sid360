@@ -333,16 +333,23 @@
             </div>
 
             <div class="min-w-0 flex-1">
-              <div class="flex items-center justify-between gap-2">
-                <p class="text-xs font-semibold text-slate-700">{{ inter.type_label }}</p>
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex min-w-0 flex-wrap items-center gap-2">
+                  <p class="text-xs font-semibold text-slate-700">{{ inter.type_label }}</p>
+                  <span
+                    v-if="inter.installments_label"
+                    class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600"
+                  >
+                    {{ inter.installments_label }}
+                  </span>
+                </div>
                 <p class="shrink-0 text-xs text-slate-400">{{ fmtDate(inter.created_at) }}</p>
               </div>
-              <p
+              <div
                 v-if="inter.message"
-                class="mt-1 line-clamp-3 whitespace-pre-line text-xs text-slate-500"
-              >
-                {{ inter.message }}
-              </p>
+                class="mt-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-600 whitespace-pre-wrap break-words"
+                v-html="formatWhatsappHtml(inter.message)"
+              />
             </div>
           </div>
         </div>
@@ -375,6 +382,7 @@ import {
 import Button from '@/components/Common/Button.vue';
 import InstallmentWhatsappCell from '@/components/Sales/InstallmentWhatsappCell.vue';
 import { installmentDisplayStatus } from '@/utils/whatsapp';
+import { formatWhatsappHtml } from '@/utils/whatsappFormat';
 import {
   ArrowLeftIcon,
   ArrowUpTrayIcon,
