@@ -2129,6 +2129,7 @@ footer {
     <li><a href="#lotes">Loteamento</a></li>
     <li><a href="#localizacao">Localização</a></li>
     <li><a href="#simulador">Simular</a></li>
+    <li><a href="/pagamentos">Meus pagamentos</a></li>
     <li><a href="#contato" class="nav-cta">Falar com Corretor</a></li>
   </ul>
   <div class="nav-mobile-actions">
@@ -2163,6 +2164,7 @@ footer {
     <li><a href="#localizacao">Localização</a></li>
     <li><a href="#simulador">Simular</a></li>
     <li><a href="#imoveis">Tipos de imóveis</a></li>
+    <li><a href="/pagamentos">Meus pagamentos</a></li>
     <li><a href="#contato" class="nav-drawer-cta">Falar com Corretor</a></li>
   </ul>
 </aside>
@@ -2619,6 +2621,7 @@ footer {
       <li><a href="#lotes">Loteamento</a></li>
       <li><a href="#localizacao">Localização</a></li>
       <li><a href="#simulador">Simular</a></li>
+      <li><a href="/pagamentos">Meus pagamentos</a></li>
       <li><a href="#contato">Contato</a></li>
     </ul>
   </div>

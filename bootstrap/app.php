@@ -28,6 +28,10 @@ return Application::configure(basePath: dirname(__DIR__))
             return '/login';
         });
 
+        $middleware->alias([
+            'portal.token' => \App\Http\Middleware\PortalTokenMiddleware::class,
+        ]);
+
         $middleware->group('api', [
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);

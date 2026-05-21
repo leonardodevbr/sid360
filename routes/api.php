@@ -19,6 +19,7 @@ require __DIR__.'/api/dashboard.php';
 require __DIR__.'/api/clients.php';
 require __DIR__.'/api/sales.php';
 require __DIR__.'/api/whatsapp.php';
+require __DIR__.'/api/portal.php';
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/push/subscribe', [PushSubscriptionController::class, 'store']);

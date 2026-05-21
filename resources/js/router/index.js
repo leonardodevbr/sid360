@@ -16,6 +16,8 @@ import UsersIndex from '@/views/Users/Index.vue';
 import UserForm from '@/views/Users/UserForm.vue';
 import SettingsIndex from '@/views/Settings/Index.vue';
 import ProfileIndex from '@/views/Profile/Index.vue';
+import PortalLayout from '@/layouts/PortalLayout.vue';
+import PortalPayments from '@/views/Portal/Payments.vue';
 
 const routes = [
   {
@@ -56,6 +58,18 @@ const routes = [
       },
     ],
     meta: { guestOnly: true },
+  },
+  {
+    path: '/pagamentos',
+    component: PortalLayout,
+    children: [
+      {
+        path: '',
+        name: 'portal.payments',
+        component: PortalPayments,
+        meta: { title: 'Meus pagamentos' },
+      },
+    ],
   },
   {
     path: '/app',
@@ -194,6 +208,11 @@ router.beforeEach((to, from, next) => {
 
   if (to.meta.guestOnly && token) {
     next({ name: 'dashboard' });
+    return;
+  }
+
+  if (to.path.startsWith('/pagamentos')) {
+    next();
     return;
   }
 
