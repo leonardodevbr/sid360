@@ -84,7 +84,7 @@
             >
               <div class="min-w-0">
                 <p class="truncate text-xs font-medium text-slate-800">{{ inst.client }}</p>
-                <p class="text-xs text-slate-400">{{ inst.lote }} · Parcela {{ inst.number }}</p>
+                <p class="text-xs text-slate-400">{{ inst.lote }} · {{ inst.label }}</p>
               </div>
               <div class="ml-3 shrink-0 text-right">
                 <p class="text-xs font-semibold text-red-600">{{ fmt(inst.value) }}</p>
@@ -116,7 +116,7 @@
             >
               <div class="min-w-0">
                 <p class="truncate text-xs font-medium text-slate-800">{{ inst.client }}</p>
-                <p class="text-xs text-slate-400">{{ inst.lote }} · Parcela {{ inst.number }}</p>
+                <p class="text-xs text-slate-400">{{ inst.lote }} · {{ inst.label }}</p>
               </div>
               <div class="ml-3 shrink-0 text-right">
                 <p class="text-xs font-semibold text-amber-700">{{ fmt(inst.value) }}</p>

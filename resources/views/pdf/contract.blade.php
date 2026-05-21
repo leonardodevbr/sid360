@@ -61,6 +61,12 @@
     text-align: justify;
     margin: 0 0 12pt;
     text-indent: 0;
+    orphans: 3;
+    widows: 3;
+  }
+
+  .clause {
+    page-break-inside: avoid;
   }
 
   p.indent {
@@ -228,6 +234,7 @@
 
 <hr class="divider">
 
+<div class="clause">
 <p class="clause-title">Cláusula Primeira — Do Objeto</p>
 
 <p class="indent">
@@ -249,7 +256,9 @@
   autorizado o Sr.º Oficial de Registro competente a efetuar todas as alterações
   necessárias para a devida transferência do domínio.
 </p>
+</div>
 
+<div class="clause">
 <p class="clause-title">Cláusula Segunda — Do Preço e Forma de Pagamento</p>
 
 @if($isCash)
@@ -312,7 +321,9 @@
   título, dos direitos ora adquiridos, sem a prévia e expressa anuência,
   por escrito, do <strong>OUTORGANTE VENDEDOR</strong>.
 </p>
+</div>
 
+<div class="clause">
 <p class="clause-title">Cláusula Terceira — Da Rescisão</p>
 
 <p class="indent">
@@ -324,7 +335,9 @@
   despesas administrativas, retidos pelo <strong>OUTORGANTE VENDEDOR</strong>
   como perdas e danos.
 </p>
+</div>
 
+<div class="clause">
 <p class="clause-title">Cláusula Quarta — Da Transferência</p>
 
 <p class="indent">
@@ -334,7 +347,9 @@
   <strong>OUTORGADO COMPRADOR</strong>, arcando cada parte com as despesas
   que lhe couberem, nos termos da legislação em vigor.
 </p>
+</div>
 
+<div class="clause">
 <p class="clause-title">Cláusula Quinta — Da Irrevogabilidade</p>
 
 <p class="indent">
@@ -344,7 +359,9 @@
   ficou estipulado, valendo o presente como título executivo extrajudicial,
   nos termos do artigo 784 do Código de Processo Civil.
 </p>
+</div>
 
+<div class="clause">
 <p class="clause-title">Cláusula Sexta — Do Foro</p>
 
 <p class="indent">
@@ -352,6 +369,7 @@
   com renúncia expressa a qualquer outro, por mais privilegiado que seja,
   para dirimir quaisquer dúvidas ou litígios oriundos do presente instrumento.
 </p>
+</div>
 
 <p class="local-data">
   Cafarnaum — BA, {{ $saleDate }}.

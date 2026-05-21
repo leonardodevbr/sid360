@@ -105,6 +105,8 @@ class DashboardController extends Controller
                 'value' => (int) $i->value,
                 'client' => $i->sale?->client?->name ?? '–',
                 'lote' => 'Q' . ($i->sale?->lot?->block ?? '?') . ' L' . ($i->sale?->lot?->number ?? '?'),
+                'type' => $i->type,
+                'label' => $i->type === Installment::TYPE_DOWN_PAYMENT ? 'Entrada' : 'Parcela ' . $i->number,
                 'sale_id' => $i->sale_id,
             ]),
             'upcoming_installments' => $upcomingInstallments->map(fn (Installment $i) => [
@@ -114,6 +116,8 @@ class DashboardController extends Controller
                 'value' => (int) $i->value,
                 'client' => $i->sale?->client?->name ?? '–',
                 'lote' => 'Q' . ($i->sale?->lot?->block ?? '?') . ' L' . ($i->sale?->lot?->number ?? '?'),
+                'type' => $i->type,
+                'label' => $i->type === Installment::TYPE_DOWN_PAYMENT ? 'Entrada' : 'Parcela ' . $i->number,
                 'sale_id' => $i->sale_id,
             ]),
             'total_clients' => $totalClients,
