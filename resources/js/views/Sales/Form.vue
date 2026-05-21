@@ -531,17 +531,61 @@
         Valores e Parcelas
       </p>
       <div class="space-y-5">
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <CurrencyInput v-model="form.total_value" label="Valor total *" />
-          <CurrencyInput
-            v-model="form.cash_value"
-            label="Valor à vista"
-            placeholder="Preencha para venda à vista"
-          />
+        <CurrencyInput v-model="form.total_value" label="Valor total (tabela) *" />
+
+        <div class="rounded-lg border border-slate-200 bg-slate-50/80 p-4 space-y-3">
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Venda à vista</p>
+          <p class="text-xs text-slate-500">
+            Preencha o valor final, o desconto em reais ou em percentual. Qualquer um dos campos ativa a venda à vista.
+          </p>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <CurrencyInput
+              :model-value="form.cash_value"
+              label="Valor à vista (final)"
+              placeholder="Valor pago à vista"
+              @update:model-value="onCashValueInput"
+            />
+            <CurrencyInput
+              :model-value="form.discount_amount"
+              label="Desconto (R$)"
+              placeholder="R$ 0,00"
+              @update:model-value="onDiscountAmountInput"
+            />
+            <div class="space-y-1.5">
+              <label class="block text-sm font-medium text-sid-dark">Desconto (%)</label>
+              <input
+                :value="form.discount_percent"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
+                placeholder="Ex.: 10"
+                class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#c23028] focus:outline-none focus:ring-2 focus:ring-[#c23028]/20"
+                @input="onDiscountPercentInput"
+              />
+            </div>
+          </div>
+          <div
+            v-if="isCashSale"
+            class="grid grid-cols-1 gap-2 rounded-lg border border-[#e8dcc8] bg-[#faf5ee] px-3 py-2 text-xs text-[#7a4535] sm:grid-cols-3"
+          >
+            <p>
+              <span class="text-[#a07a28]">Desconto:</span>
+              <span class="font-semibold text-[#1c0a06]">{{ formatCurrency(appliedDiscountAmount) }}</span>
+              <span v-if="appliedDiscountPercent > 0"> ({{ appliedDiscountPercentLabel }})</span>
+            </p>
+            <p>
+              <span class="text-[#a07a28]">Valor a pagar:</span>
+              <span class="font-semibold text-[#1c0a06]">{{ formatCurrency(form.cash_value) }}</span>
+            </p>
+            <p>
+              <span class="text-[#a07a28]">Tabela:</span>
+              <span class="font-semibold text-[#1c0a06]">{{ formatCurrency(form.total_value) }}</span>
+            </p>
+          </div>
         </div>
 
         <p v-if="isCashSale" class="rounded-lg border border-[#e8dcc8] bg-[#faf5ee] px-3 py-2 text-xs text-[#7a4535]">
-          Venda à vista — parcelamento oculto. O valor à vista deve cobrir o total do lote.
+          Venda à vista — parcelamento oculto. O valor à vista é o valor final pago pelo comprador.
         </p>
 
         <div v-if="!isCashSale" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -618,7 +662,12 @@
         <div>
           <p class="text-xs text-[#7a4535]">Pagamento</p>
           <p class="font-medium text-[#1c0a06]">
-            <template v-if="isCashSale">À vista · {{ formatCurrency(form.cash_value) }}</template>
+            <template v-if="isCashSale">
+              À vista · {{ formatCurrency(form.cash_value) }}
+              <span v-if="appliedDiscountAmount > 0" class="text-[#7a4535]">
+                (desc. {{ formatCurrency(appliedDiscountAmount) }})
+              </span>
+            </template>
             <template v-else>{{ form.installments_count }}x {{ formatCurrency(form.installment_value) }}</template>
           </p>
         </div>
@@ -910,6 +959,8 @@ const form = ref({
   sale_date: new Date().toISOString().slice(0, 10),
   total_value: 0,
   cash_value: 0,
+  discount_amount: 0,
+  discount_percent: '',
   down_payment: 0,
   financed_value: 0,
   installments_count: '',
@@ -1115,12 +1166,107 @@ const loteSelecionado = computed(
 );
 
 const entradaEditadaManualmente = ref(false);
+const discountEditSource = ref(null);
 
 const isCashSale = computed(() => {
   const total = Number(form.value.total_value) || 0;
+  if (total <= 0) {
+    return false;
+  }
   const cash = Number(form.value.cash_value) || 0;
-  return total > 0 && cash >= total;
+  const discount = Number(form.value.discount_amount) || 0;
+  const percent = parseDiscountPercent(form.value.discount_percent);
+  return cash > 0 || discount > 0 || percent > 0;
 });
+
+const appliedDiscountAmount = computed(() => {
+  const total = Number(form.value.total_value) || 0;
+  const cash = Number(form.value.cash_value) || 0;
+  if (total <= 0) {
+    return 0;
+  }
+  return Math.max(0, total - cash);
+});
+
+const appliedDiscountPercent = computed(() => {
+  const total = Number(form.value.total_value) || 0;
+  if (total <= 0) {
+    return 0;
+  }
+  return Math.round((appliedDiscountAmount.value / total) * 10000) / 100;
+});
+
+const appliedDiscountPercentLabel = computed(() => {
+  const value = appliedDiscountPercent.value;
+  if (value <= 0) {
+    return '';
+  }
+  return `${String(value).replace('.', ',')}%`;
+});
+
+function parseDiscountPercent(value) {
+  const normalized = String(value ?? '').trim().replace(',', '.');
+  if (!normalized) {
+    return 0;
+  }
+  const parsed = parseFloat(normalized);
+  return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 100) : 0;
+}
+
+function formatDiscountPercentInput(percent) {
+  const rounded = Math.round(percent * 100) / 100;
+  if (rounded <= 0) {
+    return '';
+  }
+  return rounded % 1 === 0 ? String(Math.round(rounded)) : String(rounded).replace('.', ',');
+}
+
+function syncCashDiscountFromCashValue() {
+  const total = Number(form.value.total_value) || 0;
+  let cash = Number(form.value.cash_value) || 0;
+  cash = Math.min(Math.max(0, cash), total);
+  form.value.cash_value = cash;
+  form.value.discount_amount = total - cash;
+  const percent = total > 0 ? (form.value.discount_amount / total) * 100 : 0;
+  form.value.discount_percent = formatDiscountPercentInput(percent);
+}
+
+function syncCashDiscountFromDiscountAmount() {
+  const total = Number(form.value.total_value) || 0;
+  let discount = Number(form.value.discount_amount) || 0;
+  discount = Math.min(Math.max(0, discount), total);
+  form.value.discount_amount = discount;
+  form.value.cash_value = total - discount;
+  const percent = total > 0 ? (discount / total) * 100 : 0;
+  form.value.discount_percent = formatDiscountPercentInput(percent);
+}
+
+function syncCashDiscountFromDiscountPercent() {
+  const total = Number(form.value.total_value) || 0;
+  const percent = parseDiscountPercent(form.value.discount_percent);
+  const discount = Math.round(total * percent / 100);
+  form.value.discount_amount = discount;
+  form.value.cash_value = total - discount;
+  form.value.discount_percent = formatDiscountPercentInput(percent);
+}
+
+function onCashValueInput(value) {
+  discountEditSource.value = 'cash';
+  form.value.cash_value = Number(value) || 0;
+  syncCashDiscountFromCashValue();
+}
+
+function onDiscountAmountInput(value) {
+  discountEditSource.value = 'amount';
+  form.value.discount_amount = Number(value) || 0;
+  syncCashDiscountFromDiscountAmount();
+}
+
+function onDiscountPercentInput(event) {
+  discountEditSource.value = 'percent';
+  form.value.discount_percent = event.target.value;
+  syncCashDiscountFromDiscountPercent();
+}
 
 const effectiveDownPaymentPercent = computed(() => {
   const lot = loteSelecionado.value;
@@ -1185,6 +1331,16 @@ watch(
 watch(
   () => form.value.total_value,
   () => {
+    if (isCashSale.value && discountEditSource.value === 'percent') {
+      syncCashDiscountFromDiscountPercent();
+    } else if (isCashSale.value && discountEditSource.value === 'amount') {
+      syncCashDiscountFromDiscountAmount();
+    } else if (isCashSale.value && discountEditSource.value === 'cash') {
+      syncCashDiscountFromCashValue();
+    } else if (isCashSale.value) {
+      syncCashDiscountFromCashValue();
+    }
+
     if (!entradaEditadaManualmente.value) {
       suggestDownPayment();
     } else {
@@ -1207,12 +1363,6 @@ watch(
   }
 );
 
-watch(isCashSale, (cash) => {
-  if (cash && form.value.total_value > 0) {
-    form.value.cash_value = Number(form.value.total_value);
-  }
-});
-
 let draftDebounce = null;
 
 watch(
@@ -1232,7 +1382,9 @@ const pronto = computed(() => {
     return false;
   }
   if (isCashSale.value) {
-    return Number(form.value.cash_value) >= Number(form.value.total_value);
+    const cash = Number(form.value.cash_value) || 0;
+    const total = Number(form.value.total_value) || 0;
+    return cash > 0 && cash <= total;
   }
   return (
     Number(form.value.installments_count) > 0 &&
@@ -1249,7 +1401,9 @@ async function registrarVenda() {
       lot_id: Number(form.value.lot_id),
       sale_date: form.value.sale_date,
       total_value: Number(form.value.total_value),
-      cash_value: form.value.cash_value > 0 ? Number(form.value.cash_value) : null,
+      cash_value: cash ? Number(form.value.cash_value) : null,
+      discount_amount: cash ? Number(form.value.discount_amount) || 0 : 0,
+      discount_percent: cash && appliedDiscountPercent.value > 0 ? appliedDiscountPercent.value : null,
       down_payment: cash ? 0 : Number(form.value.down_payment),
       financed_value: cash ? 0 : Number(form.value.financed_value),
       installments_count: cash ? 0 : Number(form.value.installments_count),

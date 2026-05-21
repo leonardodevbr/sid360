@@ -131,12 +131,22 @@
           <p class="text-lg font-bold text-slate-800">{{ formatCurrency(sale.down_payment) }}</p>
         </div>
         <div class="card p-4">
-          <p class="text-xs text-slate-500">Parcelas</p>
+          <p class="text-xs text-slate-500">Pagamento</p>
           <p class="text-lg font-bold text-slate-800">
             <template v-if="sale.installments_count > 0">
               {{ sale.installments_count }}x {{ formatCurrency(sale.installment_value) }}
             </template>
+            <template v-else-if="sale.cash_value">
+              À vista · {{ formatCurrency(sale.cash_value) }}
+            </template>
             <template v-else>À vista</template>
+          </p>
+          <p
+            v-if="sale.installments_count < 1 && sale.discount_amount > 0"
+            class="mt-0.5 text-xs text-slate-500"
+          >
+            Desconto {{ formatCurrency(sale.discount_amount) }}
+            <span v-if="sale.discount_percent"> ({{ formatDiscountPercent(sale.discount_percent) }})</span>
           </p>
         </div>
         <div class="card p-4">
@@ -229,6 +239,7 @@ const selectedFileName = ref('');
 const showRegistrationSuccess = computed(() => route.query.registered === '1');
 
 const formatDate = (d) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString('pt-BR') : '—');
+const formatDiscountPercent = (value) => `${String(value).replace('.', ',')}%`;
 const statusLabel = (s) => ({ active: 'Ativo', cancelled: 'Cancelado', completed: 'Concluído' }[s] ?? s);
 const statusClass = (s) => ({ active: 'bg-sid-cream-dark text-secondary-600', cancelled: 'bg-red-100 text-red-700', completed: 'bg-slate-100 text-slate-600' }[s] ?? '');
 const installStatusLabel = (s) => ({ pending: 'Pendente', paid: 'Pago', overdue: 'Atrasado' }[s] ?? s);

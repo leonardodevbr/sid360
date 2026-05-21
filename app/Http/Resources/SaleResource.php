@@ -24,6 +24,8 @@ class SaleResource extends JsonResource
             'sale_date' => $this->sale_date?->toDateString(),
             'total_value' => (int) $this->total_value,
             'cash_value' => $this->cash_value !== null ? (int) $this->cash_value : null,
+            'discount_amount' => (int) $this->discount_amount,
+            'discount_percent' => $this->discount_percent !== null ? (float) $this->discount_percent : null,
             'down_payment' => (int) $this->down_payment,
             'financed_value' => (int) $this->financed_value,
             'installments_count' => $this->installments_count,

@@ -167,19 +167,40 @@
     $saleDate          = \Carbon\Carbon::parse($sale->sale_date)->translatedFormat('d \d\e F \d\e Y');
   @endphp
 
-  <p>
-    O comprador assegura ter ciência do preço
-    @if($cashFormatted)
-      <strong>à vista</strong> de <strong>{{ $cashFormatted }}</strong> e opta pelo
-    @endif
-    pagamento <strong>a prazo</strong> no valor de <strong>{{ $totalFormatted }}</strong>,
-    pagando neste ato de assinatura a importância de <strong>{{ $downFormatted }}</strong>,
-    ficando o saldo devedor de <strong>{{ $financedFormatted }}</strong> a ser dividido em
-    <strong>{{ $sale->installments_count }} ({{ $sale->installments_count_extenso ?? $sale->installments_count }}) parcelas</strong>
-    iguais, mensais e sucessivas no valor de <strong>{{ $installFormatted }}</strong>,
-    vencendo a primeira no dia <strong>{{ $firstDue }}</strong> e as demais nas mesmas datas
-    dos meses subsequentes, devendo ser pagas por meio de <strong>Promissória</strong>.
-  </p>
+  @php
+    $discountFormatted = (int) $sale->discount_amount > 0
+      ? 'R$ ' . number_format((int) $sale->discount_amount / 100, 2, ',', '.')
+      : null;
+    $isCashOnly = (int) $sale->installments_count < 1;
+  @endphp
+
+  @if($isCashOnly && $cashFormatted)
+    <p>
+      O comprador assegura ter ciência do valor de tabela de <strong>{{ $totalFormatted }}</strong>
+      @if($discountFormatted)
+        , com desconto de <strong>{{ $discountFormatted }}</strong>
+        @if($sale->discount_percent)
+          ({{ number_format((float) $sale->discount_percent, 2, ',', '.') }}%)
+        @endif
+      @endif
+      , e efetua o pagamento <strong>à vista</strong> de <strong>{{ $cashFormatted }}</strong>
+      neste ato de assinatura do contrato, em data de <strong>{{ $saleDate }}</strong>.
+    </p>
+  @else
+    <p>
+      O comprador assegura ter ciência do preço
+      @if($cashFormatted)
+        <strong>à vista</strong> de <strong>{{ $cashFormatted }}</strong> e opta pelo
+      @endif
+      pagamento <strong>a prazo</strong> no valor de <strong>{{ $totalFormatted }}</strong>,
+      pagando neste ato de assinatura a importância de <strong>{{ $downFormatted }}</strong>,
+      ficando o saldo devedor de <strong>{{ $financedFormatted }}</strong> a ser dividido em
+      <strong>{{ $sale->installments_count }} ({{ $sale->installments_count_extenso ?? $sale->installments_count }}) parcelas</strong>
+      iguais, mensais e sucessivas no valor de <strong>{{ $installFormatted }}</strong>,
+      vencendo a primeira no dia <strong>{{ $firstDue }}</strong> e as mesmas datas
+      dos meses subsequentes, devendo ser pagas por meio de <strong>Promissória</strong>.
+    </p>
+  @endif
 
   <p class="sub-title">Das Obrigações:</p>
 

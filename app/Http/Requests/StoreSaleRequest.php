@@ -17,10 +17,7 @@ class StoreSaleRequest extends FormRequest
 
     protected function isCashSale(): bool
     {
-        $total = (int) $this->input('total_value', 0);
-        $cash = (int) $this->input('cash_value', 0);
-
-        return $total > 0 && $cash >= $total;
+        return (int) $this->input('installments_count', 0) === 0;
     }
 
     /**
@@ -35,7 +32,14 @@ class StoreSaleRequest extends FormRequest
             'client_id' => ['required', 'integer', 'exists:clients,id'],
             'sale_date' => ['required', 'date'],
             'total_value' => ['required', 'integer', 'min:1'],
-            'cash_value' => ['nullable', 'integer', 'min:0'],
+            'cash_value' => [
+                Rule::requiredIf($cashSale),
+                'nullable',
+                'integer',
+                Rule::when($cashSale, ['min:1', 'lte:total_value'], ['min:0']),
+            ],
+            'discount_amount' => ['nullable', 'integer', 'min:0', 'lte:total_value'],
+            'discount_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'down_payment' => ['required', 'integer', 'min:0'],
             'financed_value' => ['required', 'integer', 'min:0'],
             'installments_count' => [
