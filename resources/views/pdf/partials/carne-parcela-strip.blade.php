@@ -7,7 +7,7 @@
   $totStr = str_pad($sale->installments_count, 2, '0', STR_PAD_LEFT);
   $isPreview = $isPreview ?? false;
   $stripCanhotoFooterPadPt = $stripCanhotoFooterPadPt ?? 118;
-  $stripParcelFooterPadPt = $stripParcelFooterPadPt ?? 88;
+  $stripParcelFooterPadPt = $stripParcelFooterPadPt ?? 76;
 @endphp
 
 <table width="100%" cellspacing="0" cellpadding="0" style="table-layout:fixed;">
@@ -82,7 +82,9 @@
         <table width="100%" cellspacing="0" cellpadding="0" style="border-top:0.5pt solid #e0e0e0;">
           <tr>
             <td style="font-size:5.5pt;color:#aaa;padding-top:1.5mm;">Multa por atraso: 2,5% ao mês · Pagamentos: (74) 9 8823-0151 · sid360.com.br</td>
-            <td align="right" style="padding-top:1.5mm;">
+          </tr>
+          <tr>
+            <td align="right" style="padding-top:2mm;">
               @if($isPaid)
                 <span class="pago-badge">PAGO {{ $fmtDate($inst->paid_at) }}</span>
               @else
@@ -130,11 +132,13 @@
             <table width="100%" cellspacing="0" cellpadding="0" style="border-top:0.5pt solid #e0e0e0;">
               <tr>
                 <td style="font-size:5.5pt;color:#aaa;padding-top:1.5mm;">Multa por atraso: 2,5% ao mês · Pagamentos: (74) 9 8823-0151 · sid360.com.br</td>
-                <td align="right" style="padding-top:1.5mm;">
+              </tr>
+              <tr>
+                <td align="right" style="padding-top:15mm;">
                   @if($isPaid)
                     <span class="pago-badge">PAGO {{ $fmtDate($inst->paid_at) }}</span>
                   @else
-                    <div class="assinatura">Assinatura / Recibo</div>
+                    <div style="border-top:0.5pt solid #888;padding-top:1.5mm;font-size:5.5pt;color:#aaa;text-align:center;">Assinatura / Recibo</div>
                   @endif
                 </td>
               </tr>
