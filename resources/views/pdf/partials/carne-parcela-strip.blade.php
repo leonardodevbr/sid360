@@ -6,6 +6,8 @@
   $numStr = str_pad($inst->number, 2, '0', STR_PAD_LEFT);
   $totStr = str_pad($sale->installments_count, 2, '0', STR_PAD_LEFT);
   $isPreview = $isPreview ?? false;
+  $stripCanhotoFooterPadPt = $stripCanhotoFooterPadPt ?? 118;
+  $stripParcelFooterPadPt = $stripParcelFooterPadPt ?? 88;
 @endphp
 
 <table width="100%" cellspacing="0" cellpadding="0" style="table-layout:fixed;">
@@ -27,16 +29,18 @@
       @else
       <table width="100%" height="{{ $stripH }}" cellspacing="0" cellpadding="0" style="height:{{ $stripHeight }};">
         <tr>
-          <td valign="top" style="position:relative;padding:2.5mm 2.5mm 2.5mm 5%;">
+          <td valign="top" style="padding:2.5mm 2.5mm {{ $stripCanhotoFooterPadPt }}pt 5%;">
             <div class="ct">Recibo do Pagador</div>
             <div style="margin-top:2mm;"><div class="ct">Parcela</div><div class="cv">{{ $numStr }}/{{ $totStr }}</div></div>
             <div style="margin-top:1.5mm;"><div class="ct">Vencimento</div><div class="cv">{{ $due->format('d/m/Y') }}</div></div>
             <div style="margin-top:1.5mm;"><div class="ct">Contrato</div><div class="cv">{{ $contractNo }}</div></div>
             <div style="margin-top:1.5mm;"><div class="ct">Valor</div><div class="cv-big">{{ $fmt($inst->value) }}</div></div>
             <div style="font-size:6.5pt;font-weight:bold;color:#333;border-top:0.3pt solid #e0e0e0;padding-top:2mm;margin-top:3mm;">{{ $buyerNames }}</div>
-            <div style="position:absolute;left:5%;right:2.5mm;bottom:2.5mm;text-align:center;">
-              <div style="border-top:0.5pt solid #888;padding-top:1.5mm;font-size:5.5pt;color:#aaa;display:inline-block;width:95pt;">Autenticação / Recibo</div>
-            </div>
+          </td>
+        </tr>
+        <tr>
+          <td valign="bottom" style="padding:0 2.5mm 2.5mm 5%;">
+            <div style="border-top:0.5pt solid #888;padding-top:1.5mm;font-size:5.5pt;color:#aaa;text-align:center;">Autenticação / Recibo</div>
           </td>
         </tr>
       </table>
@@ -91,7 +95,7 @@
       @else
       <table width="100%" height="{{ $stripH }}" cellspacing="0" cellpadding="0" style="height:{{ $stripHeight }};">
         <tr>
-          <td valign="top" style="position:relative;padding:2.5mm 3.5mm;">
+          <td valign="top" style="padding:2.5mm 3.5mm {{ $stripParcelFooterPadPt }}pt;">
             <table width="100%" cellspacing="0" cellpadding="0" style="border-bottom:1pt solid {{ $capaBlueDark }};margin-bottom:2mm;">
               <tr>
                 <td style="padding-bottom:1.5mm;">
@@ -119,16 +123,18 @@
                 <td colspan="2" valign="top" style="padding-top:2mm;border-top:0.3pt solid #e0e0e0;"><span class="val">{{ $sale->lot->development->name }} · {{ $loteLabel }}</span></td>
               </tr>
             </table>
-            <table width="100%" cellspacing="0" cellpadding="0" style="position:absolute;left:3.5mm;right:3.5mm;bottom:2.5mm;border-top:0.5pt solid #e0e0e0;">
+          </td>
+        </tr>
+        <tr>
+          <td valign="bottom" style="padding:0 3.5mm 2.5mm;">
+            <table width="100%" cellspacing="0" cellpadding="0" style="border-top:0.5pt solid #e0e0e0;">
               <tr>
                 <td style="font-size:5.5pt;color:#aaa;padding-top:1.5mm;">Multa por atraso: 2,5% ao mês · Pagamentos: (74) 9 8823-0151 · sid360.com.br</td>
-              </tr>
-              <tr>
-                <td align="center" style="padding-top:1.5mm;">
+                <td align="right" style="padding-top:1.5mm;">
                   @if($isPaid)
                     <span class="pago-badge">PAGO {{ $fmtDate($inst->paid_at) }}</span>
                   @else
-                    <div class="assinatura" style="margin:0 auto;">Assinatura / Recibo</div>
+                    <div class="assinatura">Assinatura / Recibo</div>
                   @endif
                 </td>
               </tr>

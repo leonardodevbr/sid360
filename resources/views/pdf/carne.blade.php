@@ -156,6 +156,8 @@
   $stripHeight         = '270pt';
   $stripTopbarPt       = 16;
   $stripCapaBodyPt     = $stripH - $stripTopbarPt;
+  $stripCanhotoFooterPadPt = 118;
+  $stripParcelFooterPadPt  = 88;
   $capaBlueDark        = '#1a3d5c';
   $capaBlueLabel    = '#1a4a6e';
   $capaBlueLine     = '#4a7dab';
@@ -435,6 +437,8 @@
           'sale' => $sale,
           'loteLabel' => $loteLabel,
           'capaBlueDark' => $capaBlueDark,
+          'stripCanhotoFooterPadPt' => $stripCanhotoFooterPadPt,
+          'stripParcelFooterPadPt' => $stripParcelFooterPadPt,
           'isPreview' => $isPreview,
         ])
       @else
