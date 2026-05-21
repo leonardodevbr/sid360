@@ -30,10 +30,15 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'portal.token' => \App\Http\Middleware\PortalTokenMiddleware::class,
+            'whatsapp.webhook' => \App\Http\Middleware\WhatsappWebhookKeyMiddleware::class,
         ]);
 
         $middleware->group('api', [
             \Illuminate\Http\Middleware\HandleCors::class,
+        ]);
+
+        $middleware->validateCsrfTokens(except: [
+            'api/whatsapp/webhook',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -156,6 +156,8 @@ const KEY_LABELS = {
   whatsapp_reminder_message: 'Mensagem de lembrete',
   whatsapp_overdue_enabled: 'Enviar aviso de atraso',
   whatsapp_overdue_message: 'Mensagem de aviso de atraso',
+  whatsapp_reply_window_hours: 'Janela de resposta (horas)',
+  whatsapp_sid_phone: 'WhatsApp do corretor (notificações)',
 };
 
 const GROUP_LABELS = {

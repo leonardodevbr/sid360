@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use App\Http\Controllers\InstallmentController;
 use App\Http\Controllers\SaleController;
+use App\Http\Resources\InstallmentInteractionResource;
+use App\Models\InstallmentInteraction;
+use App\Models\Sale;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->group(function (): void {
@@ -17,5 +20,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/sales/{id}/signed-contract', [SaleController::class, 'uploadSignedContract']);
     Route::get('/sales/{id}/signed-contract', [SaleController::class, 'signedContract']);
     Route::get('/sales/{id}/installments', [InstallmentController::class, 'bySale']);
+    Route::get('/sales/{id}/interactions', function (string|int $id) {
+        $sale = Sale::query()->findOrFail((int) $id);
+        $interactions = InstallmentInteraction::query()
+            ->where('sale_id', $sale->id)
+            ->latest()
+            ->limit(50)
+            ->get();
+
+        return InstallmentInteractionResource::collection($interactions);
+    });
     Route::post('/installments/{id}/pay', [InstallmentController::class, 'pay']);
 });

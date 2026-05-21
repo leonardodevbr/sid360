@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\InstallmentInteraction;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -55,6 +56,34 @@ class WhatsappService
 
             return false;
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    public function sendAndRecord(
+        string $phone,
+        string $message,
+        string $type,
+        ?int $installmentId = null,
+        ?int $saleId = null,
+        ?int $clientId = null,
+        array $meta = []
+    ): bool {
+        $sent = $this->send($phone, $message);
+
+        InstallmentInteraction::create([
+            'installment_id' => $installmentId,
+            'sale_id' => $saleId,
+            'client_id' => $clientId,
+            'phone' => $phone,
+            'direction' => InstallmentInteraction::DIR_OUTBOUND,
+            'type' => $type,
+            'message' => $message,
+            'meta' => array_merge($meta, ['sent' => $sent]),
+        ]);
+
+        return $sent;
     }
 
     /**

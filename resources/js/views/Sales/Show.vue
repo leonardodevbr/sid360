@@ -283,6 +283,51 @@
           </tbody>
         </table>
       </div>
+
+      <div class="card mt-4 overflow-hidden">
+        <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+          <p class="text-sm font-semibold text-slate-700">Histórico WhatsApp</p>
+          <span class="text-xs text-slate-400">{{ interactions.length }} registros</span>
+        </div>
+
+        <div v-if="!interactions.length" class="px-4 py-6 text-center text-xs text-slate-400">
+          Nenhuma interação registrada ainda.
+        </div>
+
+        <div v-else class="divide-y divide-slate-50">
+          <div
+            v-for="inter in interactions"
+            :key="inter.id"
+            class="flex items-start gap-3 px-4 py-3"
+          >
+            <div class="mt-0.5 shrink-0">
+              <span
+                v-if="inter.direction === 'outbound'"
+                class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs text-blue-600"
+                title="Sistema enviou"
+              >↗</span>
+              <span
+                v-else
+                class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 text-xs text-emerald-600"
+                title="Cliente respondeu"
+              >↙</span>
+            </div>
+
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center justify-between gap-2">
+                <p class="text-xs font-semibold text-slate-700">{{ inter.type_label }}</p>
+                <p class="shrink-0 text-xs text-slate-400">{{ fmtDate(inter.created_at) }}</p>
+              </div>
+              <p
+                v-if="inter.message"
+                class="mt-1 line-clamp-3 whitespace-pre-line text-xs text-slate-500"
+              >
+                {{ inter.message }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </template>
   </div>
 </template>
@@ -338,6 +383,7 @@ const route = useRoute();
 const router = useRouter();
 const toast = useToast();
 const sale = ref(null);
+const interactions = ref([]);
 const loading = ref(false);
 const printingContract = ref(false);
 const downloadingContract = ref(false);
@@ -364,6 +410,8 @@ function formatDateTime(value) {
   });
 }
 
+const fmtDate = formatDateTime;
+
 async function loadSale() {
   loading.value = true;
   try {
@@ -374,6 +422,15 @@ async function loadSale() {
     router.push({ name: 'sales.index' });
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadInteractions() {
+  try {
+    const { data } = await api.get(`/sales/${route.params.id}/interactions`);
+    interactions.value = data.data ?? data;
+  } catch {
+    interactions.value = [];
   }
 }
 
@@ -485,5 +542,8 @@ async function payInstallment(inst) {
   }
 }
 
-onMounted(() => loadSale());
+onMounted(() => {
+  loadSale();
+  loadInteractions();
+});
 </script>

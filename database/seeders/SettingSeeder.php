@@ -35,6 +35,9 @@ class SettingSeeder extends Seeder
             'string', 'whatsapp'
         );
 
+        Settings::setDefault('whatsapp_reply_window_hours', '48', 'integer', 'whatsapp');
+        Settings::setDefault('whatsapp_sid_phone', '5574988230151', 'string', 'whatsapp');
+
         $this->command->info('Configurações iniciais criadas.');
     }
 }

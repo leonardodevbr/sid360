@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Installment extends Model
 {
@@ -67,6 +68,14 @@ class Installment extends Model
     public function sale(): BelongsTo
     {
         return $this->belongsTo(Sale::class);
+    }
+
+    /**
+     * @return HasMany<InstallmentInteraction, $this>
+     */
+    public function interactions(): HasMany
+    {
+        return $this->hasMany(InstallmentInteraction::class)->latest();
     }
 
     public function lastWhatsappNotificationAt(): ?Carbon

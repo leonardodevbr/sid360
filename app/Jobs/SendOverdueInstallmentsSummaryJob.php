@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\Installment;
+use App\Models\InstallmentInteraction;
 use App\Models\Sale;
 use App\Models\Setting;
 use App\Services\InstallmentPenaltyService;
@@ -35,8 +36,12 @@ Identificamos *{qtd_atrasadas} parcela(s) em atraso* no contrato *{contrato}*:
 
 ⚠️ Estimativa com multa de 2,5% ao mês (pró-rata por dia).
 
-Para regularizar: 📱 (74) 9 8823-0151
-_Sid360 Imóveis_
+Responda com o número da opção desejada:
+*1* - Estou ciente, vou regularizar em breve
+*2* - Quero o link para pagar (PIX/boleto atualizado)
+*3* - Preciso negociar / falar com o corretor
+
+_Sid360 Imóveis · (74) 9 8823-0151_
 TEXT;
 
     public function __construct(private readonly int $saleId) {}
@@ -117,7 +122,22 @@ TEXT;
             return;
         }
 
-        if (! $whatsapp->send($sale->client->phone, $message)) {
+        $sent = $whatsapp->sendAndRecord(
+            phone: $sale->client->phone,
+            message: $message,
+            type: InstallmentInteraction::TYPE_OVERDUE,
+            installmentId: $overdue->first()?->id,
+            saleId: $sale->id,
+            clientId: $sale->client->id,
+            meta: [
+                'installment_ids' => $overdue->pluck('id')->toArray(),
+                'total_value_cents' => $summary['total_value_cents'],
+                'total_corrected_cents' => $summary['total_corrected_cents'],
+                'count' => $summary['count'],
+            ],
+        );
+
+        if (! $sent) {
             return;
         }
 
