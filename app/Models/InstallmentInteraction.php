@@ -52,6 +52,9 @@ class InstallmentInteraction extends Model
     {
         return [
             'meta' => 'array',
+            'installment_id' => 'integer',
+            'sale_id' => 'integer',
+            'client_id' => 'integer',
         ];
     }
 

@@ -177,10 +177,14 @@ class WhatsappWebhookController extends Controller
             ],
         };
 
+        $installmentId = $lastOutbound->installment_id !== null
+            ? (int) $lastOutbound->installment_id
+            : null;
+
         InstallmentInteraction::create([
-            'installment_id' => $lastOutbound->installment_id,
-            'sale_id' => $sale->id,
-            'client_id' => $client->id,
+            'installment_id' => $installmentId,
+            'sale_id' => (int) $sale->id,
+            'client_id' => (int) $client->id,
             'phone' => $phone,
             'direction' => InstallmentInteraction::DIR_INBOUND,
             'type' => $type,
@@ -202,9 +206,9 @@ class WhatsappWebhookController extends Controller
             phone: $client->phone,
             message: $replyMessage,
             type: $type.'_response',
-            installmentId: $lastOutbound->installment_id,
-            saleId: $sale->id,
-            clientId: $client->id,
+            installmentId: $installmentId,
+            saleId: (int) $sale->id,
+            clientId: (int) $client->id,
         );
 
         if ($sidNotification) {

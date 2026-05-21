@@ -118,9 +118,9 @@ class SendOverdueInstallmentsSummaryJob implements ShouldQueue
             buttonText: 'Ver opções',
             sections: $sections,
             type: InstallmentInteraction::TYPE_OVERDUE,
-            installmentId: $overdue->first()?->id,
-            saleId: $sale->id,
-            clientId: $sale->client->id,
+            installmentId: $overdue->first()?->id !== null ? (int) $overdue->first()->id : null,
+            saleId: (int) $sale->id,
+            clientId: (int) $sale->client->id,
             meta: [
                 'installment_ids' => $overdue->pluck('id')->toArray(),
                 'total_value_cents' => $summary['total_value_cents'],
