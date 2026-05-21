@@ -240,10 +240,29 @@
       </div>
 
       <div v-if="financingInstallments.length" class="card overflow-hidden">
-        <div class="border-b border-slate-100 px-4 py-3">
-          <h3 class="text-sm font-semibold text-slate-700">Parcelas</h3>
-        </div>
-        <table class="w-full text-sm">
+        <button
+          type="button"
+          class="flex w-full items-center justify-between border-b border-slate-100 px-4 py-3 text-left hover:bg-slate-50"
+          @click="installmentsExpanded = !installmentsExpanded"
+        >
+          <div class="flex min-w-0 items-center gap-2">
+            <ChevronDownIcon
+              class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200"
+              :class="{ '-rotate-90': !installmentsExpanded }"
+            />
+            <h3 class="text-sm font-semibold text-slate-700">Parcelas</h3>
+            <span
+              v-if="financingOverdueCount > 0"
+              class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700"
+            >
+              {{ financingOverdueCount }} em atraso
+            </span>
+          </div>
+          <span class="shrink-0 text-xs text-slate-400">
+            {{ financingInstallments.length }} parcelas
+          </span>
+        </button>
+        <table v-show="installmentsExpanded" class="w-full text-sm">
           <thead class="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
             <tr>
               <th class="px-4 py-3 text-left">#</th>
@@ -359,6 +378,7 @@ import { installmentDisplayStatus } from '@/utils/whatsapp';
 import {
   ArrowLeftIcon,
   ArrowUpTrayIcon,
+  ChevronDownIcon,
   DocumentArrowDownIcon,
   DocumentCheckIcon,
   DocumentTextIcon,
@@ -378,6 +398,14 @@ const downPaymentInstallments = computed(() =>
 const financingInstallments = computed(() =>
   (sale.value?.installments ?? []).filter((inst) => inst.type !== 'down_payment'),
 );
+
+const financingOverdueCount = computed(() =>
+  financingInstallments.value.filter(
+    (inst) => installmentDisplayStatus(inst) === 'overdue',
+  ).length,
+);
+
+const installmentsExpanded = ref(false);
 
 const route = useRoute();
 const router = useRouter();
