@@ -75,6 +75,13 @@
                   <code class="bg-slate-100 px-1 rounded">{valor_corrigido}</code>
                   <code class="bg-slate-100 px-1 rounded">{data_pagamento_prevista}</code>
                 </template>
+                <template v-else-if="item.key === 'whatsapp_manual_overdue_message'">
+                  <code class="bg-slate-100 px-1 rounded">{nome}</code>
+                  <code class="bg-slate-100 px-1 rounded">{contrato}</code>
+                  <code class="bg-slate-100 px-1 rounded">{parcela}</code>
+                  <code class="bg-slate-100 px-1 rounded">{vencimento}</code>
+                  <code class="bg-slate-100 px-1 rounded">{valor}</code>
+                </template>
                 <template v-else>
                   <code class="bg-slate-100 px-1 rounded">{nome}</code>
                   <code class="bg-slate-100 px-1 rounded">{contrato}</code>
@@ -156,6 +163,7 @@ const KEY_LABELS = {
   whatsapp_reminder_message: 'Mensagem de lembrete',
   whatsapp_overdue_enabled: 'Enviar aviso de atraso',
   whatsapp_overdue_message: 'Mensagem de aviso de atraso',
+  whatsapp_manual_overdue_message: 'Mensagem — contato manual (atraso)',
   whatsapp_reply_window_hours: 'Janela de resposta (horas)',
   whatsapp_sid_phone: 'WhatsApp do corretor (notificações)',
 };

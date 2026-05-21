@@ -87,16 +87,20 @@
 }
 
 .swal2-confirm {
-  background-color: #C23028 !important;
+  background-color: #1E5F8E !important;
   color: #fff !important;
 }
 
 .swal2-confirm:hover {
-  background-color: #D44840 !important;
+  background-color: #1A5280 !important;
 }
 
-.swal2-confirm.swal2-confirm--red {
-  @apply bg-red-600 hover:bg-red-700 focus:ring-red-500;
+.swal2-confirm.swal2-confirm--danger {
+  background-color: #dc2626 !important;
+}
+
+.swal2-confirm.swal2-confirm--danger:hover {
+  background-color: #b91c1c !important;
 }
 
 .swal2-cancel {

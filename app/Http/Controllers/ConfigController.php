@@ -27,6 +27,10 @@ class ConfigController extends Controller
         return response()->json([
             'app_name' => $appName,
             'vapid_public_key' => config('webpush.vapid.public_key') ?: null,
+            'whatsapp_manual_overdue_message' => (string) Settings::get(
+                'whatsapp_manual_overdue_message',
+                ''
+            ),
         ]);
     }
 }

@@ -2,10 +2,12 @@
 import { computed } from 'vue';
 import Swal from 'sweetalert2';
 import { ChatBubbleLeftRightIcon } from '@heroicons/vue/24/outline';
+import { useSettingsStore } from '@/stores/settings';
 import { formatCurrency } from '@/utils/format';
 import {
   buildManualOverdueMessage,
   buildWhatsAppUrl,
+  DEFAULT_MANUAL_OVERDUE_MESSAGE,
   installmentDisplayStatus,
 } from '@/utils/whatsapp';
 
@@ -19,6 +21,13 @@ const props = defineProps({
     required: true,
   },
 });
+
+const settingsStore = useSettingsStore();
+
+const manualMessageTemplate = computed(
+  () => settingsStore.publicConfig?.whatsapp_manual_overdue_message
+    || DEFAULT_MANUAL_OVERDUE_MESSAGE,
+);
 
 const isOverdue = computed(
   () => installmentDisplayStatus(props.installment) === 'overdue',
@@ -97,7 +106,7 @@ async function startManualChat() {
         <p>Antes de abrir o WhatsApp, confira as <strong>notificações automáticas</strong> já enviadas para <strong>${label}</strong>:</p>
         ${automaticNotificationHtml()}
         <p class="text-xs text-slate-500 pt-1 border-t border-slate-100">
-          A mensagem manual é diferente do aviso automático e serve para entender melhor a situação com o cliente.
+          Você será redirecionado para o WhatsApp do cliente.
         </p>
       </div>
     `,
@@ -121,6 +130,7 @@ async function startManualChat() {
     installment: props.installment,
     formatDate,
     formatCurrency,
+    template: manualMessageTemplate.value,
   });
 
   const url = buildWhatsAppUrl(props.sale.client.phone, message);

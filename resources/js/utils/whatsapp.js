@@ -26,24 +26,48 @@ export function installmentDisplayStatus(installment) {
   return installment.status ?? 'pending';
 }
 
-export function buildManualOverdueMessage({ clientName, contractNo, installment, formatDate, formatCurrency }) {
-  const label = installment.type === 'down_payment'
+export const DEFAULT_MANUAL_OVERDUE_MESSAGE = [
+  'Olá, *{nome}*! Tudo bem?',
+  '',
+  'Aqui é da *Sid360 Imóveis*. Estou entrando em contato pessoalmente sobre o pagamento abaixo:',
+  '',
+  'Contrato: *{contrato}*',
+  '{parcela}',
+  'Vencimento: *{vencimento}*',
+  'Valor: *{valor}*',
+  '',
+  'Gostaria de entender se houve alguma dificuldade e como podemos ajudar na regularização.',
+  '',
+  'Aguardo seu retorno.',
+  '_Sid360 Imóveis_',
+].join('\n');
+
+export function interpolateTemplate(template, vars) {
+  let result = template;
+  Object.entries(vars).forEach(([key, value]) => {
+    result = result.split(`{${key}}`).join(String(value ?? ''));
+  });
+
+  return result;
+}
+
+export function buildManualOverdueMessage({
+  clientName,
+  contractNo,
+  installment,
+  formatDate,
+  formatCurrency,
+  template,
+}) {
+  const parcela = installment.type === 'down_payment'
     ? 'Entrada'
     : `Parcela ${installment.number}`;
 
-  return [
-    `Olá, *${clientName}*! Tudo bem?`,
-    '',
-    'Aqui é da *Sid360 Imóveis*. Estou entrando em contato pessoalmente sobre o pagamento abaixo:',
-    '',
-    `📋 Contrato: *${contractNo}*`,
-    `📄 ${label}`,
-    `📅 Vencimento: *${formatDate(installment.due_date)}*`,
-    `💰 Valor: *${formatCurrency(installment.value)}*`,
-    '',
-    'Gostaria de entender se houve alguma dificuldade e como podemos ajudar na regularização.',
-    '',
-    'Aguardo seu retorno.',
-    '_Sid360 Imóveis_',
-  ].join('\n');
+  return interpolateTemplate(template || DEFAULT_MANUAL_OVERDUE_MESSAGE, {
+    nome: clientName,
+    contrato: contractNo,
+    parcela,
+    vencimento: formatDate(installment.due_date),
+    valor: formatCurrency(installment.value),
+  });
 }

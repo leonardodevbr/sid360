@@ -35,6 +35,11 @@ class SettingSeeder extends Seeder
             'string', 'whatsapp'
         );
 
+        Settings::setDefault('whatsapp_manual_overdue_message',
+            "Olá, *{nome}*! Tudo bem?\n\nAqui é da *Sid360 Imóveis*. Estou entrando em contato pessoalmente sobre o pagamento abaixo:\n\nContrato: *{contrato}*\n{parcela}\nVencimento: *{vencimento}*\nValor: *{valor}*\n\nGostaria de entender se houve alguma dificuldade e como podemos ajudar na regularização.\n\nAguardo seu retorno.\n_Sid360 Imóveis_",
+            'string', 'whatsapp'
+        );
+
         Settings::setDefault('whatsapp_reply_window_hours', '48', 'integer', 'whatsapp');
         Settings::setDefault('whatsapp_sid_phone', '5574988230151', 'string', 'whatsapp');
 

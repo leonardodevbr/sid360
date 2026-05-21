@@ -11,6 +11,7 @@ export const useSettingsStore = defineStore('settings', {
       app_name: '',
       vapid_public_key: null,
       municipality: {},
+      whatsapp_manual_overdue_message: '',
     },
     loading: false,
   }),
@@ -32,6 +33,7 @@ export const useSettingsStore = defineStore('settings', {
           app_name: data.app_name || '',
           vapid_public_key: data.vapid_public_key || null,
           municipality: data.municipality || {},
+          whatsapp_manual_overdue_message: data.whatsapp_manual_overdue_message || '',
         };
         return this.publicConfig;
       } catch (error) {
