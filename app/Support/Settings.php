@@ -55,6 +55,20 @@ class Settings
     }
 
     /**
+     * Define valor apenas se a chave ainda não existir (seguro para re-seed).
+     *
+     * @param mixed $value
+     */
+    public static function setDefault(string $key, mixed $value, ?string $type = null, ?string $group = null): void
+    {
+        if (Setting::query()->where('key', $key)->exists()) {
+            return;
+        }
+
+        self::set($key, $value, $type, $group);
+    }
+
+    /**
      * @param mixed $value
      */
     private static function inferType(mixed $value): string

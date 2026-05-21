@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Observers;
 
+use App\Jobs\SendWelcomeWhatsappJob;
 use App\Models\Installment;
 use App\Models\Lot;
 use App\Models\Sale;
@@ -18,6 +19,8 @@ class SaleObserver
         $sale->buyers()->syncWithoutDetaching([
             $sale->client_id => ['role' => 'buyer', 'order' => 0],
         ]);
+
+        SendWelcomeWhatsappJob::dispatch($sale)->delay(now()->addSeconds(30));
 
         if ((int) $sale->down_payment > 0) {
             Installment::query()->create([

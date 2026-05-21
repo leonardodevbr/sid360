@@ -51,6 +51,36 @@
                 Marque os métodos que os usuários podem usar para entrar no sistema. Pelo menos um deve estar ativo.
               </p>
             </div>
+            <div
+              v-else-if="item.key.endsWith('_message')"
+              class="flex-1 max-w-2xl"
+            >
+              <textarea
+                v-model="form[item.key]"
+                rows="6"
+                class="input-base w-full font-mono text-xs"
+                placeholder="Use {nome}, {contrato}, {lote}, {valor}, {vencimento}, {dias}..."
+              />
+              <p class="text-xs text-slate-400 mt-1">
+                Variáveis disponíveis:
+                <code class="bg-slate-100 px-1 rounded">{nome}</code>
+                <code class="bg-slate-100 px-1 rounded">{contrato}</code>
+                <code class="bg-slate-100 px-1 rounded">{lote}</code>
+                <code class="bg-slate-100 px-1 rounded">{valor}</code>
+                <code class="bg-slate-100 px-1 rounded">{vencimento}</code>
+                <code class="bg-slate-100 px-1 rounded">{dias}</code>
+                <code class="bg-slate-100 px-1 rounded">{empreendimento}</code>
+                <code class="bg-slate-100 px-1 rounded">{valor_total}</code>
+                <code class="bg-slate-100 px-1 rounded">{primeira_parcela}</code>
+              </p>
+            </div>
+            <input
+              v-else-if="item.type === 'integer'"
+              v-model.number="form[item.key]"
+              type="number"
+              min="1"
+              class="input-base flex-1 max-w-md"
+            />
             <input
               v-else-if="item.type !== 'boolean'"
               v-model="form[item.key]"
@@ -104,12 +134,21 @@ const KEY_LABELS = {
   municipality_address: 'Endereço',
   municipality_email: 'E-mail',
   municipality_cnpj: 'CNPJ',
+  whatsapp_notifications_enabled: 'Notificações WhatsApp ativas',
+  whatsapp_welcome_enabled: 'Enviar boas-vindas ao cadastrar venda',
+  whatsapp_welcome_message: 'Mensagem de boas-vindas',
+  whatsapp_reminder_enabled: 'Enviar lembrete de vencimento',
+  whatsapp_reminder_days_before: 'Dias de antecedência do lembrete',
+  whatsapp_reminder_message: 'Mensagem de lembrete',
+  whatsapp_overdue_enabled: 'Enviar aviso de atraso',
+  whatsapp_overdue_message: 'Mensagem de aviso de atraso',
 };
 
 const GROUP_LABELS = {
   general: 'Geral',
   auth: 'Login / Autenticação',
   municipality: 'Município',
+  whatsapp: 'WhatsApp — Notificações',
 };
 
 const LOGIN_METHOD_OPTIONS = [
@@ -158,7 +197,11 @@ export default {
               ? s.value.filter((m) => m === 'email' || m === 'username')
               : ['email', 'username'];
           } else {
-            f[s.key] = s.type === 'boolean' ? !!s.value : (s.value ?? '');
+            f[s.key] = s.type === 'boolean'
+              ? !!s.value
+              : s.type === 'integer'
+                ? Number(s.value ?? 0)
+                : (s.value ?? '');
           }
         });
       });
@@ -192,6 +235,8 @@ export default {
                 : ['email', 'username'];
             } else if (type === 'boolean') {
               value = !!value;
+            } else if (type === 'integer') {
+              value = parseInt(value, 10) || 0;
             }
             settingsArray.push({
               key,
