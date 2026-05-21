@@ -24,6 +24,16 @@ class SendOverdueInstallmentsSummaryJob implements ShouldQueue
 
     public int $tries = 2;
 
+    private const OPTIONS_BLOCK = <<<'TEXT'
+
+Responda com o número da opção desejada:
+*1* - Estou ciente, vou regularizar em breve
+*2* - Quero o link para pagar (PIX/boleto atualizado)
+*3* - Preciso negociar / falar com o corretor
+
+_Sid360 Imóveis · (74) 9 8823-0151_
+TEXT;
+
     private const DEFAULT_TEMPLATE = <<<'TEXT'
 Olá, *{nome}*! ⚠️
 
@@ -35,14 +45,7 @@ Identificamos *{qtd_atrasadas} parcela(s) em atraso* no contrato *{contrato}*:
 💰 Total corrigido (prev. p/ {data_pagamento_prevista}): *{valor_total_corrigido}*
 
 ⚠️ Estimativa com multa de 2,5% ao mês (pró-rata por dia).
-
-Responda com o número da opção desejada:
-*1* - Estou ciente, vou regularizar em breve
-*2* - Quero o link para pagar (PIX/boleto atualizado)
-*3* - Preciso negociar / falar com o corretor
-
-_Sid360 Imóveis · (74) 9 8823-0151_
-TEXT;
+TEXT.self::OPTIONS_BLOCK;
 
     public function __construct(private readonly int $saleId) {}
 
@@ -157,6 +160,16 @@ TEXT;
             return self::DEFAULT_TEMPLATE;
         }
 
-        return $saved;
+        if (str_contains($saved, '*1*')) {
+            return $saved;
+        }
+
+        $body = preg_replace(
+            '/\n\nPara regularizar:.*$/s',
+            '',
+            rtrim($saved)
+        ) ?? rtrim($saved);
+
+        return $body.self::OPTIONS_BLOCK;
     }
 }

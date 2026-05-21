@@ -74,6 +74,9 @@
                   <code class="bg-slate-100 px-1 rounded">{valor_total_corrigido}</code>
                   <code class="bg-slate-100 px-1 rounded">{valor_corrigido}</code>
                   <code class="bg-slate-100 px-1 rounded">{data_pagamento_prevista}</code>
+                  <span class="block mt-2 text-slate-500">
+                    Inclua as opções *1*, *2* e *3* no final para o cliente responder via WhatsApp.
+                  </span>
                 </template>
                 <template v-else-if="item.key === 'whatsapp_manual_overdue_message'">
                   <code class="bg-slate-100 px-1 rounded">{nome}</code>
