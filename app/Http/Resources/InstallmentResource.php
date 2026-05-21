@@ -22,7 +22,10 @@ class InstallmentResource extends JsonResource
             'due_date' => $this->due_date?->toDateString(),
             'value' => (int) $this->value,
             'paid_at' => $this->paid_at?->toDateString(),
-            'status' => $this->status,
+            'status' => $this->displayStatus(),
+            'whatsapp_reminder_sent_at' => $this->whatsapp_reminder_sent_at?->toIso8601String(),
+            'whatsapp_overdue_sent_at' => $this->whatsapp_overdue_sent_at?->toIso8601String(),
+            'whatsapp_last_notification_at' => $this->lastWhatsappNotificationAt()?->toIso8601String(),
         ];
     }
 }

@@ -47,7 +47,7 @@ async function handleSubmit() {
   >
     <div class="space-y-1">
       <h2 class="text-lg font-semibold text-sid-dark">Entrar</h2>
-      <p class="text-xs text-sid-secondary">
+      <p class="text-xs text-slate-500">
         Use seu e-mail ou usuário e senha cadastrados para acessar o sistema.
       </p>
     </div>
@@ -81,10 +81,10 @@ async function handleSubmit() {
       </Button>
     </div>
 
-    <p class="text-center text-sm text-sid-secondary">
+    <p class="text-center text-sm">
       <router-link
         :to="{ name: 'forgot-password' }"
-        class="font-medium text-sid-accent hover:text-sid-accent-light hover:underline"
+        class="font-medium text-action hover:text-action-hover hover:underline"
       >
         Esqueci minha senha / Primeiro acesso
       </router-link>

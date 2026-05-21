@@ -12,6 +12,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 
 class SendInstallmentReminderJob implements ShouldQueue
 {
@@ -19,16 +20,35 @@ class SendInstallmentReminderJob implements ShouldQueue
 
     public int $tries = 2;
 
-    public function __construct(
-        private readonly Installment $installment,
-        private readonly string $type // 'upcoming' | 'overdue'
-    ) {}
+    public function __construct(private readonly Installment $installment) {}
 
     public function handle(WhatsappService $whatsapp): void
     {
+        $lock = Cache::lock("whatsapp-reminder-installment-{$this->installment->id}", 120);
+
+        if (! $lock->get()) {
+            return;
+        }
+
+        try {
+            $this->send($whatsapp);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function send(WhatsappService $whatsapp): void
+    {
         $this->installment->refresh();
 
-        if ($this->alreadySent()) {
+        if ($this->installment->whatsapp_reminder_sent_at !== null) {
+            return;
+        }
+
+        if (! Setting::get('whatsapp_notifications_enabled', true)) {
+            return;
+        }
+        if (! Setting::get('whatsapp_reminder_enabled', true)) {
             return;
         }
 
@@ -53,35 +73,14 @@ class SendInstallmentReminderJob implements ShouldQueue
             'dias' => (string) Setting::get('whatsapp_reminder_days_before', '3'),
         ];
 
-        $message = match ($this->type) {
-            'upcoming' => (function () use ($whatsapp, $vars): string {
-                if (! Setting::get('whatsapp_reminder_enabled', true)) {
-                    return '';
-                }
-                $template = (string) Setting::get(
-                    'whatsapp_reminder_message',
-                    "Olá, *{nome}*! Sua parcela vence em {dias} dias.\nContrato: {contrato} · Lote: {lote}\nValor: {valor} · Vencimento: {vencimento}"
-                );
+        $template = (string) Setting::get(
+            'whatsapp_reminder_message',
+            "Olá, *{nome}*! Sua parcela vence em {dias} dias.\nContrato: {contrato} · Lote: {lote}\nValor: {valor} · Vencimento: {vencimento}"
+        );
 
-                return $whatsapp->interpolate($template, $vars);
-            })(),
+        $message = $whatsapp->interpolate($template, $vars);
 
-            'overdue' => (function () use ($whatsapp, $vars): string {
-                if (! Setting::get('whatsapp_overdue_enabled', true)) {
-                    return '';
-                }
-                $template = (string) Setting::get(
-                    'whatsapp_overdue_message',
-                    "Olá, *{nome}*! Parcela em atraso.\nContrato: {contrato} · Valor: {valor}"
-                );
-
-                return $whatsapp->interpolate($template, $vars);
-            })(),
-
-            default => '',
-        };
-
-        if ($message === '' || ! Setting::get('whatsapp_notifications_enabled', true)) {
+        if ($message === '') {
             return;
         }
 
@@ -89,26 +88,6 @@ class SendInstallmentReminderJob implements ShouldQueue
             return;
         }
 
-        $this->installment->update([
-            $this->sentAtColumn() => now(),
-        ]);
-    }
-
-    private function alreadySent(): bool
-    {
-        return match ($this->type) {
-            'upcoming' => $this->installment->whatsapp_reminder_sent_at !== null,
-            'overdue' => $this->installment->whatsapp_overdue_sent_at !== null,
-            default => true,
-        };
-    }
-
-    private function sentAtColumn(): string
-    {
-        return match ($this->type) {
-            'upcoming' => 'whatsapp_reminder_sent_at',
-            'overdue' => 'whatsapp_overdue_sent_at',
-            default => 'whatsapp_reminder_sent_at',
-        };
+        $this->installment->update(['whatsapp_reminder_sent_at' => now()]);
     }
 }

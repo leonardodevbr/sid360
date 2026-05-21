@@ -25,15 +25,22 @@
   }
 
   .doc-header-logo {
-    font-size: 10pt;
-    color: #333;
     margin-bottom: 6pt;
-    letter-spacing: 0.8pt;
-    text-transform: uppercase;
+    text-align: center;
   }
 
-  .doc-header-logo strong {
-    font-size: 13pt;
+  .doc-header-logo img {
+    height: 42pt;
+    width: auto;
+    display: block;
+    margin: 0 auto 4pt;
+  }
+
+  .doc-header-tagline {
+    font-size: 9pt;
+    color: #444;
+    letter-spacing: 0.6pt;
+    text-transform: uppercase;
   }
 
   .doc-number {
@@ -157,6 +164,11 @@
 <body>
 
 @php
+  $brandLogoPath = public_path('img/logo-systema.png');
+  $brandLogoSrc = is_readable($brandLogoPath)
+      ? 'data:image/png;base64,'.base64_encode((string) file_get_contents($brandLogoPath))
+      : null;
+
   $fmt = fn ($v) => 'R$ ' . number_format((int) $v / 100, 2, ',', '.');
   $saleDate = \Carbon\Carbon::parse($sale->sale_date)->translatedFormat('d \d\e F \d\e Y');
   $firstDue = \Carbon\Carbon::parse($sale->first_due_date)->translatedFormat('d \d\e F \d\e Y');
@@ -168,7 +180,10 @@
 
 <div class="doc-header">
   <div class="doc-header-logo">
-    <strong>SID360</strong> — Imóveis Residencial, Comercial e Rural
+    @if($brandLogoSrc)
+      <img src="{{ $brandLogoSrc }}" alt="Sid360">
+    @endif
+    <div class="doc-header-tagline">Imóveis Residencial, Comercial e Rural</div>
   </div>
   <div class="doc-number">Contrato nº {{ $contractNo }} · Emitido em: {{ now()->translatedFormat('d \d\e F \d\e Y') }}</div>
 </div>

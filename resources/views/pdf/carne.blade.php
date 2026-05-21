@@ -26,17 +26,11 @@
     page-break-after: always;
   }
 
-  .cover-logo {
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 28pt;
-    font-weight: 900;
-    letter-spacing: 2pt;
-    color: #1a1a1a;
-    margin-bottom: 3pt;
-  }
-
-  .cover-logo span {
-    color: #7a5c2e;
+  .cover-logo img {
+    height: 52pt;
+    width: auto;
+    display: block;
+    margin: 0 auto 6pt;
   }
 
   .cover-tagline {
@@ -126,12 +120,10 @@
     align-items: center;
   }
 
-  .parcela-header-brand {
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 9pt;
-    font-weight: bold;
-    color: #1a1a1a;
-    letter-spacing: 0.5pt;
+  .parcela-header-brand img {
+    height: 11pt;
+    width: auto;
+    display: block;
   }
 
   .parcela-header-num {
@@ -229,6 +221,12 @@
 
 @php
   use Carbon\Carbon;
+
+  $brandLogoPath = public_path('img/logo-systema.png');
+  $brandLogoSrc = is_readable($brandLogoPath)
+      ? 'data:image/png;base64,'.base64_encode((string) file_get_contents($brandLogoPath))
+      : null;
+
   $fmt = fn($v) => 'R$ ' . number_format((int)$v / 100, 2, ',', '.');
   $fmtDate = fn($d) => Carbon::parse($d)->format('d/m/Y');
   $saleDate   = $fmtDate($sale->sale_date);
@@ -242,7 +240,11 @@
 
 {{-- ── CAPA ──────────────────────────────────────────── --}}
 <div class="cover">
-  <div class="cover-logo">SID<span>360</span></div>
+  <div class="cover-logo">
+    @if($brandLogoSrc)
+      <img src="{{ $brandLogoSrc }}" alt="Sid360">
+    @endif
+  </div>
   <div class="cover-tagline">Imóveis Residencial, Comercial e Rural · Cafarnaum — BA</div>
   <hr class="cover-rule">
   <div class="cover-title">Carnê de Pagamento</div>
@@ -312,7 +314,11 @@
 
   <div class="parcela">
     <div class="parcela-header">
-      <div class="parcela-header-brand">SID360 IMÓVEIS</div>
+      <div class="parcela-header-brand">
+        @if($brandLogoSrc)
+          <img src="{{ $brandLogoSrc }}" alt="Sid360 Imóveis">
+        @endif
+      </div>
       <div class="parcela-header-num">
         PARCELA {{ str_pad($inst->number, 2, '0', STR_PAD_LEFT) }}
         / {{ str_pad($sale->installments_count, 2, '0', STR_PAD_LEFT) }}

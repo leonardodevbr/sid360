@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -45,6 +46,7 @@ class Sale extends Model
         'payment_day',
         'status',
         'notes',
+        'whatsapp_welcome_sent_at',
         'signed_contract_path',
         'signed_contract_original_name',
     ];
@@ -64,6 +66,7 @@ class Sale extends Model
             'down_payment' => 'integer',
             'financed_value' => 'integer',
             'installment_value' => 'integer',
+            'whatsapp_welcome_sent_at' => 'datetime',
         ];
     }
 
@@ -121,5 +124,32 @@ class Sale extends Model
         return $this->hasMany(Installment::class)
             ->where('type', Installment::TYPE_FINANCING)
             ->orderBy('number');
+    }
+
+    public function lastWhatsappNotificationAt(): ?Carbon
+    {
+        $dates = collect([$this->whatsapp_welcome_sent_at]);
+
+        if ($this->latest_whatsapp_reminder_at ?? null) {
+            $dates->push(Carbon::parse($this->latest_whatsapp_reminder_at));
+        }
+
+        if ($this->latest_whatsapp_overdue_at ?? null) {
+            $dates->push(Carbon::parse($this->latest_whatsapp_overdue_at));
+        }
+
+        if ($this->relationLoaded('installments')) {
+            foreach ($this->installments as $installment) {
+                $dates->push(
+                    $installment->whatsapp_reminder_sent_at,
+                    $installment->whatsapp_overdue_sent_at,
+                );
+            }
+        }
+
+        /** @var Carbon|null $latest */
+        $latest = $dates->filter()->sort()->last();
+
+        return $latest instanceof Carbon ? $latest : null;
     }
 }

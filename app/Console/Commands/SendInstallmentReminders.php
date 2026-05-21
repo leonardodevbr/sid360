@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Jobs\SendInstallmentReminderJob;
+use App\Jobs\SendOverdueInstallmentsSummaryJob;
 use App\Models\Installment;
 use App\Models\Setting;
 use Carbon\Carbon;
@@ -33,29 +34,25 @@ class SendInstallmentReminders extends Command
 
         foreach ($upcoming as $installment) {
             if ($installment->sale?->client?->phone) {
-                SendInstallmentReminderJob::dispatch($installment, 'upcoming');
+                SendInstallmentReminderJob::dispatchSync($installment);
             }
         }
 
         $this->info("Lembretes de vencimento: {$upcoming->count()} enviados.");
 
-        $overdueDate = $today->copy()->subDay();
-
-        $overdue = Installment::query()
-            ->where('status', Installment::STATUS_PENDING)
-            ->whereDate('due_date', $overdueDate)
+        $overdueSaleIds = Installment::query()
+            ->overdue()
             ->where('type', '!=', Installment::TYPE_DOWN_PAYMENT)
             ->whereNull('whatsapp_overdue_sent_at')
-            ->with(['sale.client'])
-            ->get();
+            ->whereHas('sale.client', fn ($q) => $q->whereNotNull('phone')->where('phone', '!=', ''))
+            ->distinct()
+            ->pluck('sale_id');
 
-        foreach ($overdue as $installment) {
-            if ($installment->sale?->client?->phone) {
-                SendInstallmentReminderJob::dispatch($installment, 'overdue');
-            }
+        foreach ($overdueSaleIds as $saleId) {
+            SendOverdueInstallmentsSummaryJob::dispatchSync((int) $saleId);
         }
 
-        $this->info("Avisos de atraso: {$overdue->count()} enviados.");
+        $this->info("Avisos de atraso: {$overdueSaleIds->count()} contrato(s) enfileirado(s).");
 
         return self::SUCCESS;
     }

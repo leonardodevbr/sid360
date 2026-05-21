@@ -63,15 +63,29 @@
               />
               <p class="text-xs text-slate-400 mt-1">
                 Variáveis disponíveis:
-                <code class="bg-slate-100 px-1 rounded">{nome}</code>
-                <code class="bg-slate-100 px-1 rounded">{contrato}</code>
-                <code class="bg-slate-100 px-1 rounded">{lote}</code>
-                <code class="bg-slate-100 px-1 rounded">{valor}</code>
-                <code class="bg-slate-100 px-1 rounded">{vencimento}</code>
-                <code class="bg-slate-100 px-1 rounded">{dias}</code>
-                <code class="bg-slate-100 px-1 rounded">{empreendimento}</code>
-                <code class="bg-slate-100 px-1 rounded">{valor_total}</code>
-                <code class="bg-slate-100 px-1 rounded">{primeira_parcela}</code>
+                <template v-if="item.key === 'whatsapp_overdue_message'">
+                  <code class="bg-slate-100 px-1 rounded">{nome}</code>
+                  <code class="bg-slate-100 px-1 rounded">{contrato}</code>
+                  <code class="bg-slate-100 px-1 rounded">{lote}</code>
+                  <code class="bg-slate-100 px-1 rounded">{qtd_atrasadas}</code>
+                  <code class="bg-slate-100 px-1 rounded">{parcelas_atrasadas}</code>
+                  <code class="bg-slate-100 px-1 rounded">{dias_atraso}</code>
+                  <code class="bg-slate-100 px-1 rounded">{valor_total_atraso}</code>
+                  <code class="bg-slate-100 px-1 rounded">{valor_total_corrigido}</code>
+                  <code class="bg-slate-100 px-1 rounded">{valor_corrigido}</code>
+                  <code class="bg-slate-100 px-1 rounded">{data_pagamento_prevista}</code>
+                </template>
+                <template v-else>
+                  <code class="bg-slate-100 px-1 rounded">{nome}</code>
+                  <code class="bg-slate-100 px-1 rounded">{contrato}</code>
+                  <code class="bg-slate-100 px-1 rounded">{lote}</code>
+                  <code class="bg-slate-100 px-1 rounded">{valor}</code>
+                  <code class="bg-slate-100 px-1 rounded">{vencimento}</code>
+                  <code class="bg-slate-100 px-1 rounded">{dias}</code>
+                  <code class="bg-slate-100 px-1 rounded">{empreendimento}</code>
+                  <code class="bg-slate-100 px-1 rounded">{valor_total}</code>
+                  <code class="bg-slate-100 px-1 rounded">{primeira_parcela}</code>
+                </template>
               </p>
             </div>
             <input

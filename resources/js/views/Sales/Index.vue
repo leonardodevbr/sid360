@@ -19,16 +19,18 @@
             <th class="px-4 py-3 text-left">Lote</th>
             <th class="px-4 py-3 text-left">Data</th>
             <th class="px-4 py-3 text-right">Valor Total</th>
+            <th class="px-4 py-3 text-center">Parcelas</th>
+            <th class="px-4 py-3 text-center">WhatsApp</th>
             <th class="px-4 py-3 text-center">Status</th>
             <th class="px-4 py-3 text-right">Ações</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
           <tr v-if="loading">
-            <td colspan="7" class="px-4 py-8 text-center text-slate-400">Carregando...</td>
+            <td colspan="9" class="px-4 py-8 text-center text-slate-400">Carregando...</td>
           </tr>
           <tr v-else-if="!sales.length">
-            <td colspan="7" class="px-4 py-8 text-center text-slate-400">Nenhuma venda encontrada.</td>
+            <td colspan="9" class="px-4 py-8 text-center text-slate-400">Nenhuma venda encontrada.</td>
           </tr>
           <tr v-for="sale in sales" :key="sale.id" class="hover:bg-slate-50">
             <td class="px-4 py-3 text-slate-400">#{{ sale.id }}</td>
@@ -39,18 +41,37 @@
             <td class="px-4 py-3 text-slate-600">{{ formatDate(sale.sale_date) }}</td>
             <td class="px-4 py-3 text-right font-medium text-slate-800">{{ formatCurrency(sale.total_value) }}</td>
             <td class="px-4 py-3 text-center">
-              <div class="flex flex-col items-center gap-1">
-                <span :class="saleStatusClass(sale.status)" class="rounded-full px-2 py-0.5 text-xs font-semibold">
-                  {{ saleStatusLabel(sale.status) }}
-                </span>
-                <span
-                  v-if="sale.has_overdue_installments"
-                  class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700"
-                  :title="`${sale.overdue_installments_count} parcela(s) em atraso`"
+              <template v-if="sale.installments_count > 0">
+                <p
+                  class="tabular-nums text-slate-700"
+                  :title="`${sale.paid_installments_count} de ${sale.installments_count} parcelas pagas`"
                 >
-                  {{ sale.overdue_installments_count }} em atraso
-                </span>
+                  {{ sale.paid_installments_count }}/{{ sale.installments_count }}
+                  <span
+                    v-if="sale.has_overdue_installments"
+                    class="text-xs font-normal text-amber-700"
+                  >
+                    · {{ sale.overdue_installments_count }} atraso
+                  </span>
+                </p>
+              </template>
+              <span v-else class="text-xs text-slate-400">À vista</span>
+            </td>
+            <td class="px-4 py-3 text-center">
+              <div
+                class="text-xs leading-relaxed"
+                :title="whatsappTooltip(sale)"
+              >
+                <template v-if="sale.whatsapp_last_notification_at">
+                  <p class="text-slate-600">{{ formatDateTime(sale.whatsapp_last_notification_at) }}</p>
+                </template>
+                <span v-else class="text-slate-400">Não enviado</span>
               </div>
+            </td>
+            <td class="px-4 py-3 text-center">
+              <span :class="saleStatusClass(sale.status)" class="rounded-full px-2 py-0.5 text-xs font-semibold">
+                {{ saleStatusLabel(sale.status) }}
+              </span>
             </td>
             <td class="px-4 py-3 text-right">
               <div class="flex justify-end gap-2">
@@ -95,6 +116,28 @@ const pagination = ref(null);
 const loading = ref(false);
 
 const formatDate = (d) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString('pt-BR') : '—');
+
+function formatDateTime(value) {
+  if (!value) return '—';
+  return new Date(value).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function whatsappTooltip(sale) {
+  const parts = [];
+  if (sale.whatsapp_welcome_sent_at) {
+    parts.push(`Boas-vindas: ${formatDateTime(sale.whatsapp_welcome_sent_at)}`);
+  }
+  if (sale.whatsapp_last_notification_at) {
+    parts.push(`Última notificação: ${formatDateTime(sale.whatsapp_last_notification_at)}`);
+  }
+  return parts.length ? parts.join('\n') : 'Nenhuma notificação WhatsApp enviada';
+}
 
 async function fetchSales(page = 1) {
   loading.value = true;

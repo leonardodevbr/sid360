@@ -129,6 +129,24 @@
             @change="onFileSelected"
           />
         </div>
+
+        <div class="mt-5 border-t border-slate-100 pt-5">
+          <p class="mb-3 text-sm font-medium text-slate-700">Notificações WhatsApp</p>
+          <dl class="grid gap-3 sm:grid-cols-2">
+            <div>
+              <dt class="text-xs text-slate-500">Boas-vindas</dt>
+              <dd class="mt-0.5 text-sm text-slate-800">
+                {{ sale.whatsapp_welcome_sent_at ? formatDateTime(sale.whatsapp_welcome_sent_at) : 'Não enviada' }}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-xs text-slate-500">Última notificação</dt>
+              <dd class="mt-0.5 text-sm text-slate-800">
+                {{ sale.whatsapp_last_notification_at ? formatDateTime(sale.whatsapp_last_notification_at) : '—' }}
+              </dd>
+            </div>
+          </dl>
+        </div>
       </div>
 
       <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -182,6 +200,7 @@
               <th class="px-4 py-3 text-right">Valor</th>
               <th class="px-4 py-3 text-center">Status</th>
               <th class="px-4 py-3 text-center">Pago em</th>
+              <th class="px-4 py-3 text-left">WhatsApp</th>
               <th class="px-4 py-3 text-right">Ação</th>
             </tr>
           </thead>
@@ -197,16 +216,19 @@
               <td class="px-4 py-3 text-slate-700">{{ formatDate(inst.due_date) }}</td>
               <td class="px-4 py-3 text-right font-medium text-slate-800">{{ formatCurrency(inst.value) }}</td>
               <td class="px-4 py-3 text-center">
-                <span :class="installStatusClass(inst.status)" class="rounded-full px-2 py-0.5 text-xs font-semibold">
-                  {{ installStatusLabel(inst.status) }}
+                <span :class="installStatusClass(installmentDisplayStatus(inst))" class="rounded-full px-2 py-0.5 text-xs font-semibold">
+                  {{ installStatusLabel(installmentDisplayStatus(inst)) }}
                 </span>
               </td>
               <td class="px-4 py-3 text-center text-slate-500">{{ inst.paid_at ? formatDate(inst.paid_at) : '—' }}</td>
+              <td class="px-4 py-3 text-left text-xs">
+                <InstallmentWhatsappCell :installment="inst" :sale="sale" />
+              </td>
               <td class="px-4 py-3 text-right">
                 <button
                   v-if="inst.status !== 'paid'"
                   type="button"
-                  class="rounded px-2 py-1 text-xs font-medium text-sid-accent hover:bg-primary-50"
+                  class="rounded px-2 py-1 text-xs font-medium text-action hover:text-action-hover hover:underline"
                   @click="payInstallment(inst)"
                 >
                   Marcar pago
@@ -229,6 +251,7 @@
               <th class="px-4 py-3 text-right">Valor</th>
               <th class="px-4 py-3 text-center">Status</th>
               <th class="px-4 py-3 text-center">Pago em</th>
+              <th class="px-4 py-3 text-left">WhatsApp</th>
               <th class="px-4 py-3 text-right">Ação</th>
             </tr>
           </thead>
@@ -238,16 +261,19 @@
               <td class="px-4 py-3 text-slate-700">{{ formatDate(inst.due_date) }}</td>
               <td class="px-4 py-3 text-right font-medium text-slate-800">{{ formatCurrency(inst.value) }}</td>
               <td class="px-4 py-3 text-center">
-                <span :class="installStatusClass(inst.status)" class="rounded-full px-2 py-0.5 text-xs font-semibold">
-                  {{ installStatusLabel(inst.status) }}
+                <span :class="installStatusClass(installmentDisplayStatus(inst))" class="rounded-full px-2 py-0.5 text-xs font-semibold">
+                  {{ installStatusLabel(installmentDisplayStatus(inst)) }}
                 </span>
               </td>
               <td class="px-4 py-3 text-center text-slate-500">{{ inst.paid_at ? formatDate(inst.paid_at) : '—' }}</td>
+              <td class="px-4 py-3 text-left text-xs">
+                <InstallmentWhatsappCell :installment="inst" :sale="sale" />
+              </td>
               <td class="px-4 py-3 text-right">
                 <button
                   v-if="inst.status !== 'paid'"
                   type="button"
-                  class="rounded px-2 py-1 text-xs font-medium text-sid-accent hover:bg-primary-50"
+                  class="rounded px-2 py-1 text-xs font-medium text-action hover:text-action-hover hover:underline"
                   @click="payInstallment(inst)"
                 >
                   Marcar pago
@@ -283,6 +309,8 @@ import {
   saleStatusLabel as saleStatusLabelHelper,
 } from '@/utils/status';
 import Button from '@/components/Common/Button.vue';
+import InstallmentWhatsappCell from '@/components/Sales/InstallmentWhatsappCell.vue';
+import { installmentDisplayStatus } from '@/utils/whatsapp';
 import {
   ArrowLeftIcon,
   ArrowUpTrayIcon,
@@ -324,6 +352,17 @@ const showRegistrationSuccess = computed(() => route.query.registered === '1');
 
 const formatDate = (d) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString('pt-BR') : '—');
 const formatDiscountPercent = (value) => `${String(value).replace('.', ',')}%`;
+
+function formatDateTime(value) {
+  if (!value) return '—';
+  return new Date(value).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 async function loadSale() {
   loading.value = true;

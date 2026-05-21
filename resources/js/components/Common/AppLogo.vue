@@ -31,7 +31,7 @@ const appName = computed(() => {
 <template>
   <div class="inline-flex items-center gap-3">
     <img
-      src="/img/logo-full-bg.png"
+      src="/img/logo-systema.png"
       :alt="appName"
       :class="[heightClass, 'w-auto max-w-[240px] shrink-0 object-contain']"
     />

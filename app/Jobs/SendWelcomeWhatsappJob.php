@@ -12,6 +12,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 
 class SendWelcomeWhatsappJob implements ShouldQueue
 {
@@ -23,6 +24,27 @@ class SendWelcomeWhatsappJob implements ShouldQueue
 
     public function handle(WhatsappService $whatsapp): void
     {
+        $lock = Cache::lock("whatsapp-welcome-sale-{$this->sale->id}", 120);
+
+        if (! $lock->get()) {
+            return;
+        }
+
+        try {
+            $this->send($whatsapp);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function send(WhatsappService $whatsapp): void
+    {
+        $this->sale->refresh();
+
+        if ($this->sale->whatsapp_welcome_sent_at !== null) {
+            return;
+        }
+
         if (! Setting::get('whatsapp_notifications_enabled', true)) {
             return;
         }
@@ -46,6 +68,8 @@ class SendWelcomeWhatsappJob implements ShouldQueue
             "Olá, *{nome}*! 🎉\nSua compra foi registrada!\nContrato: {contrato} · Lote: {lote}\nValor: {valor_total} · 1ª parcela: {primeira_parcela}"
         );
 
+        $sentAny = false;
+
         foreach ($allBuyers as $buyer) {
             if (! $buyer->phone) {
                 continue;
@@ -61,7 +85,14 @@ class SendWelcomeWhatsappJob implements ShouldQueue
             ];
 
             $message = $whatsapp->interpolate($template, $vars);
-            $whatsapp->send($buyer->phone, $message);
+
+            if ($whatsapp->send($buyer->phone, $message)) {
+                $sentAny = true;
+            }
+        }
+
+        if ($sentAny) {
+            $this->sale->update(['whatsapp_welcome_sent_at' => now()]);
         }
     }
 }

@@ -31,7 +31,7 @@ class SettingSeeder extends Seeder
 
         Settings::setDefault('whatsapp_overdue_enabled', '1', 'boolean', 'whatsapp');
         Settings::setDefault('whatsapp_overdue_message',
-            "Olá, *{nome}*! ⚠️\n\nIdentificamos uma parcela em *atraso* em seu contrato:\n\n📋 Contrato: *{contrato}*\n🏠 Lote: *{lote}*\n💰 Valor: *{valor}*\n📅 Vencimento: *{vencimento}*\n\n⚠️ Após o vencimento incide multa de *2,5% ao mês*.\n\nPara regularizar: 📱 (74) 9 8823-0151\n_Sid360 Imóveis_",
+            "Olá, *{nome}*! ⚠️\n\nIdentificamos *{qtd_atrasadas} parcela(s) em atraso* no contrato *{contrato}*:\n\n{parcelas_atrasadas}\n\n💰 Total em aberto: *{valor_total_atraso}*\n💰 Total corrigido (prev. p/ {data_pagamento_prevista}): *{valor_total_corrigido}*\n\n⚠️ Estimativa com multa de 2,5% ao mês (pró-rata por dia).\n\nPara regularizar: 📱 (74) 9 8823-0151\n_Sid360 Imóveis_",
             'string', 'whatsapp'
         );
 
