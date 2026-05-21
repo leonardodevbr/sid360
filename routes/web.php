@@ -1,6 +1,6 @@
-
 <?php
 
+use App\Http\Controllers\SaleController;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -8,6 +8,10 @@ use Illuminate\Support\Facades\Route;
  * GET / serve o site estático; demais rotas carregam a SPA Vue.
  */
 Route::get('/', fn () => view('site'));
+
+Route::get('/sales/{id}/carne/preview', [SaleController::class, 'carnePreview'])
+    ->middleware('auth:sanctum')
+    ->whereNumber('id');
 
 Route::get('/sitemap.xml', function () {
     $content = '<?xml version="1.0" encoding="UTF-8"?>

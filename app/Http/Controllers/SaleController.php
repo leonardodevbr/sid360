@@ -19,6 +19,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -116,6 +117,25 @@ class SaleController extends Controller
     {
         $this->authorize('sales.view');
 
+        $sale = $this->findSaleForCarne($id);
+
+        $pdf = Pdf::loadView('pdf.carne', ['sale' => $sale])
+            ->setPaper('a4', 'portrait');
+
+        return $pdf->download("carne-venda-{$sale->id}.pdf");
+    }
+
+    public function carnePreview(string|int $id): View
+    {
+        $this->authorize('sales.view');
+
+        $sale = $this->findSaleForCarne($id);
+
+        return view('pdf.carne', ['sale' => $sale]);
+    }
+
+    private function findSaleForCarne(string|int $id): Sale
+    {
         $sale = Sale::query()
             ->with([
                 'client',
@@ -131,10 +151,7 @@ class SaleController extends Controller
 
         $sale->setRelation('installments', $sale->financingInstallments);
 
-        $pdf = Pdf::loadView('pdf.carne', ['sale' => $sale])
-            ->setPaper('a4', 'portrait');
-
-        return $pdf->download("carne-venda-{$sale->id}.pdf");
+        return $sale;
     }
 
     public function uploadSignedContract(

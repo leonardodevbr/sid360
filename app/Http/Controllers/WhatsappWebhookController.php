@@ -147,11 +147,13 @@ class WhatsappWebhookController extends Controller
         $bodyText = trim((string) ($payload['body'] ?? $payload['content'] ?? $option));
         $phone = preg_replace('/[^0-9]/', '', $from) ?? $from;
         $fmt = fn (int $v): string => 'R$ '.number_format($v / 100, 2, ',', '.');
+        $sidWaMe = $this->sidWaMeLink();
+        $sidDisplay = $this->sidPhoneDisplay();
 
         [$type, $replyMessage, $sidNotification] = match ($option) {
             '1' => [
                 InstallmentInteraction::TYPE_REPLY_ACKNOWLEDGE,
-                "✅ Olá, *{$client->name}*! Recebemos sua confirmação.\n\nFique tranquilo(a), assim que o pagamento for realizado atualizaremos seu cadastro.\n\nQualquer dúvida: (74) 9 8823-0151\n_Sid360 Imóveis_",
+                "✅ Olá, *{$client->name}*! Recebemos sua confirmação.\n\nFique tranquilo(a), assim que o pagamento for realizado atualizaremos seu cadastro.\n\nQualquer dúvida: {$sidDisplay}\n_Sid360 Imóveis_",
                 "📬 *{$client->name}* confirmou que vai regularizar o contrato ".
                 str_pad((string) $sale->id, 4, '0', STR_PAD_LEFT).'/'.$sale->sale_date?->format('Y').".\n".
                 "Lote: Q{$sale->lot?->block} · L{$sale->lot?->number}\nFone: {$client->phone}",
@@ -165,14 +167,14 @@ class WhatsappWebhookController extends Controller
             ],
             '3' => [
                 InstallmentInteraction::TYPE_REPLY_NEGOTIATE,
-                "📞 Olá, *{$client->name}*! O corretor Sid foi notificado e entrará em contato em breve.\n\nOu se preferir, chame diretamente:\n📱 *wa.me/5574988230151*\n_Sid360 Imóveis_",
+                "📞 Olá, *{$client->name}*! O corretor Sid foi notificado e entrará em contato em breve.\n\nOu se preferir, chame diretamente:\n📱 *{$sidWaMe}*\n_Sid360 Imóveis_",
                 "🤝 *{$client->name}* quer negociar.\n".
                 'Contrato: '.str_pad((string) $sale->id, 4, '0', STR_PAD_LEFT).'/'.$sale->sale_date?->format('Y')."\n".
                 "Lote: Q{$sale->lot?->block} · L{$sale->lot?->number}\nFone: {$client->phone}\n\n⚡ Responda logo!",
             ],
             default => [
                 InstallmentInteraction::TYPE_REPLY_UNKNOWN,
-                "Olá! Não entendi sua resposta. Por favor responda com:\n\n*1* - Estou ciente, vou regularizar\n*2* - Quero link de pagamento\n*3* - Preciso negociar\n\nOu fale com a gente: (74) 9 8823-0151",
+                "Olá! Não entendi sua resposta. Por favor responda com:\n\n*1* - Estou ciente, vou regularizar\n*2* - Quero link de pagamento\n*3* - Preciso negociar\n\nOu fale com a gente: {$sidDisplay}",
                 null,
             ],
         };
@@ -212,8 +214,7 @@ class WhatsappWebhookController extends Controller
         );
 
         if ($sidNotification) {
-            $sidPhone = (string) Setting::get('whatsapp_sid_phone', '5574988230151');
-            $this->whatsapp->send($sidPhone, $sidNotification);
+            $this->whatsapp->send($this->sidPhoneDigits(), $sidNotification);
         }
     }
 
@@ -325,9 +326,51 @@ class WhatsappWebhookController extends Controller
             '',
             'Em breve os boletos individuais também estarão disponíveis no portal.',
             '',
-            'Dúvidas: (74) 9 8823-0151',
+            "Dúvidas: {$this->sidPhoneDisplay()}",
             '_Sid360 Imóveis_',
         ]);
+    }
+
+    private function sidPhoneDigits(): string
+    {
+        $digits = preg_replace('/\D/', '', (string) Setting::get('whatsapp_sid_phone', '5574988230151')) ?? '';
+
+        return $digits !== '' ? $digits : '5574988230151';
+    }
+
+    private function sidWaMeLink(): string
+    {
+        return 'wa.me/'.$this->sidPhoneDigits();
+    }
+
+    private function sidPhoneDisplay(): string
+    {
+        $digits = $this->sidPhoneDigits();
+
+        if (str_starts_with($digits, '55') && strlen($digits) > 11) {
+            $digits = substr($digits, 2);
+        }
+
+        if (strlen($digits) === 11) {
+            return sprintf(
+                '(%s) %s %s-%s',
+                substr($digits, 0, 2),
+                substr($digits, 2, 1),
+                substr($digits, 3, 4),
+                substr($digits, 7, 4),
+            );
+        }
+
+        if (strlen($digits) === 10) {
+            return sprintf(
+                '(%s) %s-%s',
+                substr($digits, 0, 2),
+                substr($digits, 2, 4),
+                substr($digits, 6, 4),
+            );
+        }
+
+        return $digits;
     }
 
     private function normalizePhone(string $phone): string
