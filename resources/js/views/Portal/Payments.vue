@@ -20,18 +20,28 @@ import {
   portalLogout,
   storePortalSession,
 } from '@/services/portal.service';
+import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/vue/24/outline';
 
 const toast = useToast();
 
 const loading = ref(false);
 const submitting = ref(false);
 const dashboard = ref(null);
+const selectedSaleId = ref(null);
 const clientName = ref(getStoredPortalClient()?.name ?? '');
 const cpf = ref('');
 const phone = ref('');
 const whatsappNumber = ref('5574988230151');
 
 const isAuthenticated = computed(() => Boolean(clientName.value) && Boolean(dashboard.value));
+
+const sales = computed(() => dashboard.value?.sales ?? []);
+
+const selectedSale = computed(() =>
+  sales.value.find((sale) => sale.id === selectedSaleId.value) ?? null,
+);
+
+const showContractList = computed(() => isAuthenticated.value && selectedSaleId.value === null);
 
 const formatDate = (value) => (value ? new Date(`${value}T00:00:00`).toLocaleDateString('pt-BR') : '—');
 
@@ -58,6 +68,7 @@ async function loadDashboard() {
     dashboard.value = await portalDashboard();
     clientName.value = dashboard.value.client?.name ?? clientName.value;
     whatsappNumber.value = dashboard.value.whatsapp_number ?? whatsappNumber.value;
+    selectedSaleId.value = null;
   } catch (err) {
     clearPortalSession();
     dashboard.value = null;
@@ -95,6 +106,19 @@ async function handleLogout() {
   clientName.value = '';
   cpf.value = '';
   phone.value = '';
+  selectedSaleId.value = null;
+}
+
+function openSale(saleId) {
+  selectedSaleId.value = saleId;
+}
+
+function backToList() {
+  selectedSaleId.value = null;
+}
+
+function lotLabel(sale) {
+  return `Quadra ${sale.lot?.block ?? '–'} · Lote ${sale.lot?.number ?? '–'}`;
 }
 
 function installmentLabel(inst) {
@@ -187,7 +211,7 @@ onMounted(async () => {
         </Button>
       </div>
 
-      <div v-if="!dashboard?.sales?.length" class="card p-8 text-center">
+      <div v-if="!sales.length" class="card p-8 text-center">
         <p class="text-sm text-slate-600">Nenhum contrato encontrado para este CPF.</p>
         <a
           href="https://wa.me/5574988230151"
@@ -199,114 +223,193 @@ onMounted(async () => {
         </a>
       </div>
 
-      <div v-for="sale in dashboard.sales" :key="sale.id" class="card overflow-hidden">
-        <div class="border-b border-slate-100 bg-slate-50 px-4 py-4">
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Contrato nº {{ sale.contract_no }}
-              </p>
-              <p class="mt-1 text-sm font-semibold text-slate-800">
-                {{ sale.development?.name ?? 'Empreendimento' }}
-                · Quadra {{ sale.lot?.block ?? '–' }} · Lote {{ sale.lot?.number ?? '–' }}
-              </p>
-              <p class="mt-0.5 text-xs text-slate-500">
-                Venda em {{ formatDate(sale.sale_date) }} · {{ saleStatusLabel(sale.status) }}
-              </p>
-            </div>
-            <div class="text-right">
-              <p class="text-xs text-slate-500">Valor total</p>
-              <p class="text-lg font-bold text-slate-800">{{ formatCurrency(sale.total_value) }}</p>
-            </div>
-          </div>
-
-          <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
-              <p class="text-[11px] text-slate-500">Entrada</p>
-              <p class="text-sm font-semibold text-slate-800">{{ formatCurrency(sale.down_payment) }}</p>
-            </div>
-            <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
-              <p class="text-[11px] text-slate-500">Pagas</p>
-              <p class="text-sm font-semibold text-emerald-700">{{ sale.summary.paid_count }}</p>
-            </div>
-            <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
-              <p class="text-[11px] text-slate-500">Pendentes</p>
-              <p class="text-sm font-semibold text-amber-700">{{ sale.summary.pending_count }}</p>
-            </div>
-            <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
-              <p class="text-[11px] text-slate-500">Em aberto</p>
-              <p class="text-sm font-semibold text-slate-800">{{ formatCurrency(sale.summary.pending_value) }}</p>
-            </div>
-          </div>
+      <!-- Lista de contratos -->
+      <template v-else-if="showContractList">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-800">Seus contratos</h2>
+          <p class="mt-0.5 text-xs text-slate-500">
+            Selecione um contrato para ver o extrato completo e solicitar pagamentos.
+          </p>
         </div>
 
-        <div class="overflow-x-auto">
-          <table class="w-full min-w-[640px] text-sm">
-            <thead class="bg-white text-xs font-semibold uppercase text-slate-500">
-              <tr>
-                <th class="px-4 py-3 text-left">Item</th>
-                <th class="px-4 py-3 text-left">Vencimento</th>
-                <th class="px-4 py-3 text-right">Valor</th>
-                <th class="px-4 py-3 text-center">Status</th>
-                <th class="px-4 py-3 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-              <tr v-for="inst in sale.installments" :key="inst.id" class="hover:bg-slate-50">
-                <td class="px-4 py-3 font-medium text-slate-700">
-                  {{ installmentTypeLabel(inst.type) }}
-                  <span v-if="inst.type !== 'down_payment'" class="text-slate-400">#{{ inst.number }}</span>
-                </td>
-                <td class="px-4 py-3 text-slate-700">{{ formatDate(inst.due_date) }}</td>
-                <td class="px-4 py-3 text-right font-medium text-slate-800">
-                  {{ formatCurrency(inst.value) }}
-                </td>
-                <td class="px-4 py-3 text-center">
-                  <span
-                    :class="installmentStatusClass(inst.status)"
-                    class="rounded-full px-2 py-0.5 text-xs font-semibold"
-                  >
-                    {{ installmentStatusLabel(inst.status) }}
-                  </span>
-                </td>
-                <td class="px-4 py-3">
-                  <div v-if="inst.status !== 'paid'" class="flex flex-wrap justify-end gap-1">
-                    <button
-                      type="button"
-                      class="rounded px-2 py-1 text-xs font-medium text-sid-accent hover:bg-primary-50"
-                      @click="openWhatsApp(inst, 'pix')"
-                    >
-                      PIX
-                    </button>
-                    <button
-                      type="button"
-                      class="rounded px-2 py-1 text-xs font-medium text-sid-accent hover:bg-primary-50"
-                      @click="openWhatsApp(inst, 'boleto')"
-                    >
-                      Boleto
-                    </button>
-                    <button
-                      type="button"
-                      class="rounded px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
-                      @click="openWhatsApp(inst, 'via')"
-                    >
-                      2ª via
-                    </button>
-                  </div>
-                  <p v-else class="text-right text-xs text-slate-400">
-                    Pago em {{ formatDate(inst.paid_at) }}
+        <div class="grid gap-4">
+          <button
+            v-for="sale in sales"
+            :key="sale.id"
+            type="button"
+            class="card overflow-hidden text-left transition hover:border-sid-accent/30 hover:shadow-md"
+            @click="openSale(sale.id)"
+          >
+            <div class="border-b border-slate-100 bg-slate-50 px-4 py-4">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0 flex-1">
+                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Contrato nº {{ sale.contract_no }}
                   </p>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+                  <p class="mt-1 truncate text-sm font-semibold text-slate-800">
+                    {{ sale.development?.name ?? 'Empreendimento' }}
+                  </p>
+                  <p class="mt-0.5 text-xs text-slate-500">
+                    {{ lotLabel(sale) }} · {{ saleStatusLabel(sale.status) }}
+                  </p>
+                </div>
+                <ChevronRightIcon class="h-5 w-5 shrink-0 text-slate-400" />
+              </div>
+            </div>
 
-      <div class="rounded-lg border border-[#e8dcc8] bg-[#faf5ee] px-4 py-3 text-xs text-[#7a4535]">
-        Pagamento automático via PIX estará disponível em breve. Por enquanto, use os botões acima
-        para solicitar PIX, boleto ou segunda via pelo WhatsApp da corretora.
-      </div>
+            <div class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
+              <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <p class="text-[11px] text-slate-500">Valor total</p>
+                <p class="text-sm font-semibold text-slate-800">{{ formatCurrency(sale.total_value) }}</p>
+              </div>
+              <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <p class="text-[11px] text-slate-500">Pagas</p>
+                <p class="text-sm font-semibold text-emerald-700">{{ sale.summary.paid_count }}</p>
+              </div>
+              <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <p class="text-[11px] text-slate-500">Pendentes</p>
+                <p class="text-sm font-semibold text-amber-700">{{ sale.summary.pending_count }}</p>
+              </div>
+              <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <p class="text-[11px] text-slate-500">Em aberto</p>
+                <p class="text-sm font-semibold text-slate-800">{{ formatCurrency(sale.summary.pending_value) }}</p>
+              </div>
+            </div>
+
+            <p
+              v-if="sale.summary.overdue_count > 0"
+              class="border-t border-red-100 bg-red-50 px-4 py-2 text-xs font-medium text-red-700"
+            >
+              {{ sale.summary.overdue_count }} parcela(s) em atraso
+            </p>
+          </button>
+        </div>
+      </template>
+
+      <!-- Detalhe do contrato -->
+      <template v-else-if="selectedSale">
+        <button
+          type="button"
+          class="inline-flex items-center gap-1 text-sm font-medium text-sid-accent hover:underline"
+          @click="backToList"
+        >
+          <ChevronLeftIcon class="h-4 w-4" />
+          Voltar aos contratos
+        </button>
+
+        <div class="card overflow-hidden">
+          <div class="border-b border-slate-100 bg-slate-50 px-4 py-4">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Contrato nº {{ selectedSale.contract_no }}
+                </p>
+                <p class="mt-1 text-sm font-semibold text-slate-800">
+                  {{ selectedSale.development?.name ?? 'Empreendimento' }}
+                  · {{ lotLabel(selectedSale) }}
+                </p>
+                <p class="mt-0.5 text-xs text-slate-500">
+                  Venda em {{ formatDate(selectedSale.sale_date) }} · {{ saleStatusLabel(selectedSale.status) }}
+                </p>
+              </div>
+              <div class="text-right">
+                <p class="text-xs text-slate-500">Valor total</p>
+                <p class="text-lg font-bold text-slate-800">{{ formatCurrency(selectedSale.total_value) }}</p>
+              </div>
+            </div>
+
+            <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <p class="text-[11px] text-slate-500">Entrada</p>
+                <p class="text-sm font-semibold text-slate-800">{{ formatCurrency(selectedSale.down_payment) }}</p>
+              </div>
+              <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <p class="text-[11px] text-slate-500">Pagas</p>
+                <p class="text-sm font-semibold text-emerald-700">{{ selectedSale.summary.paid_count }}</p>
+              </div>
+              <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <p class="text-[11px] text-slate-500">Pendentes</p>
+                <p class="text-sm font-semibold text-amber-700">{{ selectedSale.summary.pending_count }}</p>
+              </div>
+              <div class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <p class="text-[11px] text-slate-500">Em aberto</p>
+                <p class="text-sm font-semibold text-slate-800">{{ formatCurrency(selectedSale.summary.pending_value) }}</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[640px] text-sm">
+              <thead class="bg-white text-xs font-semibold uppercase text-slate-500">
+                <tr>
+                  <th class="px-4 py-3 text-left">Item</th>
+                  <th class="px-4 py-3 text-left">Vencimento</th>
+                  <th class="px-4 py-3 text-right">Valor</th>
+                  <th class="px-4 py-3 text-center">Status</th>
+                  <th class="px-4 py-3 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <tr
+                  v-for="inst in selectedSale.installments"
+                  :key="inst.id"
+                  class="hover:bg-slate-50"
+                >
+                  <td class="px-4 py-3 font-medium text-slate-700">
+                    {{ installmentTypeLabel(inst.type) }}
+                    <span v-if="inst.type !== 'down_payment'" class="text-slate-400">#{{ inst.number }}</span>
+                  </td>
+                  <td class="px-4 py-3 text-slate-700">{{ formatDate(inst.due_date) }}</td>
+                  <td class="px-4 py-3 text-right font-medium text-slate-800">
+                    {{ formatCurrency(inst.value) }}
+                  </td>
+                  <td class="px-4 py-3 text-center">
+                    <span
+                      :class="installmentStatusClass(inst.status)"
+                      class="rounded-full px-2 py-0.5 text-xs font-semibold"
+                    >
+                      {{ installmentStatusLabel(inst.status) }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3">
+                    <div v-if="inst.status !== 'paid'" class="flex flex-wrap justify-end gap-1">
+                      <button
+                        type="button"
+                        class="rounded px-2 py-1 text-xs font-medium text-sid-accent hover:bg-primary-50"
+                        @click="openWhatsApp(inst, 'pix')"
+                      >
+                        PIX
+                      </button>
+                      <button
+                        type="button"
+                        class="rounded px-2 py-1 text-xs font-medium text-sid-accent hover:bg-primary-50"
+                        @click="openWhatsApp(inst, 'boleto')"
+                      >
+                        Boleto
+                      </button>
+                      <button
+                        type="button"
+                        class="rounded px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
+                        @click="openWhatsApp(inst, 'via')"
+                      >
+                        2ª via
+                      </button>
+                    </div>
+                    <p v-else class="text-right text-xs text-slate-400">
+                      Pago em {{ formatDate(inst.paid_at) }}
+                    </p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-[#e8dcc8] bg-[#faf5ee] px-4 py-3 text-xs text-[#7a4535]">
+          Pagamento automático via PIX estará disponível em breve. Por enquanto, use os botões acima
+          para solicitar PIX, boleto ou segunda via pelo WhatsApp da corretora.
+        </div>
+      </template>
     </template>
   </div>
 </template>
