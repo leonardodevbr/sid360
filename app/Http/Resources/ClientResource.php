@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Models\Client;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -20,6 +21,9 @@ class ClientResource extends JsonResource
             'cpf' => $this->cpf,
             'rg' => $this->rg,
             'rg_issuer' => $this->rg_issuer,
+            'profession' => $this->profession,
+            'marital_status' => $this->marital_status,
+            'marital_status_label' => Client::maritalStatusLabel($this->marital_status),
             'phone' => $this->phone,
             'whatsapp_status' => $this->whatsapp_status,
             'email' => $this->email,

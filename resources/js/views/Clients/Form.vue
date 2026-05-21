@@ -18,6 +18,15 @@
       </div>
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Input v-model="form.rg_issuer" label="Órgão emissor" placeholder="SSP/BA" />
+        <Input v-model="form.profession" label="Profissão" placeholder="Ex.: Comerciante" />
+      </div>
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <SelectInput
+          v-model="form.marital_status"
+          label="Estado civil"
+          :options="maritalStatusOptions"
+          placeholder="Selecione…"
+        />
         <Input v-model="form.phone" label="Telefone" placeholder="(74) 9 0000-0000" />
       </div>
       <Input v-model="form.email" label="E-mail" type="email" placeholder="email@exemplo.com" />
@@ -54,7 +63,9 @@ import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import api from '@/services/api';
 import Input from '@/components/Common/Input.vue';
+import SelectInput from '@/components/Common/SelectInput.vue';
 import Button from '@/components/Common/Button.vue';
+import { maritalStatusOptions } from '@/constants/maritalStatus';
 import { ArrowLeftIcon } from '@heroicons/vue/24/outline';
 
 const route = useRoute();
@@ -65,7 +76,7 @@ const saving = ref(false);
 const isEdit = computed(() => Boolean(route.params.id));
 
 const form = ref({
-  name: '', cpf: '', rg: '', rg_issuer: '',
+  name: '', cpf: '', rg: '', rg_issuer: '', profession: '', marital_status: '',
   phone: '', email: '', address: '', address_number: '', neighborhood: '',
   city: 'Cafarnaum', state: 'BA', notes: '',
 });

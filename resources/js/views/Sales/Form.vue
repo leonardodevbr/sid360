@@ -172,6 +172,31 @@
           </div>
 
           <div>
+            <p class="mb-1 text-xs font-medium text-slate-600">Profissão</p>
+            <input
+              :value="novoCliente.profession"
+              type="text"
+              name="sid-fld-f1r3"
+              v-bind="noAutofillInputAttrs"
+              placeholder="Ex.: Comerciante"
+              :class="maskedInputClass"
+              readonly
+              @mousedown="enableInputOnMousedown"
+              @focus="enableInputOnMousedown"
+              @input="onProfessionInput"
+            />
+          </div>
+
+          <div>
+            <SelectInput
+              v-model="novoCliente.marital_status"
+              label="Estado civil"
+              :options="maritalStatusOptions"
+              placeholder="Selecione…"
+            />
+          </div>
+
+          <div>
             <p class="mb-1 text-xs font-medium text-slate-600">Telefone</p>
             <div class="relative">
               <input
@@ -622,6 +647,7 @@ import Input from '@/components/Common/Input.vue';
 import Flatpickr from '@/components/Common/Flatpickr.vue';
 import CurrencyInput from '@/components/Common/CurrencyInput.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
+import { maritalStatusOptions } from '@/constants/maritalStatus';
 import { formatCurrency } from '@/utils/format';
 import Button from '@/components/Common/Button.vue';
 import {
@@ -652,6 +678,8 @@ const novoCliente = ref({
   cpf: '',
   rg: '',
   rg_issuer: '',
+  profession: '',
+  marital_status: '',
   phone: '',
   email: '',
   address: '',
@@ -711,6 +739,10 @@ function onRgInput(e) {
 
 function onRgIssuerInput(e) {
   novoCliente.value.rg_issuer = e.target.value;
+}
+
+function onProfessionInput(e) {
+  novoCliente.value.profession = e.target.value;
 }
 
 function onAddressInput(e) {
@@ -1016,6 +1048,8 @@ function cancelarNovoCliente() {
     cpf: '',
     rg: '',
     rg_issuer: '',
+    profession: '',
+    marital_status: '',
     phone: '',
     email: '',
     address: '',

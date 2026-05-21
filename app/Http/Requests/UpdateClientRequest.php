@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use App\Models\Client;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -24,6 +25,8 @@ class UpdateClientRequest extends FormRequest
             'cpf' => ['sometimes', 'string', 'max:20', Rule::unique('clients', 'cpf')->ignore($this->route('id'))],
             'rg' => ['nullable', 'string', 'max:30'],
             'rg_issuer' => ['nullable', 'string', 'max:20'],
+            'profession' => ['nullable', 'string', 'max:120'],
+            'marital_status' => ['nullable', 'string', Rule::in(Client::MARITAL_STATUSES)],
             'phone' => ['nullable', 'string', 'max:20'],
             'whatsapp_status' => ['nullable', 'string', Rule::in(['confirmed', 'none'])],
             'email' => ['nullable', 'email', 'max:255'],

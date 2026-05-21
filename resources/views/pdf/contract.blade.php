@@ -106,7 +106,13 @@
   <div class="party">
     <p>
       <strong>Comprador(a):</strong> Sr°/Srª <strong>{{ strtoupper($sale->client->name) }}</strong>,
-      brasileiro(a), maior, capaz,
+      brasileiro(a), maior, capaz
+      @if($sale->client->marital_status)
+        , {{ \App\Models\Client::maritalStatusLabel($sale->client->marital_status) }}
+      @endif
+      @if($sale->client->profession)
+        , {{ $sale->client->profession }}
+      @endif
       @if($sale->client->cpf)
         portador(a) do CPF de N° {{ $sale->client->cpf }}
       @endif
