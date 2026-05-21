@@ -65,17 +65,17 @@ class WhatsappService
         string $phone,
         string $message,
         string $type,
-        ?int $installmentId = null,
-        ?int $saleId = null,
-        ?int $clientId = null,
+        int|string|null $installmentId = null,
+        int|string|null $saleId = null,
+        int|string|null $clientId = null,
         array $meta = []
     ): bool {
         $sent = $this->send($phone, $message);
 
         InstallmentInteraction::create([
-            'installment_id' => $installmentId,
-            'sale_id' => $saleId,
-            'client_id' => $clientId,
+            'installment_id' => $installmentId !== null ? (int) $installmentId : null,
+            'sale_id' => $saleId !== null ? (int) $saleId : null,
+            'client_id' => $clientId !== null ? (int) $clientId : null,
             'phone' => $phone,
             'direction' => InstallmentInteraction::DIR_OUTBOUND,
             'type' => $type,
@@ -155,17 +155,17 @@ class WhatsappService
         string $buttonText,
         array $sections,
         string $type,
-        ?int $installmentId = null,
-        ?int $saleId = null,
-        ?int $clientId = null,
+        int|string|null $installmentId = null,
+        int|string|null $saleId = null,
+        int|string|null $clientId = null,
         array $meta = []
     ): bool {
         $sent = $this->sendList($phone, $description, $buttonText, $sections);
 
         InstallmentInteraction::create([
-            'installment_id' => $installmentId,
-            'sale_id' => $saleId,
-            'client_id' => $clientId,
+            'installment_id' => $installmentId !== null ? (int) $installmentId : null,
+            'sale_id' => $saleId !== null ? (int) $saleId : null,
+            'client_id' => $clientId !== null ? (int) $clientId : null,
             'phone' => $phone,
             'direction' => InstallmentInteraction::DIR_OUTBOUND,
             'type' => $type,
