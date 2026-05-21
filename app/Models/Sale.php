@@ -98,6 +98,28 @@ class Sale extends Model
      */
     public function installments(): HasMany
     {
-        return $this->hasMany(Installment::class)->orderBy('number');
+        return $this->hasMany(Installment::class)
+            ->orderBy('type')
+            ->orderBy('number');
+    }
+
+    /**
+     * @return HasMany<Installment, $this>
+     */
+    public function downPaymentInstallments(): HasMany
+    {
+        return $this->hasMany(Installment::class)
+            ->where('type', Installment::TYPE_DOWN_PAYMENT)
+            ->orderBy('number');
+    }
+
+    /**
+     * @return HasMany<Installment, $this>
+     */
+    public function financingInstallments(): HasMany
+    {
+        return $this->hasMany(Installment::class)
+            ->where('type', Installment::TYPE_FINANCING)
+            ->orderBy('number');
     }
 }

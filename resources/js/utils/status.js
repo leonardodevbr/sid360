@@ -22,6 +22,10 @@ export function installmentStatusLabel(status) {
   return { paid: 'Pago', pending: 'Pendente', overdue: 'Atrasado' }[status] ?? status;
 }
 
+export function installmentTypeLabel(type) {
+  return { down_payment: 'Entrada', financing: 'Parcela' }[type] ?? type;
+}
+
 export function lotStatusClass(status) {
   return {
     available: 'bg-emerald-100 text-emerald-700',

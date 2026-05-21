@@ -48,6 +48,16 @@
             <DocumentArrowDownIcon class="mr-2 h-4 w-4" />
             Baixar PDF
           </Button>
+          <Button
+            v-if="financingInstallments.length"
+            type="button"
+            variant="outline"
+            :loading="downloadingCarne"
+            @click="handleDownloadCarne"
+          >
+            <DocumentTextIcon class="mr-2 h-4 w-4" />
+            Imprimir Carnê
+          </Button>
         </div>
 
         <div class="mt-5 border-t border-slate-100 pt-5">
@@ -157,7 +167,57 @@
         </div>
       </div>
 
-      <div v-if="sale.installments?.length" class="card overflow-hidden">
+      <div v-if="downPaymentInstallments.length" class="card overflow-hidden">
+        <div class="border-b border-slate-100 px-4 py-3">
+          <h3 class="text-sm font-semibold text-slate-700">Entrada negociada</h3>
+          <p class="mt-0.5 text-xs text-slate-500">
+            Total da entrada: {{ formatCurrency(sale.down_payment) }}
+          </p>
+        </div>
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+            <tr>
+              <th class="px-4 py-3 text-left">Tipo</th>
+              <th class="px-4 py-3 text-left">Vencimento</th>
+              <th class="px-4 py-3 text-right">Valor</th>
+              <th class="px-4 py-3 text-center">Status</th>
+              <th class="px-4 py-3 text-center">Pago em</th>
+              <th class="px-4 py-3 text-right">Ação</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr
+              v-for="inst in downPaymentInstallments"
+              :key="inst.id"
+              class="hover:bg-slate-50"
+            >
+              <td class="px-4 py-3 font-medium text-slate-700">
+                {{ installmentTypeLabel(inst.type) }}
+              </td>
+              <td class="px-4 py-3 text-slate-700">{{ formatDate(inst.due_date) }}</td>
+              <td class="px-4 py-3 text-right font-medium text-slate-800">{{ formatCurrency(inst.value) }}</td>
+              <td class="px-4 py-3 text-center">
+                <span :class="installStatusClass(inst.status)" class="rounded-full px-2 py-0.5 text-xs font-semibold">
+                  {{ installStatusLabel(inst.status) }}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-center text-slate-500">{{ inst.paid_at ? formatDate(inst.paid_at) : '—' }}</td>
+              <td class="px-4 py-3 text-right">
+                <button
+                  v-if="inst.status !== 'paid'"
+                  type="button"
+                  class="rounded px-2 py-1 text-xs font-medium text-sid-accent hover:bg-primary-50"
+                  @click="payInstallment(inst)"
+                >
+                  Marcar pago
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div v-if="financingInstallments.length" class="card overflow-hidden">
         <div class="border-b border-slate-100 px-4 py-3">
           <h3 class="text-sm font-semibold text-slate-700">Parcelas</h3>
         </div>
@@ -173,7 +233,7 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <tr v-for="inst in sale.installments" :key="inst.id" class="hover:bg-slate-50">
+            <tr v-for="inst in financingInstallments" :key="inst.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 text-slate-400">{{ inst.number }}</td>
               <td class="px-4 py-3 text-slate-700">{{ formatDate(inst.due_date) }}</td>
               <td class="px-4 py-3 text-right font-medium text-slate-800">{{ formatCurrency(inst.value) }}</td>
@@ -208,6 +268,7 @@ import { useToast } from 'vue-toastification';
 import api from '@/services/api';
 import {
   downloadContract,
+  downloadCarne,
   downloadSignedContract,
   printContract,
   uploadSignedContract,
@@ -217,6 +278,7 @@ import { formatCurrency } from '@/utils/format';
 import {
   installmentStatusClass as installmentStatusClassHelper,
   installmentStatusLabel as installmentStatusLabelHelper,
+  installmentTypeLabel as installmentTypeLabelHelper,
   saleStatusClass as saleStatusClassHelper,
   saleStatusLabel as saleStatusLabelHelper,
 } from '@/utils/status';
@@ -226,6 +288,7 @@ import {
   ArrowUpTrayIcon,
   DocumentArrowDownIcon,
   DocumentCheckIcon,
+  DocumentTextIcon,
   PrinterIcon,
 } from '@heroicons/vue/24/outline';
 
@@ -233,6 +296,15 @@ const saleStatusClass = (status) => saleStatusClassHelper(status);
 const saleStatusLabel = (status) => saleStatusLabelHelper(status);
 const installStatusClass = (status) => installmentStatusClassHelper(status);
 const installStatusLabel = (status) => installmentStatusLabelHelper(status);
+const installmentTypeLabel = (type) => installmentTypeLabelHelper(type);
+
+const downPaymentInstallments = computed(() =>
+  (sale.value?.installments ?? []).filter((inst) => inst.type === 'down_payment'),
+);
+
+const financingInstallments = computed(() =>
+  (sale.value?.installments ?? []).filter((inst) => inst.type !== 'down_payment'),
+);
 
 const route = useRoute();
 const router = useRouter();
@@ -241,6 +313,7 @@ const sale = ref(null);
 const loading = ref(false);
 const printingContract = ref(false);
 const downloadingContract = ref(false);
+const downloadingCarne = ref(false);
 const downloadingSigned = ref(false);
 const uploadingSigned = ref(false);
 const fileInputRef = ref(null);
@@ -288,6 +361,17 @@ async function handleDownloadContract() {
     toast.error('Erro ao baixar contrato.');
   } finally {
     downloadingContract.value = false;
+  }
+}
+
+async function handleDownloadCarne() {
+  downloadingCarne.value = true;
+  try {
+    await downloadCarne(sale.value.id);
+  } catch {
+    toast.error('Erro ao baixar carnê.');
+  } finally {
+    downloadingCarne.value = false;
   }
 }
 
@@ -354,10 +438,11 @@ function clearRegistrationQuery() {
 async function payInstallment(inst) {
   try {
     await api.post(`/installments/${inst.id}/pay`);
-    toast.success(`Parcela ${inst.number} marcada como paga.`);
+    const label = inst.type === 'down_payment' ? 'Entrada' : `Parcela ${inst.number}`;
+    toast.success(`${label} marcada como paga.`);
     loadSale();
   } catch {
-    toast.error('Erro ao marcar parcela como paga.');
+    toast.error('Erro ao marcar pagamento como pago.');
   }
 }
 

@@ -17,6 +17,7 @@ class InstallmentResource extends JsonResource
         return [
             'id' => $this->id,
             'sale_id' => $this->sale_id,
+            'type' => $this->type,
             'number' => $this->number,
             'due_date' => $this->due_date?->toDateString(),
             'value' => (int) $this->value,

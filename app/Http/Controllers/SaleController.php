@@ -12,6 +12,7 @@ use App\Actions\Sale\UploadSignedContractAction;
 use App\Http\Requests\StoreSaleRequest;
 use App\Http\Requests\UploadSignedContractRequest;
 use App\Http\Resources\SaleResource;
+use App\Models\Installment;
 use App\Models\Sale;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -93,7 +94,43 @@ class SaleController extends Controller
         $pdf = Pdf::loadView('pdf.contract', ['sale' => $sale])
             ->setPaper('a4', 'portrait');
 
+        $pdf->getCanvas()->page_script(function (int $pageNumber, int $pageCount, $canvas, $fontMetrics): void {
+            $text = "{$pageNumber}/{$pageCount}";
+            $font = $fontMetrics->getFont('Times-Roman', 'normal');
+            $size = 9;
+            $width = $fontMetrics->getTextWidth($text, $font, $size);
+            $x = ($canvas->get_width() - $width) / 2;
+            $y = $canvas->get_height() - 50;
+
+            $canvas->text($x, $y, $text, $font, $size, [0.35, 0.35, 0.35]);
+        });
+
         return $pdf->download("contrato-venda-{$sale->id}.pdf");
+    }
+
+    public function carne(string|int $id): Response
+    {
+        $this->authorize('sales.view');
+
+        $sale = Sale::query()
+            ->with([
+                'client',
+                'lot.development',
+                'buyers',
+                'financingInstallments',
+            ])
+            ->findOrFail((int) $id);
+
+        if ($sale->installments_count < 1 || $sale->financingInstallments->isEmpty()) {
+            abort(404, 'Esta venda não possui parcelas para carnê.');
+        }
+
+        $sale->setRelation('installments', $sale->financingInstallments);
+
+        $pdf = Pdf::loadView('pdf.carne', ['sale' => $sale])
+            ->setPaper('a4', 'portrait');
+
+        return $pdf->download("carne-venda-{$sale->id}.pdf");
     }
 
     public function uploadSignedContract(

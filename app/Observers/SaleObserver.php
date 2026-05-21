@@ -19,6 +19,17 @@ class SaleObserver
             $sale->client_id => ['role' => 'buyer', 'order' => 0],
         ]);
 
+        if ((int) $sale->down_payment > 0) {
+            Installment::query()->create([
+                'sale_id' => $sale->id,
+                'type' => Installment::TYPE_DOWN_PAYMENT,
+                'number' => 0,
+                'due_date' => $sale->sale_date,
+                'value' => $sale->down_payment,
+                'status' => Installment::STATUS_PENDING,
+            ]);
+        }
+
         if ($sale->installments_count < 1) {
             return;
         }
@@ -28,6 +39,7 @@ class SaleObserver
         for ($i = 1; $i <= $sale->installments_count; $i++) {
             Installment::query()->create([
                 'sale_id' => $sale->id,
+                'type' => Installment::TYPE_FINANCING,
                 'number' => $i,
                 'due_date' => $dueDate->copy(),
                 'value' => $sale->installment_value,

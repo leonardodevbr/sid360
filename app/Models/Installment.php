@@ -9,6 +9,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Installment extends Model
 {
+    public const TYPE_DOWN_PAYMENT = 'down_payment';
+
+    public const TYPE_FINANCING = 'financing';
+
     public const STATUS_PENDING = 'pending';
 
     public const STATUS_PAID = 'paid';
@@ -20,6 +24,7 @@ class Installment extends Model
      */
     protected $fillable = [
         'sale_id',
+        'type',
         'number',
         'due_date',
         'value',

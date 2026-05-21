@@ -13,6 +13,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::put('/sales/{id}', [SaleController::class, 'update']);
     Route::delete('/sales/{id}', [SaleController::class, 'destroy']);
     Route::get('/sales/{id}/contract', [SaleController::class, 'contract']);
+    Route::get('/sales/{id}/carne', [SaleController::class, 'carne']);
     Route::post('/sales/{id}/signed-contract', [SaleController::class, 'uploadSignedContract']);
     Route::get('/sales/{id}/signed-contract', [SaleController::class, 'signedContract']);
     Route::get('/sales/{id}/installments', [InstallmentController::class, 'bySale']);

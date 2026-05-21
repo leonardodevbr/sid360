@@ -51,3 +51,13 @@ export async function downloadSignedContract(saleId, filename) {
   link.click();
   window.URL.revokeObjectURL(url);
 }
+
+export async function downloadCarne(saleId) {
+  const { data } = await api.get(`/sales/${saleId}/carne`, { responseType: 'blob' });
+  const url = window.URL.createObjectURL(new Blob([data], { type: 'application/pdf' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `carne-venda-${saleId}.pdf`;
+  link.click();
+  window.URL.revokeObjectURL(url);
+}
