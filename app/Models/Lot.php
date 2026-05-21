@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Lot extends Model
 {
@@ -55,6 +56,14 @@ class Lot extends Model
     public function development(): BelongsTo
     {
         return $this->belongsTo(Development::class);
+    }
+
+    /**
+     * @return HasMany<Sale, $this>
+     */
+    public function sales(): HasMany
+    {
+        return $this->hasMany(Sale::class);
     }
 
     public function effectiveDownPaymentPercent(): float
