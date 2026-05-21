@@ -20,6 +20,7 @@ class SaleResource extends JsonResource
             'client_id' => $this->client_id,
             'lot' => $this->whenLoaded('lot', fn () => new LotResource($this->lot)),
             'client' => $this->whenLoaded('client', fn () => new ClientResource($this->client)),
+            'buyers' => $this->whenLoaded('buyers', fn () => ClientResource::collection($this->buyers)),
             'installments' => $this->whenLoaded('installments', fn () => InstallmentResource::collection($this->installments)),
             'sale_date' => $this->sale_date?->toDateString(),
             'total_value' => (int) $this->total_value,

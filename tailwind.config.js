@@ -22,10 +22,29 @@ export default {
     'hover:text-sid-accent-light',
     'focus:ring-sid-accent',
     'border-sid-accent',
+    'bg-emerald-100',
+    'text-emerald-700',
+    'bg-amber-100',
+    'text-amber-700',
+    'bg-red-100',
+    'text-red-700',
+    'bg-slate-100',
+    'text-slate-600',
+    'bg-blue-100',
+    'text-blue-700',
+    'bg-action',
+    'hover:bg-action-hover',
+    'text-action',
+    'focus:ring-action',
   ],
   theme: {
     extend: {
       colors: {
+        action: {
+          DEFAULT: '#1E5F8E',
+          hover: '#1A5280',
+          light: '#EBF4FB',
+        },
         sid: {
           accent: '#C23028',
           'accent-light': '#D44840',

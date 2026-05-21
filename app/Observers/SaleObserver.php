@@ -15,6 +15,10 @@ class SaleObserver
     {
         Lot::query()->where('id', $sale->lot_id)->update(['status' => Lot::STATUS_SOLD]);
 
+        $sale->buyers()->syncWithoutDetaching([
+            $sale->client_id => ['role' => 'buyer', 'order' => 0],
+        ]);
+
         if ($sale->installments_count < 1) {
             return;
         }

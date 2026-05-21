@@ -39,8 +39,8 @@
             <td class="px-4 py-3 text-slate-600">{{ formatDate(sale.sale_date) }}</td>
             <td class="px-4 py-3 text-right font-medium text-slate-800">{{ formatCurrency(sale.total_value) }}</td>
             <td class="px-4 py-3 text-center">
-              <span :class="statusClass(sale.status)" class="rounded-full px-2 py-0.5 text-xs font-semibold">
-                {{ statusLabel(sale.status) }}
+              <span :class="saleStatusClass(sale.status)" class="rounded-full px-2 py-0.5 text-xs font-semibold">
+                {{ saleStatusLabel(sale.status) }}
               </span>
             </td>
             <td class="px-4 py-3 text-right">
@@ -75,6 +75,7 @@ import { useToast } from 'vue-toastification';
 import api from '@/services/api';
 import { downloadContract } from '@/services/sale.service';
 import { formatCurrency } from '@/utils/format';
+import { saleStatusClass, saleStatusLabel } from '@/utils/status';
 import Button from '@/components/Common/Button.vue';
 import PaginationBar from '@/components/Common/PaginationBar.vue';
 import { EyeIcon, DocumentArrowDownIcon } from '@heroicons/vue/24/outline';
@@ -83,13 +84,6 @@ const toast = useToast();
 const sales = ref([]);
 const pagination = ref(null);
 const loading = ref(false);
-
-const statusLabel = (s) => ({ active: 'Ativo', cancelled: 'Cancelado', completed: 'Concluído' }[s] ?? s);
-const statusClass = (s) => ({
-  active: 'bg-sid-cream-dark text-secondary-600',
-  cancelled: 'bg-red-100 text-red-700',
-  completed: 'bg-slate-100 text-slate-600',
-}[s] ?? '');
 
 const formatDate = (d) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString('pt-BR') : '—');
 

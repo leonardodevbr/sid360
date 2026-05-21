@@ -52,6 +52,8 @@ class StoreSaleRequest extends FormRequest
             'payment_day' => ['required', 'integer', 'min:1', 'max:31'],
             'status' => ['nullable', Rule::in(Sale::STATUSES)],
             'notes' => ['nullable', 'string'],
+            'co_buyer_ids' => ['nullable', 'array'],
+            'co_buyer_ids.*' => ['integer', 'exists:clients,id'],
         ];
     }
 }

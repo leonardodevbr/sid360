@@ -475,6 +475,75 @@
           Trocar
         </button>
       </div>
+
+      <div v-if="clienteSelecionado" class="mt-3 space-y-2">
+        <div class="flex items-center justify-between">
+          <p class="text-xs font-medium text-slate-500">
+            Co-compradores <span class="text-slate-300">(opcional)</span>
+          </p>
+          <button
+            v-if="!mostrarBuscaCoComprador"
+            type="button"
+            class="text-xs font-medium text-[#c23028] hover:text-[#d44840]"
+            @click="mostrarBuscaCoComprador = true"
+          >
+            + Adicionar co-comprador
+          </button>
+        </div>
+
+        <div v-if="mostrarBuscaCoComprador" class="relative">
+          <input
+            v-model="buscaCoComprador"
+            type="search"
+            name="sid-busca-co-comprador"
+            v-bind="noAutofillInputAttrs"
+            placeholder="Buscar co-comprador pelo nome ou CPF…"
+            class="w-full rounded-lg border border-slate-200 py-2 pl-3 pr-3 text-sm focus:border-[#c23028] focus:outline-none focus:ring-2 focus:ring-[#c23028]/20"
+            @input="buscarCoCompradores"
+          />
+          <div
+            v-if="resultadosCoComprador.length"
+            class="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg divide-y divide-slate-100"
+          >
+            <button
+              v-for="c in resultadosCoComprador"
+              :key="c.id"
+              type="button"
+              class="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50"
+              @click="adicionarCoComprador(c)"
+            >
+              <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
+                {{ iniciais(c.name) }}
+              </div>
+              <div>
+                <p class="text-sm font-medium text-slate-800">{{ c.name }}</p>
+                <p class="text-xs text-slate-500">CPF {{ c.cpf }}</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <div
+          v-for="co in coBuyers"
+          :key="co.id"
+          class="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+        >
+          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-600">
+            {{ iniciais(co.name) }}
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-sm font-medium text-slate-700">{{ co.name }}</p>
+            <p class="text-xs text-slate-400">Co-comprador · CPF {{ co.cpf }}</p>
+          </div>
+          <button
+            type="button"
+            class="shrink-0 text-xs text-red-500 hover:text-red-700"
+            @click="removerCoComprador(co.id)"
+          >
+            Remover
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- ETAPA 2 — LOTE -->
@@ -730,6 +799,12 @@ const buscando = ref(false);
 const clienteSelecionado = ref(null);
 const mostrarFormCliente = ref(false);
 const salvandoCliente = ref(false);
+
+const coBuyers = ref([]);
+const mostrarBuscaCoComprador = ref(false);
+const buscaCoComprador = ref('');
+const resultadosCoComprador = ref([]);
+let debounceCoComprador = null;
 
 const maskedInputClass =
   'w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#c23028]/20 focus:border-[#c23028]';
@@ -1023,6 +1098,43 @@ function trocarCliente() {
   clienteSelecionado.value = null;
   form.value.client_id = '';
   mostrarFormCliente.value = false;
+  coBuyers.value = [];
+  mostrarBuscaCoComprador.value = false;
+  buscaCoComprador.value = '';
+  resultadosCoComprador.value = [];
+}
+
+async function buscarCoCompradores() {
+  if (buscaCoComprador.value.length < 2) {
+    resultadosCoComprador.value = [];
+    return;
+  }
+  clearTimeout(debounceCoComprador);
+  debounceCoComprador = setTimeout(async () => {
+    try {
+      const { data } = await api.get('/clients', {
+        params: { search: buscaCoComprador.value, all: 1 },
+      });
+      const excludeIds = [clienteSelecionado.value?.id, ...coBuyers.value.map((c) => c.id)].filter(Boolean);
+      const list = data.data ?? data;
+      resultadosCoComprador.value = list.filter((c) => !excludeIds.includes(c.id)).slice(0, 5);
+    } catch {
+      resultadosCoComprador.value = [];
+    }
+  }, 300);
+}
+
+function adicionarCoComprador(c) {
+  if (!coBuyers.value.find((x) => x.id === c.id)) {
+    coBuyers.value.push(c);
+  }
+  buscaCoComprador.value = '';
+  resultadosCoComprador.value = [];
+  mostrarBuscaCoComprador.value = false;
+}
+
+function removerCoComprador(id) {
+  coBuyers.value = coBuyers.value.filter((c) => c.id !== id);
 }
 
 function saveDraft() {
@@ -1031,6 +1143,7 @@ function saveDraft() {
       form: form.value,
       novoCliente: novoCliente.value,
       clienteSelecionado: clienteSelecionado.value,
+      coBuyers: coBuyers.value,
       mostrarFormCliente: mostrarFormCliente.value,
       savedAt: new Date().toISOString(),
     };
@@ -1076,6 +1189,7 @@ async function checkAndRestoreDraft() {
       if (draft.form) form.value = draft.form;
       if (draft.novoCliente) novoCliente.value = draft.novoCliente;
       if (draft.clienteSelecionado) clienteSelecionado.value = draft.clienteSelecionado;
+      if (draft.coBuyers) coBuyers.value = draft.coBuyers;
       if (draft.mostrarFormCliente !== undefined) {
         mostrarFormCliente.value = draft.mostrarFormCliente;
       }
@@ -1438,6 +1552,7 @@ async function registrarVenda() {
       first_due_date: cash ? form.value.sale_date : form.value.first_due_date,
       payment_day: cash ? 1 : Number(form.value.payment_day),
       notes: form.value.notes || null,
+      co_buyer_ids: coBuyers.value.map((c) => c.id),
     };
     const { data } = await api.post('/sales', payload);
     const venda = data.data ?? data;

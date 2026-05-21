@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Sale extends Model
@@ -80,6 +81,16 @@ class Sale extends Model
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
+    }
+
+    /**
+     * @return BelongsToMany<Client, $this>
+     */
+    public function buyers(): BelongsToMany
+    {
+        return $this->belongsToMany(Client::class, 'sale_clients')
+            ->withPivot('role', 'order')
+            ->orderByPivot('order');
     }
 
     /**

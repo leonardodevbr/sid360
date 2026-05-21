@@ -34,8 +34,19 @@ class SaleController extends Controller
     {
         $this->authorize('sales.create');
 
-        $sale = $action->execute($request->validated());
-        $sale->load(['client', 'lot.development', 'installments']);
+        $validated = $request->validated();
+        $coBuyerIds = $validated['co_buyer_ids'] ?? [];
+        unset($validated['co_buyer_ids']);
+
+        $sale = $action->execute($validated);
+
+        foreach ($coBuyerIds as $i => $clientId) {
+            $sale->buyers()->syncWithoutDetaching([
+                (int) $clientId => ['role' => 'co_buyer', 'order' => $i + 1],
+            ]);
+        }
+
+        $sale->load(['client', 'lot.development', 'installments', 'buyers']);
 
         return response()->json(new SaleResource($sale), 201);
     }
@@ -45,7 +56,7 @@ class SaleController extends Controller
         $this->authorize('sales.view');
 
         $sale = Sale::query()
-            ->with(['client', 'lot.development', 'installments'])
+            ->with(['client', 'lot.development', 'installments', 'buyers'])
             ->findOrFail((int) $id);
 
         return response()->json(new SaleResource($sale));
@@ -76,7 +87,7 @@ class SaleController extends Controller
         $this->authorize('sales.view');
 
         $sale = Sale::query()
-            ->with(['client', 'lot.development'])
+            ->with(['client', 'lot.development', 'buyers'])
             ->findOrFail((int) $id);
 
         $pdf = Pdf::loadView('pdf.contract', ['sale' => $sale])

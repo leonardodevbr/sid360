@@ -66,7 +66,7 @@
               <td class="hidden px-4 py-4 text-sm text-slate-600 sm:table-cell sm:px-6">{{ formatNumber(item.area) }}</td>
               <td class="hidden px-4 py-4 text-sm text-slate-600 md:table-cell sm:px-6">{{ formatCurrency(item.total_value) }}</td>
               <td class="px-4 py-4 sm:px-6">
-                <span :class="statusClass(item.status)" class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium">
+                <span :class="lotStatusClass(item.status)" class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium">
                   {{ lotStatusLabels[item.status] || item.status }}
                 </span>
               </td>
@@ -116,6 +116,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useAlert } from '@/composables/useAlert';
 import { formatCurrency } from '@/utils/format';
 import { lotStatusLabels, lotStatusOptions } from '@/utils/labels';
+import { lotStatusClass } from '@/utils/status';
 import { getApiErrorMessage } from '@/utils/apiError';
 import Button from '@/components/Common/Button.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
@@ -145,15 +146,6 @@ const developmentOptions = computed(() =>
 function formatNumber(value) {
   if (value == null || value === '') return '—';
   return Number(value).toLocaleString('pt-BR');
-}
-
-function statusClass(status) {
-  const map = {
-    available: 'bg-sid-cream-dark text-secondary-600',
-    reserved: 'bg-amber-100 text-amber-800',
-    sold: 'bg-slate-100 text-slate-700',
-  };
-  return map[status] || 'bg-slate-100 text-slate-700';
 }
 
 function goToCreate() {

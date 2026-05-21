@@ -151,8 +151,8 @@
         </div>
         <div class="card p-4">
           <p class="text-xs text-slate-500">Status</p>
-          <span :class="statusClass(sale.status)" class="rounded-full px-2 py-0.5 text-xs font-semibold">
-            {{ statusLabel(sale.status) }}
+          <span :class="saleStatusClass(sale.status)" class="rounded-full px-2 py-0.5 text-xs font-semibold">
+            {{ saleStatusLabel(sale.status) }}
           </span>
         </div>
       </div>
@@ -214,6 +214,12 @@ import {
 } from '@/services/sale.service';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { formatCurrency } from '@/utils/format';
+import {
+  installmentStatusClass as installmentStatusClassHelper,
+  installmentStatusLabel as installmentStatusLabelHelper,
+  saleStatusClass as saleStatusClassHelper,
+  saleStatusLabel as saleStatusLabelHelper,
+} from '@/utils/status';
 import Button from '@/components/Common/Button.vue';
 import {
   ArrowLeftIcon,
@@ -222,6 +228,11 @@ import {
   DocumentCheckIcon,
   PrinterIcon,
 } from '@heroicons/vue/24/outline';
+
+const saleStatusClass = (status) => saleStatusClassHelper(status);
+const saleStatusLabel = (status) => saleStatusLabelHelper(status);
+const installStatusClass = (status) => installmentStatusClassHelper(status);
+const installStatusLabel = (status) => installmentStatusLabelHelper(status);
 
 const route = useRoute();
 const router = useRouter();
@@ -240,10 +251,6 @@ const showRegistrationSuccess = computed(() => route.query.registered === '1');
 
 const formatDate = (d) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString('pt-BR') : '—');
 const formatDiscountPercent = (value) => `${String(value).replace('.', ',')}%`;
-const statusLabel = (s) => ({ active: 'Ativo', cancelled: 'Cancelado', completed: 'Concluído' }[s] ?? s);
-const statusClass = (s) => ({ active: 'bg-sid-cream-dark text-secondary-600', cancelled: 'bg-red-100 text-red-700', completed: 'bg-slate-100 text-slate-600' }[s] ?? '');
-const installStatusLabel = (s) => ({ pending: 'Pendente', paid: 'Pago', overdue: 'Atrasado' }[s] ?? s);
-const installStatusClass = (s) => ({ pending: 'bg-yellow-100 text-yellow-700', paid: 'bg-sid-cream-dark text-secondary-600', overdue: 'bg-red-100 text-red-700' }[s] ?? '');
 
 async function loadSale() {
   loading.value = true;
