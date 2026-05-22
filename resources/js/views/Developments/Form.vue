@@ -238,13 +238,13 @@
                   {{ drawingMode === 'zone' ? 'Cancelar edição' : drawingMode === 'street' ? 'Cancelar traçado' : 'Cancelar desenho' }}
                 </button>
                 <button
-                  v-if="drawingMode"
+                  v-if="drawingMode && startedFromExistingPolygon"
                   type="button"
                   class="map-toolbar-btn map-toolbar-btn--save flex items-center gap-1.5 rounded-lg px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
                   :disabled="!canSaveDrawing"
-                  @click="finishDrawing"
+                  @click="finishDrawing()"
                 >
-                  Salvar demarcação
+                  {{ drawingMode === 'street' ? 'Salvar traçado' : 'Salvar demarcação' }}
                 </button>
                 <button
                   v-if="!drawingMode"
@@ -260,20 +260,23 @@
                   v-if="drawingMode === 'perimeter'"
                   class="self-center text-xs font-medium text-blue-600"
                 >
-                  Clique no mapa para adicionar pontos. Arraste as bolinhas para ajustar. Duplo clique na bolinha remove o ponto. Salve quando tiver pelo menos 3 pontos.
+                  Clique no mapa para adicionar pontos. Com 3+ pontos, clique no primeiro vértice para fechar e salvar
+                  {{ perimeterPoints.length ? ` (${perimeterPoints.length} pontos)` : '' }}
                 </span>
                 <span
                   v-else-if="drawingMode === 'zone'"
                   class="self-center text-xs font-medium text-emerald-600"
                 >
-                  Editando {{ drawingZone?.name }} — arraste os vértices, duplo clique remove um ponto e clique em Salvar demarcação
+                  Editando {{ drawingZone?.name }} — arraste os vértices ou feche clicando no primeiro ponto
+                  {{ startedFromExistingPolygon ? ' · use Salvar demarcação após ajustes' : '' }}
                   {{ perimeterPoints.length ? ` (${perimeterPoints.length} pontos)` : '' }}
                 </span>
                 <span
                   v-else-if="drawingMode === 'street'"
                   class="self-center text-xs font-medium text-slate-600"
                 >
-                  Traçando {{ drawingStreet?.name }} — clique no mapa para marcar o percurso da rua
+                  Traçando {{ drawingStreet?.name }} — marque os pontos e feche clicando no primeiro vértice
+                  {{ startedFromExistingPolygon ? ' · use Salvar traçado após ajustes' : '' }}
                   {{ perimeterPoints.length ? ` (${perimeterPoints.length} pontos)` : '' }}
                 </span>
               </div>
@@ -442,6 +445,14 @@
               </p>
             </div>
             <div class="flex shrink-0 gap-2">
+              <button
+                v-if="street.coordinates?.length"
+                type="button"
+                class="rounded px-2 py-1 text-xs text-amber-600 hover:bg-amber-50"
+                @click="confirmClearStreet(street)"
+              >
+                Limpar traçado
+              </button>
               <button
                 type="button"
                 class="rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50"
@@ -757,6 +768,7 @@ const drawingZone = ref(null);
 const drawingStreet = ref(null);
 const locatingUser = ref(false);
 const mapReady = ref(false);
+const startedFromExistingPolygon = ref(false);
 
 function syncMapContainerHeight() {
   if (!mapContainer.value || !mapSectionRef.value) return;
@@ -812,16 +824,16 @@ const zoneInvalidHint = computed(() => {
     return `Adicione mais ${3 - perimeterPoints.value.length} ponto(s) para fechar a zona`;
   }
 
+  if (perimeterPoints.value.length >= 3 && !startedFromExistingPolygon.value) {
+    return 'Clique no primeiro vértice para fechar e salvar a zona';
+  }
+
   return '';
 });
 
 const canSaveDrawing = computed(() => {
-  if (!drawingMode.value) {
+  if (!drawingMode.value || !startedFromExistingPolygon.value) {
     return false;
-  }
-
-  if (drawingMode.value === 'street') {
-    return perimeterPoints.value.length >= 2;
   }
 
   if (perimeterPoints.value.length < 3) {
@@ -1027,6 +1039,25 @@ function buildPerimeterPopupHtml() {
         </button>
         <button type="button" class="map-feature-popup-btn map-feature-popup-btn--danger" data-map-clear>
           Limpar perímetro
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function buildStreetPopupHtml(street) {
+  const pointCount = street.coordinates?.length ?? 0;
+
+  return `
+    <div class="map-feature-popup">
+      <p class="map-feature-popup-title">${escapeHtml(street.name)}</p>
+      <p class="map-feature-popup-meta">Rua · ${pointCount} ponto(s) no traçado</p>
+      <div class="map-feature-popup-actions">
+        <button type="button" class="map-feature-popup-btn" data-map-edit>
+          Editar traçado
+        </button>
+        <button type="button" class="map-feature-popup-btn map-feature-popup-btn--danger" data-map-clear>
+          Limpar traçado
         </button>
       </div>
     </div>
@@ -1316,8 +1347,12 @@ function addDrawingMarker(coord, color, index) {
 
   marker.on('click', (e) => {
     L.DomEvent.stopPropagation(e);
-    if (marker._vertexIndex === 0 && perimeterPoints.value.length > 2) {
-      finishDrawing();
+    if (marker._vertexIndex === 0 && perimeterPoints.value.length >= 3) {
+      if (drawingMode.value === 'street') {
+        const first = perimeterPoints.value[0];
+        perimeterPoints.value.push([first[0], first[1]]);
+      }
+      finishDrawing({ closedExplicitly: true });
     }
   });
 
@@ -1337,6 +1372,7 @@ function addDrawingMarker(coord, color, index) {
 function preloadDrawingPoints(coords, color) {
   clearTempLayers();
   perimeterPoints.value = coords.map((c) => [Number(c[0]), Number(c[1])]);
+  startedFromExistingPolygon.value = perimeterPoints.value.length >= 3;
 
   perimeterPoints.value.forEach((coord, index) => addDrawingMarker(coord, color, index));
   refreshTempPolyline(perimeterPoints.value.length >= 3);
@@ -1347,13 +1383,17 @@ function removeVertexAtIndex(index) {
     return;
   }
 
-  const minPoints = drawingMode.value === 'street' ? 2 : 1;
+  const minPoints = 1;
   if (perimeterPoints.value.length <= minPoints) {
     toast.warning('Não é possível remover este ponto.');
     return;
   }
 
   perimeterPoints.value.splice(index, 1);
+
+  if (perimeterPoints.value.length < 3) {
+    startedFromExistingPolygon.value = false;
+  }
 
   tempMarkers.forEach((marker) => map?.removeLayer(marker));
   tempMarkers = [];
@@ -1381,6 +1421,10 @@ function undoLastPoint() {
   if (!perimeterPoints.value.length) return;
 
   perimeterPoints.value.pop();
+  if (perimeterPoints.value.length < 3) {
+    startedFromExistingPolygon.value = false;
+  }
+
   const marker = tempMarkers.pop();
   if (marker) {
     map?.removeLayer(marker);
@@ -1411,12 +1455,12 @@ function onMapClick(e) {
 
   addDrawingMarker([lat, lng], markerColor, perimeterPoints.value.length - 1);
 
-  if (
-    drawingMode.value !== 'street'
-    && perimeterPoints.value.length > 2
-    && isNearFirst(e.latlng)
-  ) {
-    finishDrawing();
+  if (perimeterPoints.value.length > 2 && isNearFirst(e.latlng)) {
+    if (drawingMode.value === 'street') {
+      const first = perimeterPoints.value[0];
+      perimeterPoints.value.push([first[0], first[1]]);
+    }
+    finishDrawing({ closedExplicitly: true });
     return;
   }
 
@@ -1446,9 +1490,12 @@ function refreshEdgeLabels() {
   }
 
   const isPolygonDrawing = drawingMode.value !== 'street' && perimeterPoints.value.length >= 3;
+  const includeClosingPreview = drawingMode.value === 'street'
+    ? perimeterPoints.value.length >= 3
+    : isPolygonDrawing;
   const edges = getPolygonEdgesMeters(perimeterPoints.value, {
     closed: isPolygonDrawing,
-    includeClosingPreview: false,
+    includeClosingPreview,
   });
 
   const zoneInvalid = drawingMode.value === 'zone'
@@ -1480,6 +1527,10 @@ function refreshTempPolyline(closed = false, options = {}) {
 
   if (!L || perimeterPoints.value.length < 2) return;
   if (map._tempLine) map.removeLayer(map._tempLine);
+  if (map._tempClosingLine) {
+    map.removeLayer(map._tempClosingLine);
+    delete map._tempClosingLine;
+  }
 
   if (drawingMode.value === 'street') {
     map._tempLine = L.polyline(perimeterPoints.value, {
@@ -1488,6 +1539,20 @@ function refreshTempPolyline(closed = false, options = {}) {
       opacity: 0.8,
       interactive: false,
     }).addTo(map);
+
+    if (perimeterPoints.value.length >= 3) {
+      const closingPoints = [
+        perimeterPoints.value[perimeterPoints.value.length - 1],
+        perimeterPoints.value[0],
+      ];
+      map._tempClosingLine = L.polyline(closingPoints, {
+        color: getStreetColor(drawingStreet.value),
+        weight: 4,
+        opacity: 0.45,
+        dashArray: '6 6',
+        interactive: false,
+      }).addTo(map);
+    }
 
     if (livePreview) {
       return;
@@ -1534,7 +1599,7 @@ function refreshTempPolyline(closed = false, options = {}) {
   bringEdgeLabelMarkersToFront();
 }
 
-async function finishDrawing() {
+async function finishDrawing({ closedExplicitly = false } = {}) {
   if (drawingMode.value === 'perimeter' && perimeterPoints.value.length < 3) {
     toast.warning('O perímetro precisa de pelo menos 3 pontos.');
     return;
@@ -1545,8 +1610,17 @@ async function finishDrawing() {
     return;
   }
 
-  if (drawingMode.value === 'street' && perimeterPoints.value.length < 2) {
-    toast.warning('A rua precisa de pelo menos 2 pontos.');
+  if (drawingMode.value === 'street' && perimeterPoints.value.length < 3) {
+    toast.warning('A rua precisa de pelo menos 3 pontos para fechar o traçado.');
+    return;
+  }
+
+  if (
+    (drawingMode.value === 'zone' || drawingMode.value === 'perimeter' || drawingMode.value === 'street')
+    && !startedFromExistingPolygon.value
+    && !closedExplicitly
+  ) {
+    toast.warning('Feche o traçado clicando no primeiro vértice para concluir.');
     return;
   }
 
@@ -1567,6 +1641,7 @@ async function finishDrawing() {
   clearTempLayers();
   resetMapCursor();
   perimeterPoints.value = [];
+  startedFromExistingPolygon.value = false;
   drawingMode.value = null;
   drawingZone.value = null;
   drawingStreet.value = null;
@@ -1608,6 +1683,10 @@ function clearTempLayers() {
   if (map?._tempLine) {
     map.removeLayer(map._tempLine);
     delete map._tempLine;
+  }
+  if (map?._tempClosingLine) {
+    map.removeLayer(map._tempClosingLine);
+    delete map._tempClosingLine;
   }
 }
 
@@ -1698,6 +1777,7 @@ function startDrawPerimeter() {
     toast.info('Perímetro carregado. Arraste os vértices ou adicione novos pontos no mapa.');
   } else {
     perimeterPoints.value = [];
+    startedFromExistingPolygon.value = false;
   }
 
   map?.getContainer()?.style.setProperty('cursor', 'crosshair');
@@ -1724,6 +1804,7 @@ function startDrawZone(zone) {
     toast.info(`Área de "${zone.name}" carregada. Arraste os vértices ou adicione novos pontos no mapa.`);
   } else {
     perimeterPoints.value = [];
+    startedFromExistingPolygon.value = false;
   }
 
   map?.getContainer()?.style.setProperty('cursor', 'crosshair');
@@ -1756,6 +1837,7 @@ function cancelDrawing() {
   clearTempLayers();
   resetMapCursor();
   perimeterPoints.value = [];
+  startedFromExistingPolygon.value = false;
   drawingMode.value = null;
   drawingZone.value = null;
   drawingStreet.value = null;
@@ -2012,17 +2094,27 @@ function drawStreetsOnMap() {
   streetLayersMap = {};
 
   streets.value.forEach((street) => {
-    if (!street.coordinates?.length || street.coordinates.length < 2) return;
+    if (!street.coordinates?.length || street.coordinates.length < 3) return;
 
     const layer = L.polyline(street.coordinates, {
       color: getStreetColor(street),
       weight: 4,
       opacity: 0.8,
-      interactive: false,
       className: 'map-lot-path',
     })
       .bindTooltip(street.name, { sticky: true })
       .addTo(map);
+
+    resetMapFeatureLayerInteraction(layer);
+
+    bindMapFeaturePopup(
+      layer,
+      buildStreetPopupHtml(street),
+      {
+        onEdit: () => startDrawStreet(street),
+        onClear: () => confirmClearStreet(street),
+      },
+    );
 
     streetLayersMap[street.id] = layer;
   });
@@ -2101,6 +2193,33 @@ async function deleteStreet(street) {
   }
 }
 
+async function confirmClearStreet(street) {
+  const ok = await confirm(
+    'Limpar traçado',
+    `O traçado de "${street.name}" será removido do mapa. A rua continuará cadastrada.`,
+    'Sim, limpar',
+  );
+  if (!ok) return;
+
+  if (drawingMode.value === 'street' && drawingStreet.value?.id === street.id) {
+    cancelDrawing();
+  }
+
+  try {
+    await api.put(`/developments/${route.params.id}/streets/${street.id}`, {
+      name: street.name,
+      color: street.color,
+      order: street.order,
+      coordinates: null,
+    });
+    toast.success('Traçado da rua removido.');
+    await loadStreets();
+    drawStreetsOnMap();
+  } catch {
+    toast.error('Erro ao limpar traçado da rua.');
+  }
+}
+
 function startDrawStreet(street) {
   if (drawingMode.value === 'perimeter' || drawingMode.value === 'zone') {
     cancelDrawing();
@@ -2114,15 +2233,16 @@ function startDrawStreet(street) {
   drawingZone.value = null;
   showZoneMapPicker.value = false;
 
-  if (street.coordinates?.length >= 2) {
+  if (street.coordinates?.length >= 3) {
     if (streetLayersMap[street.id]) {
       map?.removeLayer(streetLayersMap[street.id]);
       delete streetLayersMap[street.id];
     }
     preloadDrawingPoints(street.coordinates, getStreetColor(street));
-    toast.info(`Traçado de "${street.name}" carregado. Arraste os pontos ou adicione novos no mapa.`);
+    toast.info(`Traçado de "${street.name}" carregado. Arraste os pontos ou feche novamente para salvar.`);
   } else {
     perimeterPoints.value = [];
+    startedFromExistingPolygon.value = false;
   }
 
   map?.getContainer()?.style.setProperty('cursor', 'crosshair');

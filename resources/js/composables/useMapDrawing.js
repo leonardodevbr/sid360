@@ -59,6 +59,7 @@ export function useMapDrawing(options) {
   const capturingGps = ref(false);
   const gpsAccuracy = ref(null);
   const visibleZoneNameTypes = ref([]);
+  const startedFromExistingPolygon = ref(false);
 
   const isLotMode = computed(() => mode === 'lot');
   const hasMappedZones = computed(() =>
@@ -87,11 +88,19 @@ export function useMapDrawing(options) {
       return `Adicione mais ${3 - drawingPoints.value.length} ponto(s) para fechar o lote`;
     }
 
+    if (drawingPoints.value.length >= 3 && !startedFromExistingPolygon.value) {
+      return 'Clique no primeiro vértice para fechar e salvar o lote';
+    }
+
     return '';
   });
 
   const canSaveDrawing = computed(() => {
     if (!isDrawing.value || drawingPoints.value.length < 3) {
+      return false;
+    }
+
+    if (!startedFromExistingPolygon.value) {
       return false;
     }
 
@@ -331,7 +340,7 @@ export function useMapDrawing(options) {
     marker.on('click', (event) => {
       L.DomEvent.stopPropagation(event);
       if (marker._vertexIndex === 0 && drawingPoints.value.length > 2) {
-        finishDrawing();
+        finishDrawing({ closedExplicitly: true });
       }
     });
 
@@ -603,6 +612,7 @@ export function useMapDrawing(options) {
   function preloadDrawingPoints(coords) {
     clearTempLayers();
     drawingPoints.value = coords.map((point) => [Number(point[0]), Number(point[1])]);
+    startedFromExistingPolygon.value = drawingPoints.value.length >= 3;
     drawingPoints.value.forEach((coord, index) => {
       addDrawingMarker(coord, getDrawingBaseColor(), index);
     });
@@ -623,7 +633,7 @@ export function useMapDrawing(options) {
     addDrawingMarker([lat, lng], getDrawingBaseColor(), drawingPoints.value.length - 1);
 
     if (drawingPoints.value.length > 2 && isNearFirst(event.latlng)) {
-      finishDrawing();
+      finishDrawing({ closedExplicitly: true });
       return;
     }
 
@@ -656,6 +666,7 @@ export function useMapDrawing(options) {
       toast.info('Área do lote carregada. Arraste os vértices ou adicione novos pontos.');
     } else {
       drawingPoints.value = [];
+      startedFromExistingPolygon.value = false;
     }
 
     map?.getContainer()?.style.setProperty('cursor', 'crosshair');
@@ -665,15 +676,21 @@ export function useMapDrawing(options) {
     clearTempLayers();
     resetMapCursor();
     drawingPoints.value = [];
+    startedFromExistingPolygon.value = false;
     drawingMode.value = null;
     setMapOverlaysPointerEvents(true);
     restoreMapInteractionAfterDrawing();
     refreshContextLayers();
   }
 
-  function finishDrawing() {
+  function finishDrawing({ closedExplicitly = false } = {}) {
     if (drawingPoints.value.length < 3) {
       toast.warning('O lote precisa de pelo menos 3 pontos.');
+      return;
+    }
+
+    if (!startedFromExistingPolygon.value && !closedExplicitly) {
+      toast.warning('Feche o polígono clicando no primeiro vértice para concluir a demarcação.');
       return;
     }
 
@@ -688,6 +705,7 @@ export function useMapDrawing(options) {
     clearTempLayers();
     resetMapCursor();
     drawingPoints.value = [];
+    startedFromExistingPolygon.value = false;
     drawingMode.value = null;
     setMapOverlaysPointerEvents(true);
     restoreMapInteractionAfterDrawing();
@@ -712,6 +730,10 @@ export function useMapDrawing(options) {
     }
 
     drawingPoints.value.splice(index, 1);
+
+    if (drawingPoints.value.length < 3) {
+      startedFromExistingPolygon.value = false;
+    }
 
     tempMarkers.forEach((marker) => map?.removeLayer(marker));
     tempMarkers = [];
@@ -739,6 +761,10 @@ export function useMapDrawing(options) {
     if (!drawingPoints.value.length) return;
 
     drawingPoints.value.pop();
+    if (drawingPoints.value.length < 3) {
+      startedFromExistingPolygon.value = false;
+    }
+
     const marker = tempMarkers.pop();
     if (marker) map?.removeLayer(marker);
 
@@ -790,7 +816,7 @@ export function useMapDrawing(options) {
         const coords = [position.coords.latitude, position.coords.longitude];
 
         if (drawingPoints.value.length && isNearFirst(L.latLng(coords[0], coords[1]))) {
-          finishDrawing();
+          finishDrawing({ closedExplicitly: true });
         } else {
           drawingPoints.value.push(coords);
           addDrawingMarker(coords, getDrawingBaseColor(), drawingPoints.value.length - 1);
@@ -963,6 +989,7 @@ export function useMapDrawing(options) {
     isDrawing,
     boundaryHint,
     canSaveDrawing,
+    startedFromExistingPolygon,
     locatingUser,
     capturingGps,
     gpsAccuracy,

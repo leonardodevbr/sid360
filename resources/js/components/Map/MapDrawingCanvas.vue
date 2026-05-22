@@ -91,6 +91,7 @@ const {
   isDrawing,
   boundaryHint,
   canSaveDrawing,
+  startedFromExistingPolygon,
   locatingUser,
   capturingGps,
   gpsAccuracy,
@@ -281,11 +282,11 @@ onMounted(async () => {
           </button>
 
           <button
-            v-if="isDrawing"
+            v-if="isDrawing && startedFromExistingPolygon"
             type="button"
             class="map-toolbar-btn map-toolbar-btn--save flex items-center gap-1.5 rounded-lg px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
             :disabled="!canSaveDrawing"
-            @click="finishDrawing"
+            @click="finishDrawing()"
           >
             Salvar demarcação
           </button>
@@ -315,7 +316,8 @@ onMounted(async () => {
             v-if="isDrawing"
             class="self-center text-xs font-medium text-blue-600"
           >
-            Clique no mapa para adicionar pontos. Arraste as bolinhas para ajustar. Duplo clique na bolinha remove o ponto. Salve quando tiver pelo menos 3 pontos.
+            Clique no mapa para adicionar pontos. Com 3+ pontos, clique no primeiro vértice para fechar e salvar
+            {{ startedFromExistingPolygon ? ' · ou use Salvar demarcação após ajustes' : '' }}
           </span>
         </div>
 
