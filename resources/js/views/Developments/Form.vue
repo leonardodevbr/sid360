@@ -70,7 +70,7 @@
         </div>
       </div>
 
-      <div class="card space-y-4 p-5">
+      <div class="card space-y-4 overflow-hidden p-4 sm:p-5">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p class="text-sm font-semibold text-slate-700">Mapa do empreendimento</p>
@@ -95,13 +95,13 @@
 
         <div
           ref="mapSectionRef"
-          class="map-fullscreen-section space-y-4"
+          class="map-fullscreen-section map-drawing-section space-y-3 sm:space-y-4"
           :class="{ 'map-fullscreen-section--overlay': isMapFullscreen }"
         >
-          <div class="map-canvas-wrap relative">
+          <div class="map-canvas-wrap relative min-w-0">
             <div
               ref="mapContainer"
-              class="map-fullscreen-canvas h-[560px] w-full overflow-hidden rounded-lg border border-slate-300 sm:h-[600px]"
+              class="map-fullscreen-canvas map-drawing-canvas h-[min(42vh,380px)] min-h-[240px] w-full overflow-hidden rounded-lg border border-slate-300 sm:h-[560px] md:h-[600px]"
             />
 
             <div
@@ -191,21 +191,22 @@
             class="map-fullscreen-footer"
             :class="{ 'map-fullscreen-footer--dedicated': isMapFullscreen }"
           >
-            <div class="map-fullscreen-toolbar flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
-              <div class="map-toolbar-group map-toolbar-group--primary flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            <div class="map-fullscreen-toolbar map-drawing-toolbar flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-2 sm:gap-y-2">
+              <div class="map-toolbar-group map-toolbar-group--primary flex min-w-0 w-full flex-wrap items-center gap-2">
                 <button
                   v-if="!drawingMode"
                   type="button"
-                  class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  class="map-toolbar-action-btn flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50 sm:justify-start sm:px-3 sm:text-xs"
                   @click="startDrawPerimeter"
                 >
-                  <MapIcon class="h-3.5 w-3.5" />
-                  {{ form.coordinates?.length ? 'Redesenhar perímetro' : 'Desenhar perímetro' }}
+                  <MapIcon class="h-3.5 w-3.5 shrink-0" />
+                  <span class="sm:hidden">{{ form.coordinates?.length ? 'Redesenhar' : 'Desenhar' }}</span>
+                  <span class="hidden sm:inline">{{ form.coordinates?.length ? 'Redesenhar perímetro' : 'Desenhar perímetro' }}</span>
                 </button>
                 <button
                   v-if="form.coordinates?.length && !drawingMode"
                   type="button"
-                  class="flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                  class="map-toolbar-action-btn flex items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-red-600 hover:bg-red-50 sm:justify-start sm:px-3 sm:text-xs"
                   @click="confirmClearPerimeter"
                 >
                   Limpar perímetro
@@ -213,34 +214,35 @@
                 <button
                   v-if="clearedPerimeterSnapshot && !drawingMode"
                   type="button"
-                  class="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50"
+                  class="map-toolbar-action-btn flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-amber-700 hover:bg-amber-50 sm:justify-start sm:px-3 sm:text-xs"
                   @click="undoClearPerimeter"
                 >
-                  <ArrowUturnLeftIcon class="h-3.5 w-3.5" />
+                  <ArrowUturnLeftIcon class="h-3.5 w-3.5 shrink-0" />
                   Desfazer
                 </button>
                 <button
                   v-if="drawingMode && perimeterPoints.length"
                   type="button"
-                  class="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50"
+                  class="map-toolbar-action-btn flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-amber-600 hover:bg-amber-50 sm:justify-start sm:px-3 sm:text-xs"
                   @click="undoLastPoint"
                 >
-                  <ArrowUturnLeftIcon class="h-3.5 w-3.5" />
-                  Desfazer último ponto
+                  <ArrowUturnLeftIcon class="h-3.5 w-3.5 shrink-0" />
+                  <span class="hidden sm:inline">Desfazer último ponto</span>
+                  <span class="sm:hidden">Desfazer ponto</span>
                 </button>
                 <button
                   v-if="drawingMode"
                   type="button"
-                  class="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100"
+                  class="map-toolbar-action-btn flex items-center justify-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] font-medium text-amber-700 hover:bg-amber-100 sm:justify-start sm:px-3 sm:text-xs"
                   @click="cancelDrawing"
                 >
-                  <XMarkIcon class="h-3.5 w-3.5" />
+                  <XMarkIcon class="h-3.5 w-3.5 shrink-0" />
                   {{ drawingMode === 'zone' ? 'Cancelar edição' : drawingMode === 'street' ? 'Cancelar traçado' : 'Cancelar desenho' }}
                 </button>
                 <button
                   v-if="drawingMode && canSaveDrawing"
                   type="button"
-                  class="map-toolbar-btn map-toolbar-btn--save flex items-center gap-1.5 rounded-lg px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+                  class="map-toolbar-btn map-toolbar-btn--save map-toolbar-action-btn flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] disabled:cursor-not-allowed disabled:opacity-50 sm:justify-start sm:px-3 sm:text-xs"
                   @click="finishDrawing()"
                 >
                   {{ drawingMode === 'street' ? 'Salvar traçado' : 'Salvar demarcação' }}
@@ -248,30 +250,30 @@
                 <button
                   v-if="!drawingMode"
                   type="button"
-                  class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  class="map-toolbar-action-btn flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 sm:justify-start sm:px-3 sm:text-xs"
                   :disabled="locatingUser"
                   @click="goToMyLocation"
                 >
-                  <MapPinIcon class="h-3.5 w-3.5" />
+                  <MapPinIcon class="h-3.5 w-3.5 shrink-0" />
                   {{ locatingUser ? 'Localizando...' : 'Minha localização' }}
                 </button>
                 <span
                   v-if="drawingMode === 'perimeter'"
-                  class="self-center text-xs font-medium text-blue-600"
+                  class="w-full self-center text-[11px] font-medium leading-snug text-blue-600 sm:text-xs"
                 >
                   Clique no mapa para adicionar pontos. Duplo clique na bolinha remove um ponto. Com 3+ pontos, use Salvar demarcação ou clique no primeiro vértice
                   {{ perimeterPoints.length ? ` (${perimeterPoints.length} pontos)` : '' }}
                 </span>
                 <span
                   v-else-if="drawingMode === 'zone'"
-                  class="self-center text-xs font-medium text-emerald-600"
+                  class="w-full self-center text-[11px] font-medium leading-snug text-emerald-600 sm:text-xs"
                 >
                   Editando {{ drawingZone?.name }} — arraste os vértices, duplo clique remove um ponto. Com pontos suficientes, use Salvar demarcação ou clique no primeiro vértice
                   {{ perimeterPoints.length ? ` (${perimeterPoints.length} pontos)` : '' }}
                 </span>
                 <span
                   v-else-if="drawingMode === 'street'"
-                  class="self-center text-xs font-medium text-slate-600"
+                  class="w-full self-center text-[11px] font-medium leading-snug text-slate-600 sm:text-xs"
                 >
                   Traçando {{ drawingStreet?.name }} — polígono fechado com no mínimo 4 pontos. Duplo clique remove um ponto
                   {{ streetDrawingHint ? ` · ${streetDrawingHint}` : '' }}
@@ -280,54 +282,56 @@
                 </span>
               </div>
 
-              <div class="map-toolbar-group map-toolbar-group--map flex shrink-0 flex-wrap items-center justify-end gap-2">
+              <div class="map-toolbar-group map-toolbar-group--map grid w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:w-auto sm:shrink-0 sm:flex-wrap sm:items-center sm:justify-end">
                 <button
                   v-if="isEdit && !drawingMode && hasMappedZones"
                   type="button"
-                  class="map-toolbar-btn map-toolbar-btn--map flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
+                  class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn col-span-2 flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:col-span-1 sm:justify-start sm:px-3 sm:text-xs"
                   :class="visibleZoneNameTypes.length
                     ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                     : ''"
                   @click="openZoneNamePicker"
                 >
-                  <TagIcon class="h-3.5 w-3.5" />
+                  <TagIcon class="h-3.5 w-3.5 shrink-0" />
                   Exibir nomes
                 </button>
                 <button
                   v-if="isEdit && !drawingMode"
                   type="button"
-                  class="map-toolbar-btn map-toolbar-btn--map relative flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
+                  class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn col-span-2 flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:col-span-1 sm:justify-start sm:px-3 sm:text-xs"
                   :class="showZoneMapPicker
                     ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                     : ''"
                   @click="toggleZoneMapPicker"
                 >
-                  <RectangleGroupIcon class="h-3.5 w-3.5" />
+                  <RectangleGroupIcon class="h-3.5 w-3.5 shrink-0" />
                   Mapear zona
                 </button>
                 <button
                   v-if="!drawingMode"
                   type="button"
-                  class="map-toolbar-btn map-toolbar-btn--map flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
+                  class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:justify-start sm:px-3 sm:text-xs"
                   @click="rotateMapBy(-15)"
                 >
-                  Girar pra esquerda
+                  <span class="sm:hidden">Girar esq.</span>
+                  <span class="hidden sm:inline">Girar pra esquerda</span>
                 </button>
                 <button
                   v-if="!drawingMode"
                   type="button"
-                  class="map-toolbar-btn map-toolbar-btn--map flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
+                  class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:justify-start sm:px-3 sm:text-xs"
                   @click="rotateMapBy(15)"
                 >
-                  Girar pra direita
+                  <span class="sm:hidden">Girar dir.</span>
+                  <span class="hidden sm:inline">Girar pra direita</span>
                 </button>
                 <button
                   type="button"
-                  class="map-toolbar-btn map-toolbar-btn--map flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
+                  class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn col-span-2 flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:col-span-1 sm:justify-start sm:px-3 sm:text-xs"
                   @click="toggleMapFullscreen"
                 >
-                  <ArrowsPointingOutIcon v-if="!isMapFullscreen" class="h-3.5 w-3.5" />
-                  <ArrowsPointingInIcon v-else class="h-3.5 w-3.5" />
+                  <ArrowsPointingOutIcon v-if="!isMapFullscreen" class="h-3.5 w-3.5 shrink-0" />
+                  <ArrowsPointingInIcon v-else class="h-3.5 w-3.5 shrink-0" />
                   {{ isMapFullscreen ? 'Sair da tela cheia' : 'Tela cheia' }}
                 </button>
               </div>
@@ -336,14 +340,14 @@
         </div>
       </div>
 
-      <div v-if="isEdit" class="card space-y-4 p-5">
-        <div class="flex items-center justify-between">
+      <div v-if="isEdit" class="card space-y-4 overflow-hidden p-4 sm:p-5">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p class="text-sm font-semibold text-slate-700">
             Zonas (quadras / conjuntos / ruas)
           </p>
           <button
             type="button"
-            class="flex items-center gap-1.5 rounded-lg bg-action px-3 py-1.5 text-xs font-semibold text-white hover:bg-action-hover"
+            class="flex w-full items-center justify-center gap-1.5 rounded-lg bg-action px-3 py-1.5 text-xs font-semibold text-white hover:bg-action-hover sm:w-auto"
             @click="openZoneForm"
           >
             <PlusIcon class="h-3.5 w-3.5" />
@@ -355,32 +359,34 @@
           <div
             v-for="zone in zones"
             :key="zone.id"
-            class="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5"
+            class="resource-list-item flex flex-col gap-3 rounded-lg border border-slate-200 p-3 sm:flex-row sm:items-center sm:gap-3 sm:py-2.5"
           >
-            <div class="h-3 w-3 shrink-0 rounded-full" :style="{ background: zone.color }" />
-            <div class="min-w-0 flex-1">
-              <p class="text-sm font-semibold tracking-wide text-slate-800">{{ buildZoneTitleLabel(zone) }}</p>
-              <p class="text-xs text-slate-400">
-                {{ zoneTypeLabel(zone.type) }}
-                <span v-if="zone.parent_zone_id">
-                  · dentro de <strong>{{ zones.find((item) => item.id === zone.parent_zone_id)?.name }}</strong>
-                </span>
-                · {{ zoneLotsCount(zone) }} lote(s)
-                <span v-if="zone.coordinates?.length >= 3" class="text-emerald-600"> · área definida</span>
-                <span v-else class="text-amber-500"> · sem área</span>
-              </p>
+            <div class="flex min-w-0 items-start gap-3 sm:flex-1">
+              <div class="mt-1 h-3 w-3 shrink-0 rounded-full" :style="{ background: zone.color }" />
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-semibold tracking-wide text-slate-800">{{ buildZoneTitleLabel(zone) }}</p>
+                <p class="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-slate-400">
+                  <span class="whitespace-nowrap">{{ zoneTypeLabel(zone.type) }}</span>
+                  <span v-if="zone.parent_zone_id" class="whitespace-nowrap">
+                    · dentro de <strong>{{ zones.find((item) => item.id === zone.parent_zone_id)?.name }}</strong>
+                  </span>
+                  <span class="whitespace-nowrap">· {{ zoneLotsCount(zone) }} lote(s)</span>
+                  <span v-if="zone.coordinates?.length >= 3" class="whitespace-nowrap text-emerald-600">· área definida</span>
+                  <span v-else class="whitespace-nowrap text-amber-500">· sem área</span>
+                </p>
+              </div>
             </div>
-            <div class="flex shrink-0 gap-2">
+            <div class="resource-list-actions flex w-full flex-wrap gap-1.5 sm:w-auto sm:shrink-0 sm:justify-end">
               <button
                 type="button"
-                class="rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50"
+                class="resource-list-action-btn rounded px-2 py-1.5 text-xs text-blue-600 hover:bg-blue-50"
                 @click="startDrawZone(zone)"
               >
                 {{ zone.coordinates?.length ? 'Redesenhar' : 'Desenhar área' }}
               </button>
               <button
                 type="button"
-                class="rounded px-2 py-1 text-xs"
+                class="resource-list-action-btn rounded px-2 py-1.5 text-xs"
                 :class="canGenerateLotsInZone(zone)
                   ? 'text-emerald-600 hover:bg-emerald-50'
                   : 'cursor-not-allowed text-slate-300'"
@@ -392,14 +398,14 @@
               </button>
               <button
                 type="button"
-                class="rounded px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
+                class="resource-list-action-btn rounded px-2 py-1.5 text-xs text-slate-500 hover:bg-slate-100"
                 @click="editZone(zone)"
               >
                 Editar
               </button>
               <button
                 type="button"
-                class="rounded px-2 py-1 text-xs text-red-500 hover:bg-red-50"
+                class="resource-list-action-btn rounded px-2 py-1.5 text-xs text-red-500 hover:bg-red-50"
                 @click="deleteZone(zone)"
               >
                 Excluir
@@ -410,12 +416,12 @@
         <p v-else class="text-xs text-slate-400">Nenhuma zona cadastrada ainda.</p>
       </div>
 
-      <div v-if="isEdit" class="card space-y-4 p-5">
-        <div class="flex items-center justify-between">
+      <div v-if="isEdit" class="card space-y-4 overflow-hidden p-4 sm:p-5">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p class="text-sm font-semibold text-slate-700">Ruas do loteamento</p>
           <button
             type="button"
-            class="flex items-center gap-1.5 rounded-lg bg-slate-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
+            class="flex w-full items-center justify-center gap-1.5 rounded-lg bg-slate-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 sm:w-auto"
             @click="openStreetForm"
           >
             <PlusIcon class="h-3.5 w-3.5" />
@@ -427,51 +433,53 @@
           <div
             v-for="street in streets"
             :key="street.id"
-            class="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5"
+            class="resource-list-item flex flex-col gap-3 rounded-lg border border-slate-200 p-3 sm:flex-row sm:items-center sm:gap-3 sm:py-2.5"
           >
-            <div
-              class="h-3 w-3 shrink-0 rounded-sm"
-              :style="{ background: street.color || defaultStreetColor }"
-            />
-            <div class="min-w-0 flex-1">
-              <p class="text-sm font-medium text-slate-800">{{ street.name }}</p>
-              <p class="text-xs text-slate-400">
-                Rua
-                <span v-if="hasValidStreetPolygon(street.coordinates?.length ?? 0)" class="text-emerald-600">
-                  · área definida ({{ street.coordinates.length }} pontos)
-                </span>
-                <span v-else-if="street.coordinates?.length" class="text-amber-500">
-                  · traçado incompleto (mínimo 4 pontos)
-                </span>
-                <span v-else class="text-amber-500"> · sem traçado</span>
-              </p>
+            <div class="flex min-w-0 items-start gap-3 sm:flex-1">
+              <div
+                class="mt-1 h-3 w-3 shrink-0 rounded-sm"
+                :style="{ background: street.color || defaultStreetColor }"
+              />
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-medium text-slate-800">{{ street.name }}</p>
+                <p class="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-slate-400">
+                  <span class="whitespace-nowrap">Rua</span>
+                  <span v-if="hasValidStreetPolygon(street.coordinates?.length ?? 0)" class="whitespace-nowrap text-emerald-600">
+                    · área definida ({{ street.coordinates.length }} pontos)
+                  </span>
+                  <span v-else-if="street.coordinates?.length" class="whitespace-nowrap text-amber-500">
+                    · traçado incompleto (mínimo 4 pontos)
+                  </span>
+                  <span v-else class="whitespace-nowrap text-amber-500">· sem traçado</span>
+                </p>
+              </div>
             </div>
-            <div class="flex shrink-0 gap-2">
+            <div class="resource-list-actions flex w-full flex-wrap gap-1.5 sm:w-auto sm:shrink-0 sm:justify-end">
               <button
                 v-if="street.coordinates?.length"
                 type="button"
-                class="rounded px-2 py-1 text-xs text-amber-600 hover:bg-amber-50"
+                class="resource-list-action-btn rounded px-2 py-1.5 text-xs text-amber-600 hover:bg-amber-50"
                 @click="confirmClearStreet(street)"
               >
                 Limpar traçado
               </button>
               <button
                 type="button"
-                class="rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50"
+                class="resource-list-action-btn rounded px-2 py-1.5 text-xs text-blue-600 hover:bg-blue-50"
                 @click="startDrawStreet(street)"
               >
                 {{ street.coordinates?.length ? 'Redesenhar' : 'Desenhar no mapa' }}
               </button>
               <button
                 type="button"
-                class="rounded px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
+                class="resource-list-action-btn rounded px-2 py-1.5 text-xs text-slate-500 hover:bg-slate-100"
                 @click="editStreet(street)"
               >
                 Editar
               </button>
               <button
                 type="button"
-                class="rounded px-2 py-1 text-xs text-red-500 hover:bg-red-50"
+                class="resource-list-action-btn rounded px-2 py-1.5 text-xs text-red-500 hover:bg-red-50"
                 @click="deleteStreet(street)"
               >
                 Excluir
