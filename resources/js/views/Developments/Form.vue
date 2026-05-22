@@ -878,7 +878,7 @@ const streetDrawingHint = computed(() => {
   }
 
   if (!startedFromExistingPolygon.value) {
-    return 'polígono pronto — clique em Salvar traçado ou no primeiro vértice';
+    return 'mínimo atingido — clique no primeiro vértice para fechar e salvar';
   }
 
   return '';
@@ -1526,7 +1526,11 @@ function onMapClick(e) {
 
   addDrawingMarker([lat, lng], markerColor, perimeterPoints.value.length - 1);
 
-  if (perimeterPoints.value.length >= minPointsToClose && isNearFirst(e.latlng)) {
+  if (
+    drawingMode.value !== 'street'
+    && perimeterPoints.value.length >= minPointsToClose
+    && isNearFirst(e.latlng)
+  ) {
     finishDrawing({ closedExplicitly: true });
     return;
   }
@@ -1557,11 +1561,10 @@ function refreshEdgeLabels() {
   }
 
   const isPolygonDrawing = drawingMode.value === 'street'
-    ? hasValidStreetPolygon(perimeterPoints.value.length)
+    ? false
     : perimeterPoints.value.length >= 3;
   const includeClosingPreview = drawingMode.value === 'street'
-    && perimeterPoints.value.length >= 3
-    && !hasValidStreetPolygon(perimeterPoints.value.length);
+    && perimeterPoints.value.length >= 3;
   const edges = getPolygonEdgesMeters(perimeterPoints.value, {
     closed: isPolygonDrawing,
     includeClosingPreview,
@@ -1619,7 +1622,7 @@ function refreshTempPolyline(closed = false, options = {}) {
   };
 
   const shouldRenderClosed = drawingMode.value === 'street'
-    ? hasValidStreetPolygon(perimeterPoints.value.length)
+    ? false
     : closed && perimeterPoints.value.length >= 3;
 
   if (shouldRenderClosed) {
@@ -2291,14 +2294,19 @@ async function saveStreetCoordinates(street, coords) {
     await api.put(`/developments/${route.params.id}/streets/${street.id}`, {
       name: street.name,
       color: street.color,
-      order: street.order,
+      order: street.order != null ? Number(street.order) : null,
       coordinates: coords,
     });
     toast.success('Traçado da rua salvo.');
     await loadStreets();
     drawStreetsOnMap();
-  } catch {
-    toast.error('Erro ao salvar traçado da rua.');
+  } catch (err) {
+    const status = err?.response?.status;
+    if (status === 403) {
+      toast.error('Sem permissão para editar ruas. Verifique se seu usuário tem acesso de edição ao empreendimento.');
+    } else {
+      toast.error(err?.response?.data?.message ?? 'Erro ao salvar traçado da rua.');
+    }
     await loadStreets();
     drawStreetsOnMap();
   }
