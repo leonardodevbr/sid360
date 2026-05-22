@@ -1562,10 +1562,12 @@ function refreshEdgeLabels() {
     return;
   }
 
-  const minPointsToClose = getMinimumPointsToClose(drawingMode.value);
-  const isPolygonDrawing = perimeterPoints.value.length >= 3 && drawingMode.value !== 'street';
+  const isPolygonDrawing = drawingMode.value === 'street'
+    ? hasValidStreetPolygon(perimeterPoints.value.length)
+    : perimeterPoints.value.length >= 3;
   const includeClosingPreview = drawingMode.value === 'street'
-    && perimeterPoints.value.length >= minPointsToClose;
+    && perimeterPoints.value.length >= 3
+    && !hasValidStreetPolygon(perimeterPoints.value.length);
   const edges = getPolygonEdgesMeters(perimeterPoints.value, {
     closed: isPolygonDrawing,
     includeClosingPreview,
@@ -1622,7 +1624,9 @@ function refreshTempPolyline(closed = false, options = {}) {
     interactive: false,
   };
 
-  const shouldRenderClosed = closed && perimeterPoints.value.length >= 3 && drawingMode.value !== 'street';
+  const shouldRenderClosed = drawingMode.value === 'street'
+    ? hasValidStreetPolygon(perimeterPoints.value.length)
+    : closed && perimeterPoints.value.length >= 3;
 
   if (shouldRenderClosed) {
     map._tempLine = L.polygon(perimeterPoints.value, {
