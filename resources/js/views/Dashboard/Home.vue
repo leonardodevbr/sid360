@@ -84,7 +84,7 @@
             >
               <div class="min-w-0">
                 <p class="truncate text-xs font-medium text-slate-800">{{ inst.client }}</p>
-                <p class="text-xs text-slate-400">{{ inst.lote }} · {{ inst.label }}</p>
+                <p class="text-xs text-slate-400">{{ inst.lote }} · {{ inst.label ?? 'Parcela ' + inst.number }}</p>
               </div>
               <div class="ml-3 shrink-0 text-right">
                 <p class="text-xs font-semibold text-red-600">{{ fmt(inst.value) }}</p>
@@ -116,7 +116,7 @@
             >
               <div class="min-w-0">
                 <p class="truncate text-xs font-medium text-slate-800">{{ inst.client }}</p>
-                <p class="text-xs text-slate-400">{{ inst.lote }} · {{ inst.label }}</p>
+                <p class="text-xs text-slate-400">{{ inst.lote }} · {{ inst.label ?? 'Parcela ' + inst.number }}</p>
               </div>
               <div class="ml-3 shrink-0 text-right">
                 <p class="text-xs font-semibold text-amber-700">{{ fmt(inst.value) }}</p>
@@ -147,7 +147,15 @@
               <p class="text-sm font-medium text-slate-800">{{ dev.name }}</p>
               <p class="text-xs text-slate-400">{{ dev.location || 'Sem localização' }}</p>
             </div>
-            <span class="text-xs text-slate-500">{{ dev.lots_count }} lotes</span>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="text-slate-400">{{ dev.lots_count }} lotes</span>
+              <span v-if="dev.lots_sold_count" class="rounded-full bg-red-100 px-2 py-0.5 font-medium text-red-600">
+                {{ dev.lots_sold_count }} vendido{{ dev.lots_sold_count > 1 ? 's' : '' }}
+              </span>
+              <span v-if="dev.lots_available_count" class="rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-700">
+                {{ dev.lots_available_count }} disponível{{ dev.lots_available_count > 1 ? 'is' : '' }}
+              </span>
+            </div>
           </div>
         </div>
       </div>

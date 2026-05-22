@@ -123,7 +123,12 @@ class DashboardController extends Controller
             'total_clients' => $totalClients,
             'clients_whatsapp' => $clientsWhatsapp,
             'recent_developments' => Development::query()
-                ->withCount('lots')
+                ->withCount([
+                    'lots',
+                    'lots as lots_available_count' => fn ($q) => $q->where('status', 'available'),
+                    'lots as lots_sold_count' => fn ($q) => $q->where('status', 'sold'),
+                    'lots as lots_reserved_count' => fn ($q) => $q->where('status', 'reserved'),
+                ])
                 ->latest()
                 ->limit(5)
                 ->get(['id', 'name', 'location', 'status', 'created_at']),

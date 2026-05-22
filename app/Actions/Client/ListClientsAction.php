@@ -23,6 +23,13 @@ class ListClientsAction
                     ->orWhere('cpf', 'like', "%{$search}%")
                     ->orWhere('phone', 'like', "%{$search}%");
             })
+            ->when($request->filled('whatsapp_status'), function ($q) use ($request) {
+                if ($request->string('whatsapp_status')->toString() === 'pending') {
+                    return $q->whereNull('whatsapp_status');
+                }
+
+                return $q->where('whatsapp_status', $request->string('whatsapp_status')->toString());
+            })
             ->orderBy('name');
 
         if ($request->boolean('all')) {

@@ -10,6 +10,21 @@
       </router-link>
     </div>
 
+    <div class="card p-4">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div class="w-full sm:w-48">
+          <SelectInput
+            v-model="filterStatus"
+            label="Status"
+            :options="statusOptions"
+            placeholder="Todos os status"
+            :searchable="false"
+            @update:model-value="fetchSales(1)"
+          />
+        </div>
+      </div>
+    </div>
+
     <div class="card overflow-hidden">
       <table class="w-full text-sm">
         <thead class="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
@@ -107,6 +122,7 @@ import { downloadContract } from '@/services/sale.service';
 import { formatCurrency } from '@/utils/format';
 import { saleStatusClass, saleStatusLabel } from '@/utils/status';
 import Button from '@/components/Common/Button.vue';
+import SelectInput from '@/components/Common/SelectInput.vue';
 import PaginationBar from '@/components/Common/PaginationBar.vue';
 import { EyeIcon, DocumentArrowDownIcon } from '@heroicons/vue/24/outline';
 
@@ -114,6 +130,13 @@ const toast = useToast();
 const sales = ref([]);
 const pagination = ref(null);
 const loading = ref(false);
+const filterStatus = ref('');
+
+const statusOptions = [
+  { value: 'active', label: 'Ativo' },
+  { value: 'completed', label: 'Concluído' },
+  { value: 'cancelled', label: 'Cancelado' },
+];
 
 const formatDate = (d) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString('pt-BR') : '—');
 
@@ -142,7 +165,9 @@ function whatsappTooltip(sale) {
 async function fetchSales(page = 1) {
   loading.value = true;
   try {
-    const { data } = await api.get('/sales', { params: { page } });
+    const { data } = await api.get('/sales', {
+      params: { page, status: filterStatus.value || undefined },
+    });
     sales.value = data.data ?? [];
     pagination.value = data.meta ?? null;
   } catch {

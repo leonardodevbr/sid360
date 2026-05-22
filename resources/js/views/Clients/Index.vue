@@ -11,12 +11,27 @@
     </div>
 
     <div class="card p-4">
-      <input
-        v-model="search"
-        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent"
-        placeholder="Buscar por nome, CPF ou telefone..."
-        @input="debouncedFetch"
-      />
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div class="min-w-0 flex-1">
+          <label class="mb-1 block text-sm font-medium text-slate-700">Buscar</label>
+          <input
+            v-model="search"
+            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent"
+            placeholder="Buscar por nome, CPF ou telefone..."
+            @input="debouncedFetch"
+          />
+        </div>
+        <div class="w-full sm:w-52">
+          <SelectInput
+            v-model="filterWhatsapp"
+            label="WhatsApp"
+            :options="whatsappFilterOptions"
+            placeholder="Todos"
+            :searchable="false"
+            @update:model-value="fetchClients(1)"
+          />
+        </div>
+      </div>
     </div>
 
     <div class="card overflow-hidden">
@@ -98,6 +113,7 @@ import { ref, onMounted } from 'vue';
 import { useToast } from 'vue-toastification';
 import api from '@/services/api';
 import Button from '@/components/Common/Button.vue';
+import SelectInput from '@/components/Common/SelectInput.vue';
 import Modal from '@/components/Common/Modal.vue';
 import PaginationBar from '@/components/Common/PaginationBar.vue';
 import { PencilIcon, TrashIcon } from '@heroicons/vue/24/outline';
@@ -107,14 +123,27 @@ const clients = ref([]);
 const pagination = ref(null);
 const loading = ref(false);
 const search = ref('');
+const filterWhatsapp = ref('');
 const deleteTarget = ref(null);
 const deleting = ref(false);
 let debounce = null;
 
+const whatsappFilterOptions = [
+  { value: 'confirmed', label: 'WhatsApp confirmado' },
+  { value: 'none', label: 'Sem WhatsApp' },
+  { value: 'pending', label: 'Não verificado' },
+];
+
 async function fetchClients(page = 1) {
   loading.value = true;
   try {
-    const { data } = await api.get('/clients', { params: { search: search.value, page } });
+    const { data } = await api.get('/clients', {
+      params: {
+        search: search.value,
+        whatsapp_status: filterWhatsapp.value || undefined,
+        page,
+      },
+    });
     clients.value = data.data ?? [];
     pagination.value = data.meta ?? null;
   } catch {

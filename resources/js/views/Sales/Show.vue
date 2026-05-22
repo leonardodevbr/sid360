@@ -371,6 +371,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
+import Swal from 'sweetalert2';
 import api from '@/services/api';
 import {
   downloadContract,
@@ -588,13 +589,33 @@ function clearRegistrationQuery() {
 }
 
 async function payInstallment(inst) {
+  const { isConfirmed } = await Swal.fire({
+    title: 'Confirmar pagamento',
+    html: `
+      <div class="text-left text-sm text-slate-600 space-y-1">
+        <p><strong>Parcela:</strong> ${inst.number}/${sale.value.installments_count}</p>
+        <p><strong>Vencimento:</strong> ${fmtDate(inst.due_date)}</p>
+        <p><strong>Valor:</strong> ${formatCurrency(inst.value)}</p>
+      </div>
+    `,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Confirmar pagamento',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#1E5F8E',
+    cancelButtonColor: '#6b7280',
+    reverseButtons: true,
+  });
+
+  if (!isConfirmed) return;
+
   try {
     await api.post(`/installments/${inst.id}/pay`);
-    const label = inst.type === 'down_payment' ? 'Entrada' : `Parcela ${inst.number}`;
-    toast.success(`${label} marcada como paga.`);
+    toast.success(`Parcela ${inst.number} marcada como paga.`);
     loadSale();
+    loadInteractions();
   } catch {
-    toast.error('Erro ao marcar pagamento como pago.');
+    toast.error('Erro ao marcar parcela como paga.');
   }
 }
 
