@@ -29,6 +29,10 @@ const props = defineProps({
     type: Array,
     default: null,
   },
+  contextStreets: {
+    type: Array,
+    default: () => [],
+  },
   contextZones: {
     type: Array,
     default: () => [],
@@ -75,6 +79,7 @@ watch(
 );
 
 const contextPerimeterRef = computed(() => props.contextPerimeter);
+const contextStreetsRef = computed(() => props.contextStreets);
 const contextZonesRef = computed(() => props.contextZones);
 const boundaryPolygonRef = computed(() => props.boundaryPolygon);
 const mapCenterRef = computed(() => props.mapCenter);
@@ -115,6 +120,7 @@ const {
   mode: props.mode,
   coordinates: coordinatesModel,
   contextPerimeter: contextPerimeterRef,
+  contextStreets: contextStreetsRef,
   contextZones: contextZonesRef,
   boundaryPolygon: boundaryPolygonRef,
   mapCenter: mapCenterRef,

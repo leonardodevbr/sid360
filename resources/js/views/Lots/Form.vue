@@ -128,6 +128,7 @@
           mode="lot"
           :coordinates="form.coordinates"
           :context-perimeter="developmentPerimeter"
+          :context-streets="mappedStreets"
           :context-zones="mappedZones"
           :boundary-polygon="lotBoundaryPolygon"
           :map-center="developmentMapCenter"
@@ -193,6 +194,7 @@ import api from '@/services/api';
 import { lotStatusFormOptions } from '@/utils/labels';
 import { buildZoneTitleLabel, isLotSelectableZone } from '@/utils/zone';
 import { getPolygonCentroid } from '@/utils/mapGeometry';
+import { getMappedStreets } from '@/utils/mapStreets';
 import Input from '@/components/Common/Input.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
 import Button from '@/components/Common/Button.vue';
@@ -245,6 +247,8 @@ const selectableZones = computed(() => zones.value.filter(isLotSelectableZone));
 const mappedZones = computed(() =>
   zones.value.filter((zone) => Array.isArray(zone.coordinates) && zone.coordinates.length >= 3),
 );
+
+const mappedStreets = computed(() => getMappedStreets(streets.value));
 
 const zoneOptions = computed(() =>
   selectableZones.value.map((z) => ({

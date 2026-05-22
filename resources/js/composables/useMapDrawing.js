@@ -18,6 +18,7 @@ import {
   isPointInsideOrOnPolygon,
 } from '@/utils/mapGeometry';
 import { buildZoneTitleLabel } from '@/utils/zone';
+import { getStreetColor, hasValidStreetPolygon } from '@/utils/mapStreets';
 
 const LOT_DRAWING_COLOR = '#1E5F8E';
 
@@ -28,6 +29,7 @@ export function useMapDrawing(options) {
     mode,
     coordinates,
     contextPerimeter,
+    contextStreets,
     contextZones,
     boundaryPolygon,
     mapCenter,
@@ -47,6 +49,7 @@ export function useMapDrawing(options) {
   let fullscreenResizeHandler = null;
 
   let contextPerimeterLayer = null;
+  const contextStreetLayerMap = {};
   const contextZoneLayerMap = {};
   let savedFeatureLayer = null;
   let tempMarkers = [];
@@ -560,6 +563,37 @@ export function useMapDrawing(options) {
     configureMapPathLayer(contextPerimeterLayer);
   }
 
+  function drawContextStreets() {
+    if (!L || !map) return;
+
+    Object.values(contextStreetLayerMap).forEach((layer) => map.removeLayer(layer));
+    Object.keys(contextStreetLayerMap).forEach((key) => {
+      delete contextStreetLayerMap[key];
+    });
+
+    const streets = contextStreets?.value ?? [];
+    streets.forEach((street) => {
+      if (!hasValidStreetPolygon(street.coordinates?.length ?? 0)) {
+        return;
+      }
+
+      const color = getStreetColor(street);
+      const layer = L.polygon(street.coordinates, {
+        color,
+        weight: 2,
+        fillColor: color,
+        fillOpacity: 0.15,
+        interactive: false,
+        className: 'map-lot-path',
+      })
+        .bindTooltip(street.name, { sticky: true })
+        .addTo(map);
+
+      configureMapPathLayer(layer);
+      contextStreetLayerMap[String(street.id)] = layer;
+    });
+  }
+
   function bindZoneLayerTooltip(layer, zone) {
     layer.unbindTooltip();
 
@@ -674,6 +708,7 @@ export function useMapDrawing(options) {
 
   function refreshContextLayers({ fit = false } = {}) {
     drawContextPerimeter();
+    drawContextStreets();
     drawContextZones();
     drawSavedFeatureLayer();
 
@@ -1009,6 +1044,7 @@ export function useMapDrawing(options) {
   watch(
     () => [
       contextPerimeter?.value,
+      contextStreets?.value,
       contextZones?.value,
       boundaryPolygon?.value,
       mapCenter?.value,
