@@ -22,6 +22,7 @@ class Development extends Model
         'lot_number_pattern',
         'map_center',
         'map_zoom',
+        'map_color',
     ];
 
     /**

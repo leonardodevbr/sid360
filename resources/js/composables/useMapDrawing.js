@@ -357,10 +357,10 @@ export function useMapDrawing(options) {
     if (onlyWhileDrawing && !drawingMode.value) return;
     if (!L || !map || !Array.isArray(coords) || coords.length < 2) return;
 
-    const isClosed = coords.length >= 3;
+    const isPolygonDrawing = coords.length >= 3;
     const edges = getPolygonEdgesMeters(coords, {
-      closed: isClosed,
-      includeClosingPreview: !isClosed && coords.length >= 3,
+      closed: isPolygonDrawing,
+      includeClosingPreview: false,
     });
 
     edges.forEach((edge) => {

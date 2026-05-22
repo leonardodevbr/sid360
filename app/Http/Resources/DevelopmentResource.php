@@ -27,6 +27,7 @@ class DevelopmentResource extends JsonResource
             'lot_number_pattern' => $this->lot_number_pattern,
             'map_center' => $this->map_center,
             'map_zoom' => $this->map_zoom ?? 17,
+            'map_color' => $this->map_color,
             'zones' => $this->whenLoaded('zones', fn () => $this->zones->map(fn ($zone) => [
                 'id' => $zone->id,
                 'development_id' => $zone->development_id,

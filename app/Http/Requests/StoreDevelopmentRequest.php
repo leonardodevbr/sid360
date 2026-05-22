@@ -29,6 +29,7 @@ class StoreDevelopmentRequest extends FormRequest
             'lot_number_pattern' => ['nullable', 'string', 'max:100'],
             'map_center' => ['nullable', 'array'],
             'map_zoom' => ['nullable', 'integer'],
+            'map_color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ];
     }
 }

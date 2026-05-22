@@ -71,9 +71,26 @@
       </div>
 
       <div class="card space-y-4 p-5">
-        <div class="flex items-center justify-between">
-          <p class="text-sm font-semibold text-slate-700">Mapa do empreendimento</p>
-          <span class="text-xs text-slate-400">Desenhe o perímetro e depois as zonas</span>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p class="text-sm font-semibold text-slate-700">Mapa do empreendimento</p>
+            <span class="text-xs text-slate-400">Desenhe o perímetro e depois as zonas</span>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-medium text-slate-600">Cor do perímetro</span>
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                v-for="color in zoneColors"
+                :key="`perimeter-${color}`"
+                type="button"
+                class="h-6 w-6 rounded-full border-2 transition-transform"
+                :style="{ background: color }"
+                :class="(form.map_color || defaultPerimeterColor) === color ? 'scale-110 border-slate-800' : 'border-transparent'"
+                :title="`Usar ${color}`"
+                @click="form.map_color = color"
+              />
+            </div>
+          </div>
         </div>
 
         <div
@@ -410,7 +427,10 @@
             :key="street.id"
             class="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5"
           >
-            <div class="h-3 w-3 shrink-0 rounded-sm bg-slate-400" />
+            <div
+              class="h-3 w-3 shrink-0 rounded-sm"
+              :style="{ background: street.color || defaultStreetColor }"
+            />
             <div class="min-w-0 flex-1">
               <p class="text-sm font-medium text-slate-800">{{ street.name }}</p>
               <p class="text-xs text-slate-400">
@@ -434,7 +454,7 @@
                 class="rounded px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
                 @click="editStreet(street)"
               >
-                Renomear
+                Editar
               </button>
               <button
                 type="button"
@@ -513,13 +533,31 @@
       </div>
     </Modal>
 
-    <Modal :is-open="showStreetForm" title="Rua do loteamento" @close="closeStreetForm">
+    <Modal
+      :is-open="showStreetForm"
+      :title="editingStreet ? 'Editar rua' : 'Nova rua do loteamento'"
+      @close="closeStreetForm"
+    >
       <Input
         v-model="streetForm.name"
         label="Nome da rua"
         required
         placeholder="Ex: Rua Norte, Av. Principal"
       />
+      <div class="mt-3">
+        <label class="mb-1 block text-xs font-medium text-slate-600">Cor no mapa</label>
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="color in zoneColors"
+            :key="`street-${color}`"
+            type="button"
+            class="h-7 w-7 rounded-full border-2 transition-transform"
+            :style="{ background: color }"
+            :class="streetForm.color === color ? 'scale-110 border-slate-800' : 'border-transparent'"
+            @click="streetForm.color = color"
+          />
+        </div>
+      </div>
       <div class="mt-4 flex justify-end gap-2">
         <Button variant="outline" @click="closeStreetForm">Cancelar</Button>
         <Button variant="primary" :disabled="savingStreet" @click="saveStreet">
@@ -693,7 +731,11 @@ const form = ref({
   coordinates: null,
   map_center: null,
   map_zoom: 17,
+  map_color: '#1E5F8E',
 });
+
+const defaultPerimeterColor = '#1E5F8E';
+const defaultStreetColor = '#64748B';
 
 const mapContainer = ref(null);
 const mapSectionRef = ref(null);
@@ -1088,10 +1130,24 @@ function isVertexInvalid(coord) {
     && !canPlaceZonePoint(coord);
 }
 
+function getPerimeterColor() {
+  return form.value.map_color || defaultPerimeterColor;
+}
+
+function getStreetColor(street) {
+  return street?.color || defaultStreetColor;
+}
+
 function getDrawingBaseColor() {
-  return drawingMode.value === 'perimeter'
-    ? '#1E5F8E'
-    : drawingZone.value?.color ?? '#10B981';
+  if (drawingMode.value === 'perimeter') {
+    return getPerimeterColor();
+  }
+
+  if (drawingMode.value === 'street') {
+    return getStreetColor(drawingStreet.value);
+  }
+
+  return drawingZone.value?.color ?? '#10B981';
 }
 
 function buildVertexIcon(color, invalid = false) {
@@ -1348,9 +1404,9 @@ function onMapClick(e) {
   perimeterPoints.value.push([lat, lng]);
 
   const markerColor = drawingMode.value === 'perimeter'
-    ? '#1E5F8E'
+    ? getPerimeterColor()
     : drawingMode.value === 'street'
-      ? '#64748B'
+      ? getStreetColor(drawingStreet.value)
       : drawingZone.value?.color ?? '#10B981';
 
   addDrawingMarker([lat, lng], markerColor, perimeterPoints.value.length - 1);
@@ -1389,9 +1445,10 @@ function refreshEdgeLabels() {
     return;
   }
 
+  const isPolygonDrawing = drawingMode.value !== 'street' && perimeterPoints.value.length >= 3;
   const edges = getPolygonEdgesMeters(perimeterPoints.value, {
-    closed: false,
-    includeClosingPreview: drawingMode.value === 'zone' && perimeterPoints.value.length >= 3,
+    closed: isPolygonDrawing,
+    includeClosingPreview: false,
   });
 
   const zoneInvalid = drawingMode.value === 'zone'
@@ -1426,7 +1483,7 @@ function refreshTempPolyline(closed = false, options = {}) {
 
   if (drawingMode.value === 'street') {
     map._tempLine = L.polyline(perimeterPoints.value, {
-      color: '#64748B',
+      color: getStreetColor(drawingStreet.value),
       weight: 4,
       opacity: 0.8,
       interactive: false,
@@ -1443,7 +1500,7 @@ function refreshTempPolyline(closed = false, options = {}) {
   }
 
   const lineColor = drawingMode.value === 'perimeter'
-    ? '#1E5F8E'
+    ? getPerimeterColor()
     : drawingZone.value?.color ?? '#10B981';
   const zoneInvalid = drawingMode.value === 'zone'
     && getDevelopmentPerimeter()
@@ -1558,10 +1615,12 @@ function drawPerimeterOnMap(coords) {
   if (!L || !map) return;
   if (perimeterLayer) map.removeLayer(perimeterLayer);
 
+  const color = getPerimeterColor();
+
   perimeterLayer = L.polygon(coords, {
-    color: '#1E5F8E',
+    color,
     weight: 2.5,
-    fillColor: '#1E5F8E',
+    fillColor: color,
     fillOpacity: 0.08,
     className: 'map-feature-polygon',
   }).addTo(map);
@@ -1635,7 +1694,7 @@ function startDrawPerimeter() {
       map?.removeLayer(perimeterLayer);
       perimeterLayer = null;
     }
-    preloadDrawingPoints(form.value.coordinates, '#1E5F8E');
+    preloadDrawingPoints(form.value.coordinates, getPerimeterColor());
     toast.info('Perímetro carregado. Arraste os vértices ou adicione novos pontos no mapa.');
   } else {
     perimeterPoints.value = [];
@@ -1901,7 +1960,7 @@ const zoneTypeOptions = [
 
 const zoneForm = reactive({ name: '', type: 'quadra', color: '#3B82F6', parent_zone_id: '' });
 const zoneFormErrors = reactive({ name: '', type: '' });
-const streetForm = ref({ name: '' });
+const streetForm = ref({ name: '', color: defaultStreetColor });
 
 const parentZoneOptions = computed(() =>
   zones.value
@@ -1956,7 +2015,7 @@ function drawStreetsOnMap() {
     if (!street.coordinates?.length || street.coordinates.length < 2) return;
 
     const layer = L.polyline(street.coordinates, {
-      color: '#64748B',
+      color: getStreetColor(street),
       weight: 4,
       opacity: 0.8,
       interactive: false,
@@ -1971,20 +2030,23 @@ function drawStreetsOnMap() {
 
 function openStreetForm() {
   editingStreet.value = null;
-  streetForm.value = { name: '' };
+  streetForm.value = { name: '', color: defaultStreetColor };
   showStreetForm.value = true;
 }
 
 function editStreet(street) {
   editingStreet.value = street;
-  streetForm.value = { name: street.name };
+  streetForm.value = {
+    name: street.name,
+    color: street.color || defaultStreetColor,
+  };
   showStreetForm.value = true;
 }
 
 function closeStreetForm() {
   showStreetForm.value = false;
   editingStreet.value = null;
-  streetForm.value = { name: '' };
+  streetForm.value = { name: '', color: defaultStreetColor };
 }
 
 async function saveStreet() {
@@ -2057,7 +2119,7 @@ function startDrawStreet(street) {
       map?.removeLayer(streetLayersMap[street.id]);
       delete streetLayersMap[street.id];
     }
-    preloadDrawingPoints(street.coordinates, '#64748B');
+    preloadDrawingPoints(street.coordinates, getStreetColor(street));
     toast.info(`Traçado de "${street.name}" carregado. Arraste os pontos ou adicione novos no mapa.`);
   } else {
     perimeterPoints.value = [];
@@ -2070,6 +2132,7 @@ async function saveStreetCoordinates(street, coords) {
   try {
     await api.put(`/developments/${route.params.id}/streets/${street.id}`, {
       name: street.name,
+      color: street.color,
       order: street.order,
       coordinates: coords,
     });
@@ -2290,6 +2353,7 @@ async function loadItem() {
       coordinates: item.coordinates ?? null,
       map_center: item.map_center ?? null,
       map_zoom: item.map_zoom ?? 17,
+      map_color: item.map_color ?? defaultPerimeterColor,
     };
   } catch {
     toast.error('Erro ao carregar empreendimento');
@@ -2326,6 +2390,18 @@ onMounted(async () => {
   await initMap();
   if (zones.value.length) drawZonesOnMap();
   if (streets.value.length) drawStreetsOnMap();
+});
+
+watch(() => form.value.map_color, () => {
+  if (drawingMode.value === 'perimeter') {
+    refreshTempPolyline(perimeterPoints.value.length >= 3);
+    refreshVertexMarkerStyles();
+    return;
+  }
+
+  if (form.value.coordinates?.length >= 3) {
+    drawPerimeterOnMap(form.value.coordinates);
+  }
 });
 
 watch(isMapFullscreen, async (active) => {

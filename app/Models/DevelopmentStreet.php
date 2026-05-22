@@ -16,6 +16,7 @@ class DevelopmentStreet extends Model
     protected $fillable = [
         'development_id',
         'name',
+        'color',
         'coordinates',
         'order',
     ];
