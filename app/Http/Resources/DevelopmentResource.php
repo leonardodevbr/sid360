@@ -23,6 +23,22 @@ class DevelopmentResource extends JsonResource
             'down_payment_percent' => $this->down_payment_percent !== null
                 ? (float) $this->down_payment_percent
                 : 20,
+            'coordinates' => $this->coordinates,
+            'lot_number_pattern' => $this->lot_number_pattern,
+            'map_center' => $this->map_center,
+            'map_zoom' => $this->map_zoom ?? 17,
+            'zones' => $this->whenLoaded('zones', fn () => $this->zones->map(fn ($zone) => [
+                'id' => $zone->id,
+                'development_id' => $zone->development_id,
+                'name' => $zone->name,
+                'type' => $zone->type,
+                'color' => $zone->color,
+                'coordinates' => $zone->coordinates,
+                'order' => $zone->order,
+                'lots' => $zone->relationLoaded('lots')
+                    ? LotResource::collection($zone->lots)
+                    : [],
+            ])),
             'lots_count' => $this->whenCounted('lots'),
             'available_lots_count' => $this->whenCounted('available_lots_count'),
             'created_at' => $this->created_at?->toIso8601String(),

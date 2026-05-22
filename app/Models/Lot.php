@@ -30,12 +30,15 @@ class Lot extends Model
      */
     protected $fillable = [
         'development_id',
+        'zone_id',
         'number',
         'block',
         'area',
+        'area_computed',
         'total_value',
         'down_payment_percent',
         'status',
+        'coordinates',
     ];
 
     /**
@@ -45,8 +48,10 @@ class Lot extends Model
     {
         return [
             'area' => 'decimal:2',
+            'area_computed' => 'decimal:2',
             'total_value' => 'integer',
             'down_payment_percent' => 'decimal:2',
+            'coordinates' => 'array',
         ];
     }
 
@@ -56,6 +61,14 @@ class Lot extends Model
     public function development(): BelongsTo
     {
         return $this->belongsTo(Development::class);
+    }
+
+    /**
+     * @return BelongsTo<DevelopmentZone, $this>
+     */
+    public function zone(): BelongsTo
+    {
+        return $this->belongsTo(DevelopmentZone::class, 'zone_id');
     }
 
     /**

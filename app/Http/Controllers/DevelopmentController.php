@@ -47,6 +47,7 @@ class DevelopmentController extends Controller
         $this->authorize('developments.view');
 
         $development = Development::query()
+            ->with(['zones.lots'])
             ->withCount('lots')
             ->findOrFail((int) $id);
 

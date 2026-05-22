@@ -15,6 +15,6 @@ class UpdateLotAction
     {
         $lot->update($data);
 
-        return $lot->fresh(['development']);
+        return $lot->fresh(['development', 'zone']);
     }
 }

@@ -18,6 +18,10 @@ class Development extends Model
         'location',
         'status',
         'down_payment_percent',
+        'coordinates',
+        'lot_number_pattern',
+        'map_center',
+        'map_zoom',
     ];
 
     /**
@@ -27,6 +31,8 @@ class Development extends Model
     {
         return [
             'down_payment_percent' => 'decimal:2',
+            'coordinates' => 'array',
+            'map_center' => 'array',
         ];
     }
 
@@ -36,5 +42,13 @@ class Development extends Model
     public function lots(): HasMany
     {
         return $this->hasMany(Lot::class);
+    }
+
+    /**
+     * @return HasMany<DevelopmentZone, $this>
+     */
+    public function zones(): HasMany
+    {
+        return $this->hasMany(DevelopmentZone::class)->orderBy('order');
     }
 }

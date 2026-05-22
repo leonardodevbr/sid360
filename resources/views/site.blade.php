@@ -3204,6 +3204,7 @@ footer {
   const simVerLotesBtn = document.getElementById('simVerLotesBtn');
   let lotsMapInstance = null;
   let lotsMapBaseLayer = null;
+  let lotsMapLayerControl = null;
   let lotsMapUsesGoogle = false;
   let lotsMapLayerGroup = null;
   let lotsMapConfig = { center: LOTEAMENTO_CENTER, zoom: 17 };
@@ -3287,31 +3288,50 @@ footer {
     return googleMapsLibsPromise;
   }
 
-  function addLotsMapBaseLayer(map) {
+  function setupLotsMapBaseLayers(map) {
+    if (lotsMapLayerControl) {
+      map.removeControl(lotsMapLayerControl);
+      lotsMapLayerControl = null;
+    }
     if (lotsMapBaseLayer) {
       map.removeLayer(lotsMapBaseLayer);
       lotsMapBaseLayer = null;
     }
 
-    if (typeof google !== 'undefined' && L.gridLayer && L.gridLayer.googleMutant) {
-      lotsMapUsesGoogle = true;
-      lotsMapBaseLayer = L.gridLayer.googleMutant({
-        type: 'hybrid',
-        maxZoom: 21
-      });
-      lotsMapBaseLayer.addTo(map);
-      lotsMapBaseLayer.on('load', function() {
-        map.invalidateSize();
-      });
-      return lotsMapBaseLayer;
-    }
+    const baseLayers = {};
 
-    lotsMapUsesGoogle = false;
-    lotsMapBaseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-    }).addTo(map);
-    return lotsMapBaseLayer;
+    });
+    baseLayers['Mapa'] = streetLayer;
+
+    if (typeof google !== 'undefined' && L.gridLayer && L.gridLayer.googleMutant) {
+      lotsMapUsesGoogle = true;
+      baseLayers['Satélite'] = L.gridLayer.googleMutant({
+        type: 'satellite',
+        maxZoom: 21
+      });
+    } else {
+      lotsMapUsesGoogle = false;
+      baseLayers['Satélite'] = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        {
+          maxZoom: 19,
+          attribution: 'Tiles &copy; Esri'
+        }
+      );
+    }
+
+    streetLayer.addTo(map);
+    lotsMapBaseLayer = streetLayer;
+
+    lotsMapLayerControl = L.control.layers(baseLayers, null, { position: 'topright' });
+    lotsMapLayerControl.addTo(map);
+  }
+
+  function addLotsMapBaseLayer(map) {
+    setupLotsMapBaseLayers(map);
   }
 
   function normalizeLot(lot, index) {
@@ -3417,16 +3437,40 @@ footer {
     }
   }
 
+  function configureModifierScrollZoom(map) {
+    if (!map || !map.scrollWheelZoom) return;
+
+    map.scrollWheelZoom.disable();
+
+    var container = map.getContainer();
+
+    container.addEventListener('wheel', function(e) {
+      if (e.ctrlKey || e.metaKey) {
+        if (!map.scrollWheelZoom.enabled()) {
+          map.scrollWheelZoom.enable();
+        }
+        e.preventDefault();
+      } else if (map.scrollWheelZoom.enabled()) {
+        map.scrollWheelZoom.disable();
+      }
+    }, { capture: true, passive: false });
+
+    container.addEventListener('mouseleave', function() {
+      map.scrollWheelZoom.disable();
+    });
+  }
+
   function initLotsMap() {
     if (typeof L === 'undefined' || !lotsMapCanvas) return Promise.resolve();
 
     return loadGoogleMapsLibs().then(function(googleReady) {
       if (!lotsMapInstance) {
         lotsMapInstance = L.map(lotsMapCanvas, {
-          scrollWheelZoom: true,
+          scrollWheelZoom: false,
           zoomControl: true
         }).setView(lotsMapConfig.center, lotsMapConfig.zoom);
 
+        configureModifierScrollZoom(lotsMapInstance);
         addLotsMapBaseLayer(lotsMapInstance);
         lotsMapLayerGroup = L.featureGroup().addTo(lotsMapInstance);
       } else if (googleReady && !lotsMapUsesGoogle) {

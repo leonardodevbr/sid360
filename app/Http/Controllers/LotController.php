@@ -45,7 +45,7 @@ class LotController extends Controller
     {
         $this->authorize('lots.view');
 
-        $lot = Lot::query()->with('development')->findOrFail((int) $id);
+        $lot = Lot::query()->with(['development', 'zone'])->findOrFail((int) $id);
 
         return response()->json(new LotResource($lot));
     }

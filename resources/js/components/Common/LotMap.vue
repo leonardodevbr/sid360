@@ -62,6 +62,7 @@
   
   <script setup>
   import { ref, onMounted, onUnmounted, watch, computed, nextTick } from 'vue'
+  import { setupMapBaseLayers } from '@/utils/mapLayers'
   
   // NOTE: instalar via npm install leaflet leaflet-draw
   // e importar CSS no app.js:
@@ -166,12 +167,10 @@
       center: DEFAULT_CENTER,
       zoom: DEFAULT_ZOOM,
       zoomControl: true,
+      scrollWheelZoom: false,
     })
   
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      maxZoom: 20,
-    }).addTo(map)
+    await setupMapBaseLayers(map, L, { maxZoom: 20 })
   
     // Camada editável
     drawnLayer = new L.FeatureGroup().addTo(map)

@@ -25,6 +25,10 @@ class StoreDevelopmentRequest extends FormRequest
             'location' => ['nullable', 'string', 'max:255'],
             'status' => ['nullable', 'string', Rule::in(['active', 'inactive', 'under_construction'])],
             'down_payment_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'coordinates' => ['nullable', 'array'],
+            'lot_number_pattern' => ['nullable', 'string', 'max:100'],
+            'map_center' => ['nullable', 'array'],
+            'map_zoom' => ['nullable', 'integer'],
         ];
     }
 }

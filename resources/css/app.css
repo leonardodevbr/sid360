@@ -92,3 +92,28 @@
   background: #faf5ee;
   border-color: #c9a84c;
 }
+
+.map-fullscreen-section:fullscreen {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow: hidden;
+  background: #fff;
+  padding: 1rem;
+}
+
+.map-fullscreen-section:fullscreen .map-fullscreen-canvas {
+  flex: 1 1 auto;
+  height: auto !important;
+  min-height: 0;
+}
+
+.map-fullscreen-section:fullscreen .map-fullscreen-toolbar {
+  flex-shrink: 0;
+}
+
+.map-fullscreen-section:fullscreen .map-zone-picker {
+  flex-shrink: 0;
+  max-width: 24rem;
+}
+

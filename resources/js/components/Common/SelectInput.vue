@@ -13,7 +13,7 @@
       :placeholder="placeholder"
       :disabled="disabled"
       :close-on-select="closeOnSelect"
-      :can-clear="true"
+      :can-clear="canClear"
       :multiple-label="multipleLabelFn"
       @update:model-value="handleUpdate"
     >
@@ -29,6 +29,7 @@
         </span>
       </template>
     </Multiselect>
+    <p v-if="error" class="mt-1 text-xs text-red-600">{{ error }}</p>
   </div>
 </template>
 
@@ -74,6 +75,14 @@ export default defineComponent({
       type: Boolean,
       default: true,
     },
+    canClear: {
+      type: Boolean,
+      default: true,
+    },
+    error: {
+      type: String,
+      default: '',
+    },
     valueProp: {
       type: String,
       default: 'value',
@@ -88,6 +97,8 @@ export default defineComponent({
     const handleUpdate = (value) => {
       if (props.mode === 'multiple' && Array.isArray(value)) {
         value = value.map((v) => (v != null && typeof v === 'object' && props.valueProp in v ? v[props.valueProp] : v));
+      } else if (value != null && typeof value === 'object' && props.valueProp in value) {
+        value = value[props.valueProp];
       }
       emit('update:modelValue', value);
     };
