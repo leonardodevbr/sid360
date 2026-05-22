@@ -160,7 +160,7 @@
               >
                 <span class="h-3 w-3 shrink-0 rounded-full" :style="{ background: zone.color }" />
                 <span class="min-w-0 flex-1">
-                  <span class="block font-medium text-slate-800">{{ zone.name }}</span>
+                  <span class="block font-semibold tracking-wide text-slate-800">{{ buildZoneTitleLabel(zone) }}</span>
                   <span class="block text-slate-400">
                     {{ buildZoneMetaLabel(zone, zoneLotsCount(zone)) }}
                   </span>
@@ -256,6 +256,18 @@
 
               <div class="map-toolbar-group map-toolbar-group--map flex shrink-0 flex-wrap items-center justify-end gap-2">
                 <button
+                  v-if="isEdit && !drawingMode && hasMappedZones"
+                  type="button"
+                  class="map-toolbar-btn map-toolbar-btn--map flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
+                  :class="showZoneNames
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                    : ''"
+                  @click="toggleZoneNames"
+                >
+                  <TagIcon class="h-3.5 w-3.5" />
+                  {{ showZoneNames ? 'Ocultar nomes' : 'Exibir nomes' }}
+                </button>
+                <button
                   v-if="isEdit && !drawingMode"
                   type="button"
                   class="map-toolbar-btn map-toolbar-btn--map relative flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
@@ -321,7 +333,7 @@
           >
             <div class="h-3 w-3 shrink-0 rounded-full" :style="{ background: zone.color }" />
             <div class="min-w-0 flex-1">
-              <p class="text-sm font-medium text-slate-800">{{ zone.name }}</p>
+              <p class="text-sm font-semibold tracking-wide text-slate-800">{{ buildZoneTitleLabel(zone) }}</p>
               <p class="text-xs text-slate-400">
                 {{ buildZoneMetaLabel(zone, zoneLotsCount(zone)) }}
               </p>
@@ -488,6 +500,7 @@ import {
 } from '@/utils/mapGeometry';
 import {
   buildZoneMetaLabel,
+  buildZoneTitleLabel,
   canGenerateLotsInZone,
   generateLotsBlockedReason,
   zoneTypeLabel as zoneTypeLabelHelper,
@@ -497,7 +510,7 @@ import SelectInput from '@/components/Common/SelectInput.vue';
 import Button from '@/components/Common/Button.vue';
 import Modal from '@/components/Common/Modal.vue';
 import CurrencyInput from '@/components/Common/CurrencyInput.vue';
-import { ArrowLeftIcon, ArrowUturnLeftIcon, ArrowsPointingInIcon, ArrowsPointingOutIcon, MapIcon, MapPinIcon, PlusIcon, RectangleGroupIcon, XMarkIcon } from '@heroicons/vue/24/outline';
+import { ArrowLeftIcon, ArrowUturnLeftIcon, ArrowsPointingInIcon, ArrowsPointingOutIcon, MapIcon, MapPinIcon, PlusIcon, RectangleGroupIcon, TagIcon, XMarkIcon } from '@heroicons/vue/24/outline';
 
 const route = useRoute();
 const router = useRouter();
@@ -505,6 +518,9 @@ const toast = useToast();
 const { confirm } = useAlert();
 
 const isEdit = computed(() => Boolean(route.params.id));
+const hasMappedZones = computed(() => zones.value.some(
+  (zone) => Array.isArray(zone.coordinates) && zone.coordinates.length >= 3,
+));
 const loading = ref(false);
 const saving = ref(false);
 
@@ -773,7 +789,7 @@ function bindMapFeaturePopup(layer, html, actions) {
 function buildZonePopupHtml(zone) {
   return `
     <div class="map-feature-popup">
-      <p class="map-feature-popup-title">${escapeHtml(zone.name)}</p>
+      <p class="map-feature-popup-title">${escapeHtml(buildZoneTitleLabel(zone))}</p>
       <p class="map-feature-popup-meta">
         ${escapeHtml(buildZoneMetaLabel(zone, zoneLotsCount(zone)))}
       </p>
@@ -821,6 +837,34 @@ function bringZoneLayersToFront() {
   Object.values(zoneLayers).forEach((layer) => {
     layer.bringToFront?.();
   });
+}
+
+function bindZoneLayerTooltip(layer, zone) {
+  layer.unbindTooltip();
+
+  if (!showZoneNames.value) return;
+
+  layer.bindTooltip(buildZoneTitleLabel(zone), {
+    permanent: true,
+    direction: 'center',
+    className: 'map-zone-name-label',
+    opacity: 1,
+  });
+  layer.openTooltip();
+}
+
+function syncZoneNameLabels() {
+  Object.entries(zoneLayers).forEach(([zoneId, layer]) => {
+    const zone = zones.value.find((item) => String(item.id) === String(zoneId));
+    if (!zone) return;
+
+    bindZoneLayerTooltip(layer, zone);
+  });
+}
+
+function toggleZoneNames() {
+  showZoneNames.value = !showZoneNames.value;
+  syncZoneNameLabels();
 }
 
 function getDevelopmentPerimeter() {
@@ -893,35 +937,122 @@ function bringVertexMarkersToFront() {
   });
 }
 
+function getMapContainerPointFromEvent(event) {
+  const container = map.getContainer();
+  const rect = container.getBoundingClientRect();
+  const touch = event.changedTouches?.[0] ?? event.touches?.[0];
+  const clientX = touch?.clientX ?? event.clientX;
+  const clientY = touch?.clientY ?? event.clientY;
+
+  return L.point(clientX - rect.left, clientY - rect.top);
+}
+
+function enableMapDraggingAfterVertexDrag() {
+  if (!map) return;
+
+  map._vertexDragActiveCount = Math.max(0, (map._vertexDragActiveCount ?? 1) - 1);
+  if (map._vertexDragActiveCount === 0) {
+    map.dragging.enable();
+  }
+}
+
+function bindVertexMarkerDrag(marker) {
+  const onMove = (moveEvent) => {
+    L.DomEvent.preventDefault(moveEvent);
+
+    const containerPoint = getMapContainerPointFromEvent(moveEvent);
+    const latLng = map.containerPointToLatLng(containerPoint);
+
+    marker.setLatLng(latLng);
+    perimeterPoints.value[marker._vertexIndex] = [latLng.lat, latLng.lng];
+    refreshTempPolyline(perimeterPoints.value.length >= 3, { livePreview: true });
+    updateVertexHandleStyle(marker);
+  };
+
+  const onEnd = (endEvent) => {
+    L.DomEvent.preventDefault(endEvent);
+
+    map.off('mousemove', onMove);
+    map.off('touchmove', onMove);
+    map.off('mouseup', onEnd);
+    map.off('touchend', onEnd);
+    map.off('mouseleave', onEnd);
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onEnd);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onEnd);
+
+    enableMapDraggingAfterVertexDrag();
+
+    refreshTempPolyline(perimeterPoints.value.length >= 3);
+    refreshVertexMarkerStyles();
+    bringVertexMarkersToFront();
+
+    if (drawingMode.value === 'zone' && !canPlaceZonePoint(marker.getLatLng())) {
+      toast.warning('Vértice fora do perímetro do empreendimento.');
+    }
+  };
+
+  const onStart = (startEvent) => {
+    if (!drawingMode.value) return;
+
+    L.DomEvent.stopPropagation(startEvent);
+    L.DomEvent.preventDefault(startEvent);
+
+    if (!map._vertexDragActiveCount) {
+      map._vertexDragActiveCount = 0;
+      map.dragging.disable();
+    }
+    map._vertexDragActiveCount += 1;
+
+    map.on('mousemove', onMove);
+    map.on('touchmove', onMove);
+    map.on('mouseup', onEnd);
+    map.on('touchend', onEnd);
+    map.on('mouseleave', onEnd);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onEnd);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onEnd);
+  };
+
+  marker.on('mousedown', onStart);
+  marker.on('touchstart', onStart);
+}
+
+function prepareMapForVertexEditing() {
+  if (!map) return;
+
+  map.touchRotate?.disable?.();
+
+  const bearing = typeof map.getBearing === 'function' ? map.getBearing() : 0;
+  if (bearing !== 0) {
+    map.setBearing(0);
+    refreshMapDisplay(map, mapLayersSetup ?? {});
+  }
+}
+
+function restoreMapInteractionAfterDrawing() {
+  if (!map) return;
+
+  map._vertexDragActiveCount = 0;
+  map.dragging.enable();
+  configureMapRotation(map);
+}
+
 function addDrawingMarker(coord, color, index) {
   const invalid = isVertexInvalid(coord);
   const markerColor = invalid ? '#DC2626' : color;
 
   const marker = L.marker(coord, {
-    draggable: true,
-    autoPan: true,
+    draggable: false,
+    autoPan: false,
     zIndexOffset: 1000,
     icon: buildVertexIcon(markerColor, invalid),
   }).addTo(map);
 
   marker._vertexIndex = index;
-
-  marker.on('drag', function onVertexDrag() {
-    const latLng = this.getLatLng();
-    perimeterPoints.value[this._vertexIndex] = [latLng.lat, latLng.lng];
-    refreshTempPolyline(perimeterPoints.value.length >= 3, { livePreview: true });
-    updateVertexHandleStyle(this);
-  });
-
-  marker.on('dragend', function onVertexDragEnd() {
-    refreshTempPolyline(perimeterPoints.value.length >= 3);
-    refreshVertexMarkerStyles();
-    bringVertexMarkersToFront();
-
-    if (drawingMode.value === 'zone' && !canPlaceZonePoint(this.getLatLng())) {
-      toast.warning('Vértice fora do perímetro do empreendimento.');
-    }
-  });
+  bindVertexMarkerDrag(marker);
 
   marker.on('click', (e) => {
     L.DomEvent.stopPropagation(e);
@@ -1101,6 +1232,7 @@ function finishDrawing() {
   drawingMode.value = null;
   drawingZone.value = null;
   setMapOverlaysPointerEvents(true);
+  restoreMapInteractionAfterDrawing();
 
   if (mode === 'perimeter') {
     clearedPerimeterSnapshot.value = null;
@@ -1176,9 +1308,9 @@ function drawZonesOnMap() {
       fillColor: zone.color,
       fillOpacity: 0.15,
       className: 'map-feature-polygon',
-    })
-      .bindTooltip(zone.name, { direction: 'top', opacity: 0.9 })
-      .addTo(map);
+    }).addTo(map);
+
+    bindZoneLayerTooltip(layer, zone);
 
     resetMapFeatureLayerInteraction(layer);
     layer.bringToFront();
@@ -1204,6 +1336,7 @@ function startDrawPerimeter() {
   }
 
   clearTempLayers();
+  prepareMapForVertexEditing();
   setMapOverlaysPointerEvents(false);
   drawingMode.value = 'perimeter';
   drawingZone.value = null;
@@ -1229,6 +1362,7 @@ function startDrawZone(zone) {
   }
 
   clearTempLayers();
+  prepareMapForVertexEditing();
   setMapOverlaysPointerEvents(false);
   drawingMode.value = 'zone';
   drawingZone.value = zone;
@@ -1279,6 +1413,7 @@ function cancelDrawing() {
   drawingZone.value = null;
   showZoneMapPicker.value = false;
   setMapOverlaysPointerEvents(true);
+  restoreMapInteractionAfterDrawing();
 
   if (form.value.coordinates?.length) {
     drawPerimeterOnMap(form.value.coordinates);
@@ -1407,6 +1542,7 @@ async function confirmClearZone(zone) {
 }
 
 const zones = ref([]);
+const showZoneNames = ref(false);
 const showZoneForm = ref(false);
 const showZoneMapPicker = ref(false);
 const savingZone = ref(false);

@@ -12,6 +12,27 @@ export function zoneTypeLabel(type) {
   return ZONE_TYPE_LABELS[type] ?? type;
 }
 
+export function buildZoneMapLabel(zone) {
+  const typeLabel = zoneTypeLabel(zone?.type);
+  const name = String(zone?.name ?? '').trim();
+
+  if (!name) return typeLabel;
+  if (!typeLabel) return name;
+
+  const normalizedName = name.toLocaleLowerCase('pt-BR');
+  const normalizedType = typeLabel.toLocaleLowerCase('pt-BR');
+
+  if (normalizedName.startsWith(normalizedType)) {
+    return name;
+  }
+
+  return `${typeLabel} ${name}`;
+}
+
+export function buildZoneTitleLabel(zone) {
+  return buildZoneMapLabel(zone).toLocaleUpperCase('pt-BR');
+}
+
 export function canGenerateLotsInZone(zone) {
   return (
     ZONE_LOT_GENERATION_TYPES.includes(zone?.type)
@@ -43,7 +64,7 @@ export function zoneShowsLotsCount(type) {
 }
 
 export function buildZoneMetaLabel(zone, lotsCount = 0) {
-  const parts = [zoneTypeLabel(zone?.type)];
+  const parts = [];
 
   if (zoneShowsLotsCount(zone?.type)) {
     parts.push(`${lotsCount} lote(s)`);
