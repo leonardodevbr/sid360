@@ -2,6 +2,14 @@ export const ZONE_LOT_GENERATION_TYPES = ['quadra', 'conjunto', 'setor'];
 
 export const LOT_SELECTABLE_ZONE_TYPES = ['quadra'];
 
+export const ZONE_TYPE_OPTIONS = [
+  { value: 'quadra', label: 'Quadra' },
+  { value: 'conjunto', label: 'Conjunto' },
+  { value: 'setor', label: 'Setor' },
+  { value: 'rua', label: 'Rua' },
+  { value: 'outro', label: 'Outro' },
+];
+
 export function isLotSelectableZone(zone) {
   return LOT_SELECTABLE_ZONE_TYPES.includes(zone?.type);
 }

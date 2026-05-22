@@ -46,7 +46,7 @@ export function useMapDrawing(options) {
   let fullscreenResizeHandler = null;
 
   let contextPerimeterLayer = null;
-  let contextZoneLayers = [];
+  const contextZoneLayerMap = {};
   let savedFeatureLayer = null;
   let tempMarkers = [];
   let edgeLabelMarkers = [];
@@ -58,8 +58,14 @@ export function useMapDrawing(options) {
   const locatingUser = ref(false);
   const capturingGps = ref(false);
   const gpsAccuracy = ref(null);
+  const visibleZoneNameTypes = ref([]);
 
   const isLotMode = computed(() => mode === 'lot');
+  const hasMappedZones = computed(() =>
+    (contextZones?.value ?? []).some(
+      (zone) => Array.isArray(zone.coordinates) && zone.coordinates.length >= 3,
+    ),
+  );
   const isDrawing = computed(() => Boolean(drawingMode.value));
 
   const boundaryHint = computed(() => {
@@ -508,11 +514,46 @@ export function useMapDrawing(options) {
     configureMapPathLayer(contextPerimeterLayer);
   }
 
+  function bindZoneLayerTooltip(layer, zone) {
+    layer.unbindTooltip();
+
+    if (!visibleZoneNameTypes.value.includes(zone.type)) {
+      return;
+    }
+
+    layer.bindTooltip(buildZoneTitleLabel(zone), {
+      permanent: true,
+      direction: 'center',
+      className: 'map-zone-name-label',
+      opacity: 1,
+    });
+    layer.openTooltip();
+  }
+
+  function syncZoneNameLabels() {
+    const zones = contextZones?.value ?? [];
+
+    Object.entries(contextZoneLayerMap).forEach(([zoneId, layer]) => {
+      const zone = zones.find((item) => String(item.id) === String(zoneId));
+      if (!zone) return;
+
+      bindZoneLayerTooltip(layer, zone);
+    });
+  }
+
+  function mappedZonesCountByType(type) {
+    return (contextZones?.value ?? []).filter(
+      (zone) => zone.type === type && Array.isArray(zone.coordinates) && zone.coordinates.length >= 3,
+    ).length;
+  }
+
   function drawContextZones() {
     if (!L || !map) return;
 
-    contextZoneLayers.forEach((layer) => map.removeLayer(layer));
-    contextZoneLayers = [];
+    Object.values(contextZoneLayerMap).forEach((layer) => map.removeLayer(layer));
+    Object.keys(contextZoneLayerMap).forEach((key) => {
+      delete contextZoneLayerMap[key];
+    });
 
     const zones = contextZones?.value ?? [];
     zones.forEach((zone) => {
@@ -525,12 +566,11 @@ export function useMapDrawing(options) {
         fillOpacity: 0.1,
         interactive: false,
         className: 'map-lot-path',
-      })
-        .bindTooltip(buildZoneTitleLabel(zone), { sticky: true })
-        .addTo(map);
+      }).addTo(map);
 
       configureMapPathLayer(layer);
-      contextZoneLayers.push(layer);
+      contextZoneLayerMap[String(zone.id)] = layer;
+      bindZoneLayerTooltip(layer, zone);
     });
   }
 
@@ -891,6 +931,10 @@ export function useMapDrawing(options) {
     rotateMapBy,
     zoomMapIn,
     zoomMapOut,
+    visibleZoneNameTypes,
+    hasMappedZones,
+    mappedZonesCountByType,
+    syncZoneNameLabels,
     computedArea: computed(() => {
       const coords = coordinates?.value;
       if (!Array.isArray(coords) || coords.length < 3) return null;

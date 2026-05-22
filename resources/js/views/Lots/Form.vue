@@ -119,7 +119,7 @@
           mode="lot"
           :coordinates="form.coordinates"
           :context-perimeter="developmentPerimeter"
-          :context-zones="selectableZones"
+          :context-zones="mappedZones"
           :boundary-polygon="lotBoundaryPolygon"
           :map-center="developmentMapCenter"
           :map-zoom="developmentMapZoom"
@@ -149,7 +149,7 @@
           }}
         </div>
 
-        <p v-else class="text-xs text-slate-400">
+        <p v-else-if="!form.development_id" class="text-xs text-slate-400">
           Selecione um empreendimento para exibir o mapa e demarcar o lote.
         </p>
 
@@ -224,6 +224,10 @@ const developmentOptions = computed(() =>
 );
 
 const selectableZones = computed(() => zones.value.filter(isLotSelectableZone));
+
+const mappedZones = computed(() =>
+  zones.value.filter((zone) => Array.isArray(zone.coordinates) && zone.coordinates.length >= 3),
+);
 
 const zoneOptions = computed(() =>
   selectableZones.value.map((z) => ({
