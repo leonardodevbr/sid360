@@ -121,104 +121,6 @@
             </div>
           </div>
 
-          <div class="map-fullscreen-toolbar flex flex-wrap gap-2">
-          <button
-            v-if="!drawingMode"
-            type="button"
-            class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-            @click="startDrawPerimeter"
-          >
-            <MapIcon class="h-3.5 w-3.5" />
-            {{ form.coordinates?.length ? 'Redesenhar perímetro' : 'Desenhar perímetro' }}
-          </button>
-          <button
-            v-if="drawingMode && perimeterPoints.length"
-            type="button"
-            class="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50"
-            @click="undoLastPoint"
-          >
-            <ArrowUturnLeftIcon class="h-3.5 w-3.5" />
-            Desfazer último ponto
-          </button>
-          <button
-            v-if="drawingMode"
-            type="button"
-            class="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100"
-            @click="cancelDrawing"
-          >
-            <XMarkIcon class="h-3.5 w-3.5" />
-            {{ drawingMode === 'zone' ? 'Cancelar edição' : 'Cancelar desenho' }}
-          </button>
-          <button
-            v-if="!drawingMode"
-            type="button"
-            class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            :disabled="locatingUser"
-            @click="goToMyLocation"
-          >
-            <MapPinIcon class="h-3.5 w-3.5" />
-            {{ locatingUser ? 'Localizando...' : 'Minha localização' }}
-          </button>
-          <button
-            v-if="form.coordinates?.length && !drawingMode"
-            type="button"
-            class="flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-            @click="clearPerimeter"
-          >
-            Limpar perímetro
-          </button>
-          <button
-            v-if="isEdit && !drawingMode"
-            type="button"
-            class="relative flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
-            :class="showZoneMapPicker
-              ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-              : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'"
-            @click="toggleZoneMapPicker"
-          >
-            <RectangleGroupIcon class="h-3.5 w-3.5" />
-            Mapear zona
-          </button>
-          <button
-            v-if="!drawingMode"
-            type="button"
-            class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-            @click="rotateMapBy(-15)"
-          >
-            Girar pra esquerda
-          </button>
-          <button
-            v-if="!drawingMode"
-            type="button"
-            class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-            @click="rotateMapBy(15)"
-          >
-            Girar pra direita
-          </button>
-          <button
-            type="button"
-            class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-            @click="toggleMapFullscreen"
-          >
-            <ArrowsPointingOutIcon v-if="!isMapFullscreen" class="h-3.5 w-3.5" />
-            <ArrowsPointingInIcon v-else class="h-3.5 w-3.5" />
-            {{ isMapFullscreen ? 'Sair da tela cheia' : 'Tela cheia' }}
-          </button>
-          <span
-            v-if="drawingMode === 'perimeter'"
-            class="self-center text-xs font-medium text-blue-600"
-          >
-            Clique no mapa para adicionar pontos. Arraste as bolinhas para ajustar. Clique na primeira para fechar.
-          </span>
-          <span
-            v-else-if="drawingMode === 'zone'"
-            class="self-center text-xs font-medium text-emerald-600"
-          >
-            Editando {{ drawingZone?.name }} — arraste os vértices dentro do perímetro, clique no mapa para adicionar, na primeira bolinha para fechar
-            {{ perimeterPoints.length ? ` (${perimeterPoints.length} pontos)` : '' }}
-          </span>
-          </div>
-
           <div
             v-if="showZoneMapPicker && isEdit && !drawingMode"
             class="map-zone-picker rounded-lg border border-slate-200 bg-white p-3 shadow-lg"
@@ -264,6 +166,110 @@
                   </span>
                 </span>
               </button>
+            </div>
+          </div>
+
+          <div
+            ref="mapFooterRef"
+            class="map-fullscreen-footer"
+            :class="{ 'map-fullscreen-footer--dedicated': isMapFullscreen }"
+          >
+            <div class="map-fullscreen-toolbar flex flex-wrap gap-2">
+              <button
+                v-if="!drawingMode"
+                type="button"
+                class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                @click="startDrawPerimeter"
+              >
+                <MapIcon class="h-3.5 w-3.5" />
+                {{ form.coordinates?.length ? 'Redesenhar perímetro' : 'Desenhar perímetro' }}
+              </button>
+              <button
+                v-if="drawingMode && perimeterPoints.length"
+                type="button"
+                class="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50"
+                @click="undoLastPoint"
+              >
+                <ArrowUturnLeftIcon class="h-3.5 w-3.5" />
+                Desfazer último ponto
+              </button>
+              <button
+                v-if="drawingMode"
+                type="button"
+                class="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100"
+                @click="cancelDrawing"
+              >
+                <XMarkIcon class="h-3.5 w-3.5" />
+                {{ drawingMode === 'zone' ? 'Cancelar edição' : 'Cancelar desenho' }}
+              </button>
+              <button
+                v-if="!drawingMode"
+                type="button"
+                class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                :disabled="locatingUser"
+                @click="goToMyLocation"
+              >
+                <MapPinIcon class="h-3.5 w-3.5" />
+                {{ locatingUser ? 'Localizando...' : 'Minha localização' }}
+              </button>
+              <button
+                v-if="form.coordinates?.length && !drawingMode"
+                type="button"
+                class="flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                @click="clearPerimeter"
+              >
+                Limpar perímetro
+              </button>
+              <button
+                v-if="isEdit && !drawingMode"
+                type="button"
+                class="relative flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
+                :class="showZoneMapPicker
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'"
+                @click="toggleZoneMapPicker"
+              >
+                <RectangleGroupIcon class="h-3.5 w-3.5" />
+                Mapear zona
+              </button>
+              <button
+                v-if="!drawingMode"
+                type="button"
+                class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                @click="rotateMapBy(-15)"
+              >
+                Girar pra esquerda
+              </button>
+              <button
+                v-if="!drawingMode"
+                type="button"
+                class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                @click="rotateMapBy(15)"
+              >
+                Girar pra direita
+              </button>
+              <button
+                type="button"
+                class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                @click="toggleMapFullscreen"
+              >
+                <ArrowsPointingOutIcon v-if="!isMapFullscreen" class="h-3.5 w-3.5" />
+                <ArrowsPointingInIcon v-else class="h-3.5 w-3.5" />
+                {{ isMapFullscreen ? 'Sair da tela cheia' : 'Tela cheia' }}
+              </button>
+              <span
+                v-if="drawingMode === 'perimeter'"
+                class="self-center text-xs font-medium text-blue-600"
+              >
+                Clique no mapa para adicionar pontos. Arraste as bolinhas para ajustar. Clique na primeira para fechar.
+              </span>
+              <span
+                v-else-if="drawingMode === 'zone'"
+                class="self-center text-xs font-medium text-emerald-600"
+              >
+                Editando {{ drawingZone?.name }} — arraste os vértices dentro do perímetro, clique no mapa para adicionar, na primeira bolinha para fechar
+                {{ perimeterPoints.length ? ` (${perimeterPoints.length} pontos)` : '' }}
+              </span>
             </div>
           </div>
         </div>
@@ -493,6 +499,7 @@ const form = ref({
 
 const mapContainer = ref(null);
 const mapSectionRef = ref(null);
+const mapFooterRef = ref(null);
 let map = null;
 let L = null;
 let perimeterLayer = null;
@@ -515,13 +522,12 @@ function syncMapContainerHeight() {
     const sectionStyle = window.getComputedStyle(mapSectionRef.value);
     const paddingTop = parseFloat(sectionStyle.paddingTop) || 0;
     const paddingBottom = parseFloat(sectionStyle.paddingBottom) || 0;
-    const gap = 16;
-    const toolbar = mapSectionRef.value.querySelector('.map-fullscreen-toolbar');
+    const gap = 12;
     const zonePicker = mapSectionRef.value.querySelector('.map-zone-picker');
-    const toolbarHeight = toolbar?.offsetHeight ?? 0;
+    const footerHeight = mapFooterRef.value?.offsetHeight ?? 0;
     const zonePickerHeight = zonePicker?.offsetHeight ?? 0;
-    const extraGap = zonePicker ? gap : 0;
-    const height = window.innerHeight - paddingTop - paddingBottom - gap - toolbarHeight - zonePickerHeight - extraGap;
+    const zonePickerGap = zonePicker ? gap : 0;
+    const height = window.innerHeight - paddingTop - paddingBottom - gap - footerHeight - zonePickerHeight - zonePickerGap;
 
     mapContainer.value.style.height = `${Math.max(Math.floor(height), 240)}px`;
     hideMapScrollZoomHint(map);
@@ -1529,6 +1535,13 @@ watch(isMapFullscreen, async (active) => {
   refreshMapLayout();
   window.setTimeout(refreshMapLayout, 150);
   window.setTimeout(refreshMapLayout, 450);
+});
+
+watch(showZoneMapPicker, async () => {
+  if (!isMapFullscreen.value) return;
+
+  await nextTick();
+  refreshMapLayout();
 });
 
 onUnmounted(() => {
