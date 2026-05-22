@@ -174,102 +174,116 @@
             class="map-fullscreen-footer"
             :class="{ 'map-fullscreen-footer--dedicated': isMapFullscreen }"
           >
-            <div class="map-fullscreen-toolbar flex flex-wrap gap-2">
-              <button
-                v-if="!drawingMode"
-                type="button"
-                class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                @click="startDrawPerimeter"
-              >
-                <MapIcon class="h-3.5 w-3.5" />
-                {{ form.coordinates?.length ? 'Redesenhar perímetro' : 'Desenhar perímetro' }}
-              </button>
-              <button
-                v-if="drawingMode && perimeterPoints.length"
-                type="button"
-                class="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50"
-                @click="undoLastPoint"
-              >
-                <ArrowUturnLeftIcon class="h-3.5 w-3.5" />
-                Desfazer último ponto
-              </button>
-              <button
-                v-if="drawingMode"
-                type="button"
-                class="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100"
-                @click="cancelDrawing"
-              >
-                <XMarkIcon class="h-3.5 w-3.5" />
-                {{ drawingMode === 'zone' ? 'Cancelar edição' : 'Cancelar desenho' }}
-              </button>
-              <button
-                v-if="!drawingMode"
-                type="button"
-                class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                :disabled="locatingUser"
-                @click="goToMyLocation"
-              >
-                <MapPinIcon class="h-3.5 w-3.5" />
-                {{ locatingUser ? 'Localizando...' : 'Minha localização' }}
-              </button>
-              <button
-                v-if="form.coordinates?.length && !drawingMode"
-                type="button"
-                class="flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-                @click="clearPerimeter"
-              >
-                Limpar perímetro
-              </button>
-              <button
-                v-if="isEdit && !drawingMode"
-                type="button"
-                class="relative flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
-                :class="showZoneMapPicker
-                  ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'"
-                @click="toggleZoneMapPicker"
-              >
-                <RectangleGroupIcon class="h-3.5 w-3.5" />
-                Mapear zona
-              </button>
-              <button
-                v-if="!drawingMode"
-                type="button"
-                class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                @click="rotateMapBy(-15)"
-              >
-                Girar pra esquerda
-              </button>
-              <button
-                v-if="!drawingMode"
-                type="button"
-                class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                @click="rotateMapBy(15)"
-              >
-                Girar pra direita
-              </button>
-              <button
-                type="button"
-                class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                @click="toggleMapFullscreen"
-              >
-                <ArrowsPointingOutIcon v-if="!isMapFullscreen" class="h-3.5 w-3.5" />
-                <ArrowsPointingInIcon v-else class="h-3.5 w-3.5" />
-                {{ isMapFullscreen ? 'Sair da tela cheia' : 'Tela cheia' }}
-              </button>
-              <span
-                v-if="drawingMode === 'perimeter'"
-                class="self-center text-xs font-medium text-blue-600"
-              >
-                Clique no mapa para adicionar pontos. Arraste as bolinhas para ajustar. Clique na primeira para fechar.
-              </span>
-              <span
-                v-else-if="drawingMode === 'zone'"
-                class="self-center text-xs font-medium text-emerald-600"
-              >
-                Editando {{ drawingZone?.name }} — arraste os vértices dentro do perímetro, clique no mapa para adicionar, na primeira bolinha para fechar
-                {{ perimeterPoints.length ? ` (${perimeterPoints.length} pontos)` : '' }}
-              </span>
+            <div class="map-fullscreen-toolbar flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
+              <div class="map-toolbar-group map-toolbar-group--primary flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                <button
+                  v-if="!drawingMode"
+                  type="button"
+                  class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  @click="startDrawPerimeter"
+                >
+                  <MapIcon class="h-3.5 w-3.5" />
+                  {{ form.coordinates?.length ? 'Redesenhar perímetro' : 'Desenhar perímetro' }}
+                </button>
+                <button
+                  v-if="form.coordinates?.length && !drawingMode"
+                  type="button"
+                  class="flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                  @click="clearPerimeter"
+                >
+                  Limpar perímetro
+                </button>
+                <button
+                  v-if="drawingMode && perimeterPoints.length"
+                  type="button"
+                  class="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50"
+                  @click="undoLastPoint"
+                >
+                  <ArrowUturnLeftIcon class="h-3.5 w-3.5" />
+                  Desfazer último ponto
+                </button>
+                <button
+                  v-if="drawingMode"
+                  type="button"
+                  class="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100"
+                  @click="cancelDrawing"
+                >
+                  <XMarkIcon class="h-3.5 w-3.5" />
+                  {{ drawingMode === 'zone' ? 'Cancelar edição' : 'Cancelar desenho' }}
+                </button>
+                <button
+                  v-if="drawingMode"
+                  type="button"
+                  class="flex items-center gap-1.5 rounded-lg border border-[#c9a84c] bg-[#c9a84c] px-3 py-1.5 text-xs font-semibold text-[#1a3a28] hover:bg-[#e8c96a] disabled:cursor-not-allowed disabled:opacity-50"
+                  :disabled="!canSaveDrawing"
+                  @click="finishDrawing"
+                >
+                  Salvar demarcação
+                </button>
+                <button
+                  v-if="!drawingMode"
+                  type="button"
+                  class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  :disabled="locatingUser"
+                  @click="goToMyLocation"
+                >
+                  <MapPinIcon class="h-3.5 w-3.5" />
+                  {{ locatingUser ? 'Localizando...' : 'Minha localização' }}
+                </button>
+                <span
+                  v-if="drawingMode === 'perimeter'"
+                  class="self-center text-xs font-medium text-blue-600"
+                >
+                  Clique no mapa para adicionar pontos. Arraste as bolinhas para ajustar. Salve quando tiver pelo menos 3 pontos.
+                </span>
+                <span
+                  v-else-if="drawingMode === 'zone'"
+                  class="self-center text-xs font-medium text-emerald-600"
+                >
+                  Editando {{ drawingZone?.name }} — ajuste os vértices e clique em Salvar demarcação
+                  {{ perimeterPoints.length ? ` (${perimeterPoints.length} pontos)` : '' }}
+                </span>
+              </div>
+
+              <div class="map-toolbar-group map-toolbar-group--map flex shrink-0 flex-wrap items-center justify-end gap-2">
+                <button
+                  v-if="isEdit && !drawingMode"
+                  type="button"
+                  class="map-toolbar-btn map-toolbar-btn--map relative flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
+                  :class="showZoneMapPicker
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                    : ''"
+                  @click="toggleZoneMapPicker"
+                >
+                  <RectangleGroupIcon class="h-3.5 w-3.5" />
+                  Mapear zona
+                </button>
+                <button
+                  v-if="!drawingMode"
+                  type="button"
+                  class="map-toolbar-btn map-toolbar-btn--map flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
+                  @click="rotateMapBy(-15)"
+                >
+                  Girar pra esquerda
+                </button>
+                <button
+                  v-if="!drawingMode"
+                  type="button"
+                  class="map-toolbar-btn map-toolbar-btn--map flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
+                  @click="rotateMapBy(15)"
+                >
+                  Girar pra direita
+                </button>
+                <button
+                  type="button"
+                  class="map-toolbar-btn map-toolbar-btn--map flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
+                  @click="toggleMapFullscreen"
+                >
+                  <ArrowsPointingOutIcon v-if="!isMapFullscreen" class="h-3.5 w-3.5" />
+                  <ArrowsPointingInIcon v-else class="h-3.5 w-3.5" />
+                  {{ isMapFullscreen ? 'Sair da tela cheia' : 'Tela cheia' }}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -510,6 +524,7 @@ let zoneLayers = {};
 let locationMarker = null;
 let mapLayersSetup = null;
 let fullscreenResizeHandler = null;
+const mapPopupActions = new WeakMap();
 const drawingMode = ref(null);
 const drawingZone = ref(null);
 const locatingUser = ref(false);
@@ -572,6 +587,25 @@ const zoneInvalidHint = computed(() => {
   return '';
 });
 
+const canSaveDrawing = computed(() => {
+  if (!drawingMode.value || perimeterPoints.value.length < 3) {
+    return false;
+  }
+
+  if (drawingMode.value === 'zone') {
+    const perimeter = getDevelopmentPerimeter();
+
+    if (
+      perimeter
+      && !arePointsInsideOrOnPolygon(perimeterPoints.value, perimeter)
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+});
+
 async function initMap() {
   if (!mapContainer.value) return;
 
@@ -599,6 +633,19 @@ async function initMap() {
   }
 
   map.on('click', onMapClick);
+  map.on('popupopen', (e) => {
+    bindPopupActionButtons(e.popup);
+    window.requestAnimationFrame(() => bindPopupActionButtons(e.popup));
+  });
+  map.on('popupclose', (e) => {
+    const popupElement = e.popup?.getElement();
+    if (!popupElement) return;
+
+    popupElement.querySelectorAll('[data-map-edit], [data-map-clear]').forEach((btn) => {
+      delete btn.dataset.mapActionBound;
+      L.DomEvent.off(btn);
+    });
+  });
   map.on('moveend zoomend', () => {
     const c = map.getCenter();
     form.value.map_center = [c.lat, c.lng];
@@ -655,9 +702,40 @@ function blurPolygonPath(layer) {
   path.closest?.('svg')?.blur?.();
 }
 
-function bindMapFeaturePopup(layer, html, onEdit) {
+function bindPopupActionButton(popupElement, selector, handler) {
+  if (!handler) return;
+
+  const btn = popupElement?.querySelector(selector);
+  if (!btn || btn.dataset.mapActionBound === '1') return;
+
+  btn.dataset.mapActionBound = '1';
+  L.DomEvent.off(btn);
+  L.DomEvent.on(btn, 'click', (ev) => {
+    L.DomEvent.stop(ev);
+    map.closePopup();
+    handler();
+  });
+}
+
+function bindPopupActionButtons(popup) {
+  const layer = popup?._source;
+  const actions = layer ? mapPopupActions.get(layer) : null;
+  if (!actions) return;
+
+  const popupElement = popup.getElement();
+  if (popupElement) {
+    L.DomEvent.disableClickPropagation(popupElement);
+    L.DomEvent.disableScrollPropagation(popupElement);
+  }
+
+  bindPopupActionButton(popupElement, '[data-map-edit]', actions.onEdit);
+  bindPopupActionButton(popupElement, '[data-map-clear]', actions.onClear);
+}
+
+function bindMapFeaturePopup(layer, html, actions) {
   if (!layer || !map || !L) return;
 
+  mapPopupActions.set(layer, actions);
   layer.bindPopup(html, MAP_POPUP_OPTIONS);
 
   layer.on('add', () => {
@@ -667,8 +745,8 @@ function bindMapFeaturePopup(layer, html, onEdit) {
 
   layer.on('mousedown', (e) => {
     if (drawingMode.value) return;
-    e.originalEvent?.preventDefault?.();
     blurPolygonPath(layer);
+    L.DomEvent.stopPropagation(e);
   });
 
   layer.on('click', (e) => {
@@ -676,21 +754,6 @@ function bindMapFeaturePopup(layer, html, onEdit) {
     L.DomEvent.stopPropagation(e);
     layer.closeTooltip?.();
     blurPolygonPath(layer);
-  });
-
-  layer.on('popupopen', (e) => {
-    layer.closeTooltip?.();
-    blurPolygonPath(layer);
-
-    const editBtn = e.popup.getElement()?.querySelector('[data-map-edit]');
-    if (!editBtn) return;
-
-    editBtn.addEventListener('click', (ev) => {
-      L.DomEvent.preventDefault(ev);
-      L.DomEvent.stopPropagation(ev);
-      map.closePopup();
-      onEdit();
-    }, { once: true });
   });
 
   layer.on('popupclose', () => {
@@ -719,9 +782,12 @@ function buildPerimeterPopupHtml() {
     <div class="map-feature-popup">
       <p class="map-feature-popup-title">Perímetro do empreendimento</p>
       <p class="map-feature-popup-meta">Limite geral do empreendimento no mapa</p>
-      <div class="map-feature-popup-actions">
+      <div class="map-feature-popup-actions map-feature-popup-actions--stacked">
         <button type="button" class="map-feature-popup-btn" data-map-edit>
           Editar demarcação
+        </button>
+        <button type="button" class="map-feature-popup-btn map-feature-popup-btn--danger" data-map-clear>
+          Limpar perímetro
         </button>
       </div>
     </div>
@@ -729,17 +795,14 @@ function buildPerimeterPopupHtml() {
 }
 
 function setMapOverlaysPointerEvents(enabled) {
-  const pointerEvents = enabled ? '' : 'none';
+  map?.getContainer()?.classList.toggle('map-overlays-inactive', !enabled);
+}
 
-  if (perimeterLayer?._path) {
-    perimeterLayer._path.style.pointerEvents = pointerEvents;
+function resetMapFeatureLayerInteraction(layer) {
+  if (layer?._path) {
+    layer._path.style.pointerEvents = '';
+    layer._path.style.removeProperty('pointer-events');
   }
-
-  Object.values(zoneLayers).forEach((layer) => {
-    if (layer?._path) {
-      layer._path.style.pointerEvents = pointerEvents;
-    }
-  });
 }
 
 function getDevelopmentPerimeter() {
@@ -991,6 +1054,11 @@ function refreshTempPolyline(closed = false, options = {}) {
 }
 
 function finishDrawing() {
+  if (drawingMode.value === 'perimeter' && perimeterPoints.value.length < 3) {
+    toast.warning('O perímetro precisa de pelo menos 3 pontos.');
+    return;
+  }
+
   if (drawingMode.value === 'zone' && perimeterPoints.value.length < 3) {
     toast.warning('A zona precisa de pelo menos 3 pontos.');
     return;
@@ -1005,20 +1073,35 @@ function finishDrawing() {
     return;
   }
 
+  const mode = drawingMode.value;
+  const savedZone = drawingZone.value;
+  const savedCoords = [...perimeterPoints.value];
+
   clearTempLayers();
   resetMapCursor();
-  setMapOverlaysPointerEvents(true);
-
-  if (drawingMode.value === 'perimeter') {
-    form.value.coordinates = [...perimeterPoints.value];
-    drawPerimeterOnMap(form.value.coordinates);
-  } else if (drawingMode.value === 'zone' && drawingZone.value) {
-    saveZoneCoordinates(drawingZone.value, [...perimeterPoints.value]);
-  }
-
   perimeterPoints.value = [];
   drawingMode.value = null;
   drawingZone.value = null;
+  setMapOverlaysPointerEvents(true);
+
+  if (mode === 'perimeter') {
+    form.value.coordinates = savedCoords;
+    drawPerimeterOnMap(form.value.coordinates);
+    return;
+  }
+
+  if (mode === 'zone' && savedZone) {
+    const zoneIndex = zones.value.findIndex((zone) => zone.id === savedZone.id);
+    if (zoneIndex >= 0) {
+      zones.value[zoneIndex] = {
+        ...zones.value[zoneIndex],
+        coordinates: savedCoords,
+      };
+    }
+
+    drawZonesOnMap();
+    saveZoneCoordinates(savedZone, savedCoords);
+  }
 }
 
 function clearTempLayers() {
@@ -1043,10 +1126,15 @@ function drawPerimeterOnMap(coords) {
     className: 'map-feature-polygon',
   }).addTo(map);
 
+  resetMapFeatureLayerInteraction(perimeterLayer);
+
   bindMapFeaturePopup(
     perimeterLayer,
     buildPerimeterPopupHtml(),
-    () => startDrawPerimeter(),
+    {
+      onEdit: () => startDrawPerimeter(),
+      onClear: () => clearPerimeter(),
+    },
   );
 
   map.fitBounds(perimeterLayer.getBounds(), { padding: [20, 20] });
@@ -1071,10 +1159,13 @@ function drawZonesOnMap() {
       .bindTooltip(zone.name, { direction: 'top', opacity: 0.9 })
       .addTo(map);
 
+    resetMapFeatureLayerInteraction(layer);
+    layer.bringToFront();
+
     bindMapFeaturePopup(
       layer,
       buildZonePopupHtml(zone),
-      () => startDrawZone(zone),
+      { onEdit: () => startDrawZone(zone) },
     );
 
     zoneLayers[zone.id] = layer;
@@ -1225,9 +1316,13 @@ async function saveZoneCoordinates(zone, coords) {
     });
     toast.success('Área da zona salva.');
     await loadZones();
+    setMapOverlaysPointerEvents(true);
     drawZonesOnMap();
   } catch {
     toast.error('Erro ao salvar área da zona.');
+    await loadZones();
+    setMapOverlaysPointerEvents(true);
+    drawZonesOnMap();
   }
 }
 
