@@ -248,126 +248,128 @@ onMounted(async () => {
       class="map-fullscreen-footer"
       :class="{ 'map-fullscreen-footer--dedicated': isMapFullscreen }"
     >
-      <div class="map-fullscreen-toolbar map-drawing-toolbar flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-2 sm:gap-y-2">
-        <div class="map-toolbar-group map-toolbar-group--primary flex min-w-0 w-full flex-wrap items-center gap-2">
-          <button
-            v-if="!isDrawing"
-            type="button"
-            class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50 sm:px-3 sm:text-xs"
-            @click="startDrawLot"
-          >
-            <MapIcon class="h-3.5 w-3.5" />
-            {{ coordinatesModel?.length ? 'Redesenhar lote' : 'Demarcar lote' }}
-          </button>
+      <div class="map-fullscreen-toolbar map-drawing-toolbar flex flex-col gap-2">
+        <div class="flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center sm:justify-between sm:gap-x-2">
+          <div class="map-toolbar-group map-toolbar-group--primary flex min-w-0 w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-1 sm:flex-nowrap">
+            <button
+              v-if="!isDrawing"
+              type="button"
+              class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50 sm:px-3 sm:text-xs"
+              @click="startDrawLot"
+            >
+              <MapIcon class="h-3.5 w-3.5" />
+              {{ coordinatesModel?.length ? 'Redesenhar lote' : 'Demarcar lote' }}
+            </button>
 
-          <button
-            v-if="coordinatesModel?.length && !isDrawing"
-            type="button"
-            class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-red-600 hover:bg-red-50 sm:px-3 sm:text-xs"
-            @click="confirmClearFeature"
-          >
-            Limpar demarcação
-          </button>
+            <button
+              v-if="coordinatesModel?.length && !isDrawing"
+              type="button"
+              class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-red-600 hover:bg-red-50 sm:px-3 sm:text-xs"
+              @click="confirmClearFeature"
+            >
+              Limpar demarcação
+            </button>
 
-          <button
-            v-if="isDrawing"
-            type="button"
-            class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-amber-600 hover:bg-amber-50 sm:px-3 sm:text-xs"
-            @click="undoLastPoint"
-          >
-            <ArrowUturnLeftIcon class="h-3.5 w-3.5" />
-            Desfazer último ponto
-          </button>
+            <button
+              v-if="isDrawing"
+              type="button"
+              class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-amber-600 hover:bg-amber-50 sm:px-3 sm:text-xs"
+              @click="undoLastPoint"
+            >
+              <ArrowUturnLeftIcon class="h-3.5 w-3.5" />
+              Desfazer último ponto
+            </button>
 
-          <button
-            v-if="isDrawing"
-            type="button"
-            class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] font-medium text-amber-700 hover:bg-amber-100 sm:px-3 sm:text-xs"
-            @click="cancelDrawing"
-          >
-            <XMarkIcon class="h-3.5 w-3.5" />
-            Cancelar desenho
-          </button>
+            <button
+              v-if="isDrawing"
+              type="button"
+              class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] font-medium text-amber-700 hover:bg-amber-100 sm:px-3 sm:text-xs"
+              @click="cancelDrawing"
+            >
+              <XMarkIcon class="h-3.5 w-3.5" />
+              Cancelar desenho
+            </button>
 
-          <button
-            v-if="isDrawing && canSaveDrawing"
-            type="button"
-            class="map-toolbar-btn map-toolbar-btn--save map-toolbar-action-btn flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] disabled:cursor-not-allowed disabled:opacity-50 sm:px-3 sm:text-xs"
-            @click="finishDrawing()"
-          >
-            Salvar demarcação
-          </button>
+            <button
+              v-if="isDrawing && canSaveDrawing"
+              type="button"
+              class="map-toolbar-btn map-toolbar-btn--save map-toolbar-action-btn flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] disabled:cursor-not-allowed disabled:opacity-50 sm:px-3 sm:text-xs"
+              @click="finishDrawing()"
+            >
+              Salvar demarcação
+            </button>
 
-          <button
-            type="button"
-            class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 sm:px-3 sm:text-xs"
-            :disabled="capturingGps"
-            @click="captureGpsPoint"
-          >
-            <MapPinIcon class="h-3.5 w-3.5" />
-            {{ capturingGps ? 'Capturando GPS...' : 'Capturar ponto GPS' }}
-          </button>
+            <button
+              type="button"
+              class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 sm:hidden"
+              :disabled="capturingGps"
+              @click="captureGpsPoint"
+            >
+              <MapPinIcon class="h-3.5 w-3.5" />
+              {{ capturingGps ? 'Capturando GPS...' : 'Capturar ponto GPS' }}
+            </button>
 
-          <button
-            v-if="!isDrawing"
-            type="button"
-            class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 sm:px-3 sm:text-xs"
-            :disabled="locatingUser"
-            @click="goToMyLocation"
-          >
-            <MapPinIcon class="h-3.5 w-3.5" />
-            {{ locatingUser ? 'Localizando...' : 'Minha localização' }}
-          </button>
+            <button
+              v-if="!isDrawing"
+              type="button"
+              class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 sm:px-3 sm:text-xs"
+              :disabled="locatingUser"
+              @click="goToMyLocation"
+            >
+              <MapPinIcon class="h-3.5 w-3.5" />
+              {{ locatingUser ? 'Localizando...' : 'Minha localização' }}
+            </button>
+          </div>
 
-          <span
-            v-if="isDrawing"
-            class="w-full self-center text-[11px] font-medium leading-snug text-blue-600 sm:text-xs"
-          >
-            Clique no mapa para adicionar pontos. Duplo clique na bolinha remove um ponto. Com 3+ pontos, use Salvar demarcação ou clique no primeiro vértice
-          </span>
+          <div class="map-toolbar-group map-toolbar-group--map grid w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:w-auto sm:shrink-0 sm:flex-nowrap sm:items-center sm:justify-end sm:gap-2">
+            <button
+              v-if="!isDrawing && hasMappedZones"
+              type="button"
+              class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn col-span-2 flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:col-span-1 sm:justify-start sm:px-3 sm:text-xs"
+              :class="visibleZoneNameTypes.length
+                ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                : ''"
+              @click="openZoneNamePicker"
+            >
+              <TagIcon class="h-3.5 w-3.5" />
+              Exibir nomes
+            </button>
+            <button
+              v-if="!isDrawing"
+              type="button"
+              class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:justify-start sm:px-3 sm:text-xs"
+              @click="rotateMapBy(-15)"
+            >
+              <span class="sm:hidden">Girar esq.</span>
+              <span class="hidden sm:inline">Girar pra esquerda</span>
+            </button>
+            <button
+              v-if="!isDrawing"
+              type="button"
+              class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:justify-start sm:px-3 sm:text-xs"
+              @click="rotateMapBy(15)"
+            >
+              <span class="sm:hidden">Girar dir.</span>
+              <span class="hidden sm:inline">Girar pra direita</span>
+            </button>
+            <button
+              type="button"
+              class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn col-span-2 flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:col-span-1 sm:justify-start sm:px-3 sm:text-xs"
+              @click="toggleMapFullscreen"
+            >
+              <ArrowsPointingOutIcon v-if="!isMapFullscreen" class="h-3.5 w-3.5" />
+              <ArrowsPointingInIcon v-else class="h-3.5 w-3.5" />
+              {{ isMapFullscreen ? 'Sair da tela cheia' : 'Tela cheia' }}
+            </button>
+          </div>
         </div>
 
-        <div class="map-toolbar-group map-toolbar-group--map grid w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:w-auto sm:shrink-0 sm:flex-wrap sm:items-center sm:justify-end">
-          <button
-            v-if="!isDrawing && hasMappedZones"
-            type="button"
-            class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn col-span-2 flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:col-span-1 sm:justify-start sm:px-3 sm:text-xs"
-            :class="visibleZoneNameTypes.length
-              ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-              : ''"
-            @click="openZoneNamePicker"
-          >
-            <TagIcon class="h-3.5 w-3.5" />
-            Exibir nomes
-          </button>
-          <button
-            v-if="!isDrawing"
-            type="button"
-            class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:justify-start sm:px-3 sm:text-xs"
-            @click="rotateMapBy(-15)"
-          >
-            <span class="sm:hidden">Girar esq.</span>
-            <span class="hidden sm:inline">Girar pra esquerda</span>
-          </button>
-          <button
-            v-if="!isDrawing"
-            type="button"
-            class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:justify-start sm:px-3 sm:text-xs"
-            @click="rotateMapBy(15)"
-          >
-            <span class="sm:hidden">Girar dir.</span>
-            <span class="hidden sm:inline">Girar pra direita</span>
-          </button>
-          <button
-            type="button"
-            class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn col-span-2 flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:col-span-1 sm:justify-start sm:px-3 sm:text-xs"
-            @click="toggleMapFullscreen"
-          >
-            <ArrowsPointingOutIcon v-if="!isMapFullscreen" class="h-3.5 w-3.5" />
-            <ArrowsPointingInIcon v-else class="h-3.5 w-3.5" />
-            {{ isMapFullscreen ? 'Sair da tela cheia' : 'Tela cheia' }}
-          </button>
-        </div>
+        <p
+          v-if="isDrawing"
+          class="text-[11px] font-medium leading-snug text-blue-600 sm:text-xs"
+        >
+          Clique no mapa para adicionar pontos. Duplo clique na bolinha remove um ponto. Com 3+ pontos, use Salvar demarcação ou clique no primeiro vértice
+        </p>
       </div>
     </div>
   </div>

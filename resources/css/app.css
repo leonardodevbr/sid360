@@ -444,6 +444,13 @@
   max-width: 100%;
 }
 
+@media (min-width: 640px) {
+  .map-drawing-toolbar .map-toolbar-group--primary,
+  .map-drawing-toolbar .map-toolbar-group--map {
+    flex-wrap: nowrap;
+  }
+}
+
 .map-toolbar-action-btn {
   max-width: 100%;
   white-space: nowrap;
