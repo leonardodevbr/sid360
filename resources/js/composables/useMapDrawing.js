@@ -215,13 +215,32 @@ export function useMapDrawing(options) {
     return !isPointInsideOrOnPolygon(coord, boundary);
   }
 
-  function buildVertexIcon(color, invalid = false) {
+  function canDragVertexMarkers() {
+    return startedFromExistingPolygon.value;
+  }
+
+  function isFirstVertexClosable(marker) {
+    return !startedFromExistingPolygon.value
+      && marker._vertexIndex === 0
+      && drawingPoints.value.length >= 3;
+  }
+
+  function buildVertexIcon(color, invalid = false, options = {}) {
+    const { closeTarget = false, drawOnly = false } = options;
+
     return L.divIcon({
       className: 'map-vertex-handle-icon',
-      html: `<span class="map-vertex-handle-wrap"><span class="map-vertex-handle${invalid ? ' map-vertex-handle--invalid' : ''}" style="--vertex-color:${color}"></span></span>`,
+      html: `<span class="map-vertex-handle-wrap"><span class="map-vertex-handle${invalid ? ' map-vertex-handle--invalid' : ''}${closeTarget ? ' map-vertex-handle--close-target' : ''}${drawOnly ? ' map-vertex-handle--draw-only' : ''}" style="--vertex-color:${color}"></span></span>`,
       iconSize: [24, 24],
       iconAnchor: [12, 12],
     });
+  }
+
+  function getVertexIconOptions(marker) {
+    return {
+      closeTarget: isFirstVertexClosable(marker),
+      drawOnly: !canDragVertexMarkers(),
+    };
   }
 
   function enableMapDraggingAfterVertexDrag() {
@@ -294,6 +313,11 @@ export function useMapDrawing(options) {
 
       L.DomEvent.stopPropagation(startEvent);
       L.DomEvent.preventDefault(startEvent);
+
+      if (!canDragVertexMarkers()) {
+        return;
+      }
+
       marker._wasDragged = false;
 
       if (!map._vertexDragActiveCount) {
@@ -330,6 +354,8 @@ export function useMapDrawing(options) {
     if (!handle) return;
 
     handle.classList.toggle('map-vertex-handle--invalid', invalid);
+    handle.classList.toggle('map-vertex-handle--close-target', isFirstVertexClosable(marker));
+    handle.classList.toggle('map-vertex-handle--draw-only', !canDragVertexMarkers());
     handle.style.setProperty('--vertex-color', color);
   }
 
@@ -343,7 +369,7 @@ export function useMapDrawing(options) {
 
       const invalid = isVertexInvalid(coord);
       const color = invalid ? '#DC2626' : baseColor;
-      marker.setIcon(buildVertexIcon(color, invalid));
+      marker.setIcon(buildVertexIcon(color, invalid, getVertexIconOptions(marker)));
     });
   }
 
@@ -363,9 +389,17 @@ export function useMapDrawing(options) {
     }).addTo(map);
 
     marker._vertexIndex = index;
+    marker.setIcon(buildVertexIcon(markerColor, invalid, getVertexIconOptions(marker)));
     bindVertexMarkerDrag(marker);
 
     marker.on('click', (event) => {
+      L.DomEvent.stopPropagation(event);
+      tryClosePolygonOnFirstVertexTap(marker);
+    });
+
+    marker.on('touchend', (event) => {
+      if (canDragVertexMarkers()) return;
+
       L.DomEvent.stopPropagation(event);
       tryClosePolygonOnFirstVertexTap(marker);
     });
@@ -746,6 +780,7 @@ export function useMapDrawing(options) {
     }
 
     refreshTempPolyline(false);
+    refreshVertexMarkerStyles();
 
     const boundary = getBoundary();
     if (boundary && !isPointInsideOrOnPolygon([lat, lng], boundary)) {

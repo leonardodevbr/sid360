@@ -1240,10 +1240,24 @@ function getDrawingBaseColor() {
   return drawingZone.value?.color ?? '#10B981';
 }
 
-function buildVertexIcon(color, invalid = false) {
+function canDragVertexMarkers() {
+  return startedFromExistingPolygon.value;
+}
+
+function isFirstVertexClosable(marker) {
+  const minimumPoints = getMinimumPolygonPoints(drawingMode.value);
+
+  return !startedFromExistingPolygon.value
+    && marker._vertexIndex === 0
+    && perimeterPoints.value.length >= minimumPoints;
+}
+
+function buildVertexIcon(color, invalid = false, options = {}) {
+  const { closeTarget = false, drawOnly = false } = options;
+
   return L.divIcon({
     className: 'map-vertex-handle-icon',
-    html: `<span class="map-vertex-handle-wrap"><span class="map-vertex-handle${invalid ? ' map-vertex-handle--invalid' : ''}" style="--vertex-color:${color}"></span></span>`,
+    html: `<span class="map-vertex-handle-wrap"><span class="map-vertex-handle${invalid ? ' map-vertex-handle--invalid' : ''}${closeTarget ? ' map-vertex-handle--close-target' : ''}${drawOnly ? ' map-vertex-handle--draw-only' : ''}" style="--vertex-color:${color}"></span></span>`,
     iconSize: [24, 24],
     iconAnchor: [12, 12],
   });
@@ -1262,7 +1276,16 @@ function updateVertexHandleStyle(marker) {
   if (!handle) return;
 
   handle.classList.toggle('map-vertex-handle--invalid', invalid);
+  handle.classList.toggle('map-vertex-handle--close-target', isFirstVertexClosable(marker));
+  handle.classList.toggle('map-vertex-handle--draw-only', !canDragVertexMarkers());
   handle.style.setProperty('--vertex-color', color);
+}
+
+function getVertexIconOptions(marker) {
+  return {
+    closeTarget: isFirstVertexClosable(marker),
+    drawOnly: !canDragVertexMarkers(),
+  };
 }
 
 function refreshVertexMarkerStyles() {
@@ -1276,7 +1299,7 @@ function refreshVertexMarkerStyles() {
 
     const invalid = isVertexInvalid(coord);
     const color = invalid ? '#DC2626' : baseColor;
-    marker.setIcon(buildVertexIcon(color, invalid));
+    marker.setIcon(buildVertexIcon(color, invalid, getVertexIconOptions(marker)));
   });
 }
 
@@ -1357,6 +1380,11 @@ function bindVertexMarkerDrag(marker) {
 
     L.DomEvent.stopPropagation(startEvent);
     L.DomEvent.preventDefault(startEvent);
+
+    if (!canDragVertexMarkers()) {
+      return;
+    }
+
     marker._wasDragged = false;
 
     if (!map._vertexDragActiveCount) {
@@ -1413,9 +1441,17 @@ function addDrawingMarker(coord, color, index) {
   }).addTo(map);
 
   marker._vertexIndex = index;
+  marker.setIcon(buildVertexIcon(markerColor, invalid, getVertexIconOptions(marker)));
   bindVertexMarkerDrag(marker);
 
   marker.on('click', (e) => {
+    L.DomEvent.stopPropagation(e);
+    tryClosePolygonOnFirstVertexTap(marker);
+  });
+
+  marker.on('touchend', (e) => {
+    if (canDragVertexMarkers()) return;
+
     L.DomEvent.stopPropagation(e);
     tryClosePolygonOnFirstVertexTap(marker);
   });
@@ -1536,6 +1572,7 @@ function onMapClick(e) {
   }
 
   refreshTempPolyline(false);
+  refreshVertexMarkerStyles();
 
   if (drawingMode.value === 'zone' && !canPlaceZonePoint([lat, lng])) {
     toast.warning('Vértice fora do perímetro do empreendimento.');
