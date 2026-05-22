@@ -27,7 +27,7 @@
           <input
             v-model="searchQuery"
             type="search"
-            placeholder="Número ou quadra..."
+            placeholder="Número ou zona..."
             class="w-full rounded border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent"
             @input="debouncedSearch"
           />
@@ -51,7 +51,7 @@
         <table class="min-w-full divide-y divide-slate-200">
           <thead class="bg-slate-50">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium uppercase text-slate-500 sm:px-6">Quadra</th>
+              <th class="px-4 py-3 text-left text-xs font-medium uppercase text-slate-500 sm:px-6">Zona</th>
               <th class="px-4 py-3 text-left text-xs font-medium uppercase text-slate-500 sm:px-6">Número</th>
               <th class="hidden px-4 py-3 text-left text-xs font-medium uppercase text-slate-500 sm:table-cell sm:px-6">Área (m²)</th>
               <th class="hidden px-4 py-3 text-left text-xs font-medium uppercase text-slate-500 md:table-cell sm:px-6">Valor</th>
@@ -61,7 +61,7 @@
           </thead>
           <tbody class="divide-y divide-slate-200 bg-white">
             <tr v-for="item in items" :key="item.id">
-              <td class="px-4 py-4 text-sm text-slate-900 sm:px-6">{{ item.block || '—' }}</td>
+              <td class="px-4 py-4 text-sm text-slate-900 sm:px-6">{{ lotZoneLabel(item) }}</td>
               <td class="px-4 py-4 text-sm font-medium text-slate-900 sm:px-6">{{ item.number }}</td>
               <td class="hidden px-4 py-4 text-sm text-slate-600 sm:table-cell sm:px-6">{{ formatNumber(item.area) }}</td>
               <td class="hidden px-4 py-4 text-sm text-slate-600 md:table-cell sm:px-6">{{ formatCurrency(item.total_value) }}</td>
@@ -116,6 +116,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useAlert } from '@/composables/useAlert';
 import { formatCurrency } from '@/utils/format';
 import { lotStatusLabels, lotStatusOptions } from '@/utils/labels';
+import { buildZoneTitleLabel } from '@/utils/zone';
 import { lotStatusClass } from '@/utils/status';
 import { getApiErrorMessage } from '@/utils/apiError';
 import Button from '@/components/Common/Button.vue';
@@ -146,6 +147,18 @@ const developmentOptions = computed(() =>
 function formatNumber(value) {
   if (value == null || value === '') return '—';
   return Number(value).toLocaleString('pt-BR');
+}
+
+function lotZoneLabel(lot) {
+  if (lot.zone?.name) {
+    return buildZoneTitleLabel(lot.zone);
+  }
+
+  if (lot.block) {
+    return lot.block;
+  }
+
+  return '—';
 }
 
 function goToCreate() {

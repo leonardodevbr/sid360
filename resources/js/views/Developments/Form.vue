@@ -259,13 +259,13 @@
                   v-if="isEdit && !drawingMode && hasMappedZones"
                   type="button"
                   class="map-toolbar-btn map-toolbar-btn--map flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
-                  :class="showZoneNames
+                  :class="visibleZoneNameTypes.length
                     ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                     : ''"
-                  @click="toggleZoneNames"
+                  @click="openZoneNamePicker"
                 >
                   <TagIcon class="h-3.5 w-3.5" />
-                  {{ showZoneNames ? 'Ocultar nomes' : 'Exibir nomes' }}
+                  Exibir nomes
                 </button>
                 <button
                   v-if="isEdit && !drawingMode"
@@ -317,7 +317,7 @@
           </p>
           <button
             type="button"
-            class="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+            class="flex items-center gap-1.5 rounded-lg bg-action px-3 py-1.5 text-xs font-semibold text-white hover:bg-action-hover"
             @click="openZoneForm"
           >
             <PlusIcon class="h-3.5 w-3.5" />
@@ -428,6 +428,68 @@
         <Button variant="primary" :disabled="savingZone" @click="saveZone">
           {{ savingZone ? 'Salvando...' : 'Salvar zona' }}
         </Button>
+      </div>
+    </Modal>
+
+    <Modal
+      :is-open="showZoneNamePicker"
+      title="Exibir nomes no mapa"
+      @close="closeZoneNamePicker"
+    >
+      <p class="text-xs text-slate-500">
+        Selecione os tipos de zona cujos nomes devem aparecer no mapa.
+      </p>
+
+      <div class="mt-3 flex gap-2">
+        <button
+          type="button"
+          class="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+          @click="selectAllZoneNameTypesInDraft"
+        >
+          Marcar todos
+        </button>
+        <button
+          type="button"
+          class="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+          @click="clearAllZoneNameTypesInDraft"
+        >
+          Limpar seleção
+        </button>
+      </div>
+
+      <div class="mt-3 space-y-2">
+        <button
+          v-for="option in zoneTypeOptions"
+          :key="option.value"
+          type="button"
+          class="flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left transition-colors"
+          :class="zoneNamePickerDraft.includes(option.value)
+            ? 'border-emerald-300 bg-emerald-50'
+            : 'border-slate-200 bg-white hover:bg-slate-50'"
+          @click="toggleZoneNameTypeDraft(option.value)"
+        >
+          <span>
+            <span class="block text-sm font-medium text-slate-800">{{ option.label }}</span>
+            <span class="block text-xs text-slate-400">
+              {{ mappedZonesCountByType(option.value) }} no mapa
+            </span>
+          </span>
+          <span
+            class="flex h-5 w-5 shrink-0 items-center justify-center rounded border"
+            :class="zoneNamePickerDraft.includes(option.value)
+              ? 'border-emerald-600 bg-emerald-600 text-white'
+              : 'border-slate-300 bg-white text-transparent'"
+          >
+            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+            </svg>
+          </span>
+        </button>
+      </div>
+
+      <div class="mt-4 flex justify-end gap-2">
+        <Button variant="outline" @click="closeZoneNamePicker">Cancelar</Button>
+        <Button variant="primary" @click="applyZoneNamePicker">Aplicar</Button>
       </div>
     </Modal>
 
@@ -842,7 +904,7 @@ function bringZoneLayersToFront() {
 function bindZoneLayerTooltip(layer, zone) {
   layer.unbindTooltip();
 
-  if (!showZoneNames.value) return;
+  if (!visibleZoneNameTypes.value.includes(zone.type)) return;
 
   layer.bindTooltip(buildZoneTitleLabel(zone), {
     permanent: true,
@@ -862,8 +924,42 @@ function syncZoneNameLabels() {
   });
 }
 
-function toggleZoneNames() {
-  showZoneNames.value = !showZoneNames.value;
+function mappedZonesCountByType(type) {
+  return zones.value.filter(
+    (zone) => zone.type === type && Array.isArray(zone.coordinates) && zone.coordinates.length >= 3,
+  ).length;
+}
+
+function openZoneNamePicker() {
+  zoneNamePickerDraft.value = [...visibleZoneNameTypes.value];
+  showZoneNamePicker.value = true;
+}
+
+function closeZoneNamePicker() {
+  showZoneNamePicker.value = false;
+}
+
+function toggleZoneNameTypeDraft(type) {
+  const index = zoneNamePickerDraft.value.indexOf(type);
+  if (index >= 0) {
+    zoneNamePickerDraft.value.splice(index, 1);
+    return;
+  }
+
+  zoneNamePickerDraft.value.push(type);
+}
+
+function selectAllZoneNameTypesInDraft() {
+  zoneNamePickerDraft.value = zoneTypeOptions.map((option) => option.value);
+}
+
+function clearAllZoneNameTypesInDraft() {
+  zoneNamePickerDraft.value = [];
+}
+
+function applyZoneNamePicker() {
+  visibleZoneNameTypes.value = [...zoneNamePickerDraft.value];
+  closeZoneNamePicker();
   syncZoneNameLabels();
 }
 
@@ -1542,7 +1638,9 @@ async function confirmClearZone(zone) {
 }
 
 const zones = ref([]);
-const showZoneNames = ref(false);
+const visibleZoneNameTypes = ref([]);
+const showZoneNamePicker = ref(false);
+const zoneNamePickerDraft = ref([]);
 const showZoneForm = ref(false);
 const showZoneMapPicker = ref(false);
 const savingZone = ref(false);

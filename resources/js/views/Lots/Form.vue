@@ -40,19 +40,26 @@
           placeholder="Selecione o empreendimento"
           :searchable="true"
           required
-          @update:model-value="onDevelopmentChange"
+          @update:model-value="handleDevelopmentChange"
         />
 
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <SelectInput
-            v-if="zones.length"
+            v-if="selectableZones.length"
             v-model="form.zone_id"
-            label="Zona (quadra/conjunto)"
+            label="Quadra"
             :options="zoneOptions"
-            placeholder="Selecione a zona"
+            placeholder="Selecione a quadra"
             :searchable="false"
+            :can-clear="false"
+            required
           />
-          <Input v-model="form.block" label="Quadra / Bloco" placeholder="Ex: A" />
+          <Input
+            v-else
+            v-model="form.block"
+            label="Bloco"
+            placeholder="Ex: A"
+          />
           <Input v-model="form.number" label="Número" required placeholder="Ex: QA-L01" />
         </div>
 
@@ -223,6 +230,7 @@ import { useToast } from 'vue-toastification';
 import api from '@/services/api';
 import { lotStatusFormOptions } from '@/utils/labels';
 import { setupMapBaseLayers } from '@/utils/mapLayers';
+import { buildZoneTitleLabel, isLotSelectableZone } from '@/utils/zone';
 import { useMapFullscreen } from '@/composables/useMapFullscreen';
 import Input from '@/components/Common/Input.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
@@ -268,8 +276,13 @@ const developmentOptions = computed(() =>
   developments.value.map((d) => ({ value: String(d.id), label: d.name })),
 );
 
+const selectableZones = computed(() => zones.value.filter(isLotSelectableZone));
+
 const zoneOptions = computed(() =>
-  zones.value.map((z) => ({ value: String(z.id), label: `${z.name} (${z.type})` })),
+  selectableZones.value.map((z) => ({
+    value: String(z.id),
+    label: buildZoneTitleLabel(z),
+  })),
 );
 
 const developmentDownPaymentLabel = computed(() => {
@@ -295,9 +308,39 @@ async function fetchDevelopmentMapData(developmentId) {
   }
 }
 
-async function onDevelopmentChange() {
-  zones.value = [];
+async function handleDevelopmentChange() {
   form.value.zone_id = '';
+  await loadDevelopmentMapContext();
+}
+
+function resolveZoneIdFromLegacyBlock() {
+  if (form.value.zone_id || !form.value.block?.trim() || !selectableZones.value.length) {
+    return;
+  }
+
+  const legacyBlock = form.value.block.trim().toLocaleLowerCase('pt-BR');
+
+  const matchedZone = selectableZones.value.find((zone) => {
+    const zoneName = String(zone.name ?? '').trim().toLocaleLowerCase('pt-BR');
+
+    return zoneName === legacyBlock
+      || zoneName.endsWith(` ${legacyBlock}`)
+      || legacyBlock.endsWith(zoneName);
+  });
+
+  if (matchedZone) {
+    form.value.zone_id = String(matchedZone.id);
+  }
+}
+
+function getSelectedZone() {
+  return selectableZones.value.find(
+    (zone) => String(zone.id) === String(form.value.zone_id),
+  ) ?? null;
+}
+
+async function loadDevelopmentMapContext() {
+  zones.value = [];
 
   if (!form.value.development_id || !map || !L) return;
 
@@ -307,6 +350,15 @@ async function onDevelopmentChange() {
   } catch {
     zones.value = [];
   }
+
+  if (
+    form.value.zone_id
+    && !selectableZones.value.some((zone) => String(zone.id) === String(form.value.zone_id))
+  ) {
+    form.value.zone_id = '';
+  }
+
+  resolveZoneIdFromLegacyBlock();
 
   const dev =
     (await fetchDevelopmentMapData(form.value.development_id))
@@ -320,7 +372,7 @@ async function onDevelopmentChange() {
     drawDevelopmentPerimeter(dev.coordinates);
   }
 
-  if (zones.value.length) {
+  if (selectableZones.value.length) {
     drawZonesOnMap();
   }
 }
@@ -506,7 +558,7 @@ function drawZonesOnMap() {
   zoneLayers = [];
 
   zones.value.forEach((zone) => {
-    if (!zone.coordinates?.length) return;
+    if (!isLotSelectableZone(zone) || !zone.coordinates?.length) return;
 
     const layer = L.polygon(zone.coordinates, {
       color: zone.color,
@@ -723,10 +775,18 @@ async function submit() {
     form.value.area = form.value.area_computed;
   }
 
+  if (selectableZones.value.length && !form.value.zone_id) {
+    toast.warning('Selecione a quadra do lote.');
+    return;
+  }
+
+  const selectedZone = getSelectedZone();
+
   const payload = {
     ...form.value,
     development_id: Number(form.value.development_id),
-    zone_id: form.value.zone_id ? Number(form.value.zone_id) : null,
+    zone_id: selectedZone ? selectedZone.id : null,
+    block: selectedZone ? selectedZone.name : (form.value.block?.trim() || null),
     area: form.value.area === '' ? null : Number(form.value.area),
     area_computed: form.value.area_computed ?? null,
     total_value: form.value.total_value > 0 ? Number(form.value.total_value) : null,
@@ -779,7 +839,7 @@ onMounted(async () => {
   await initMap();
 
   if (form.value.development_id) {
-    await onDevelopmentChange();
+    await loadDevelopmentMapContext();
     if (form.value.coordinates?.length) {
       restorePointMarkers(form.value.coordinates);
       renderPolygon(form.value.coordinates);

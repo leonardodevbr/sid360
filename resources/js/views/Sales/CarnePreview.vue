@@ -31,7 +31,7 @@ function goBack() {
     <p class="text-sm text-slate-600">Não foi possível carregar o preview do carnê.</p>
     <button
       type="button"
-      class="rounded-lg bg-[#c9a84c] px-4 py-2 text-sm font-semibold text-[#1a3a28]"
+      class="rounded-lg bg-action px-4 py-2 text-sm font-semibold text-white hover:bg-action-hover"
       @click="goBack"
     >
       Voltar para a venda

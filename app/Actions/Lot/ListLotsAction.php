@@ -16,25 +16,34 @@ class ListLotsAction
      */
     public function execute(Request $request): LengthAwarePaginator|Collection
     {
-        $query = Lot::query()->with('development');
+        $query = Lot::query()->with(['development', 'zone']);
 
         if ($request->filled('development_id')) {
-            $query->where('development_id', (int) $request->input('development_id'));
+            $query->where('lots.development_id', (int) $request->input('development_id'));
         }
 
         if ($request->filled('search')) {
             $search = $request->string('search')->toString();
             $query->where(function ($q) use ($search): void {
-                $q->where('number', 'like', "%{$search}%")
-                    ->orWhere('block', 'like', "%{$search}%");
+                $q->where('lots.number', 'like', "%{$search}%")
+                    ->orWhere('lots.block', 'like', "%{$search}%")
+                    ->orWhereHas('zone', function ($zoneQuery) use ($search): void {
+                        $zoneQuery->where('name', 'like', "%{$search}%");
+                    });
             });
         }
 
         if ($request->filled('status')) {
-            $query->where('status', $request->string('status')->toString());
+            $query->where('lots.status', $request->string('status')->toString());
         }
 
-        $query->orderBy('development_id')->orderBy('block')->orderBy('number');
+        $query
+            ->leftJoin('development_zones as lot_zones', 'lots.zone_id', '=', 'lot_zones.id')
+            ->orderBy('lots.development_id')
+            ->orderBy('lot_zones.name')
+            ->orderBy('lots.block')
+            ->orderBy('lots.number')
+            ->select('lots.*');
 
         if ($request->boolean('all')) {
             return $query->get();

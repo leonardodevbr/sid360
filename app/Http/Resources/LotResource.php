@@ -22,6 +22,7 @@ class LotResource extends JsonResource
             'zone' => $this->whenLoaded('zone', fn () => [
                 'id' => $this->zone->id,
                 'name' => $this->zone->name,
+                'type' => $this->zone->type,
                 'color' => $this->zone->color,
             ]),
             'number' => $this->number,
