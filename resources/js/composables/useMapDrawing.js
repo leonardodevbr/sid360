@@ -72,6 +72,7 @@ export function useMapDrawing(options) {
   let mapFooterResizeObserver = null;
   let mapLayoutRefreshTimer = null;
   let lastMapContainerSizeKey = '';
+  let closePolygonFromVertexPending = false;
   const cursorPreview = createCursorPreviewController();
   const gpsPreview = createGpsPreviewController();
   let gpsPreviewErrorNotified = false;
@@ -330,8 +331,23 @@ export function useMapDrawing(options) {
       return false;
     }
 
+    if (closePolygonFromVertexPending) {
+      return true;
+    }
+
+    closePolygonFromVertexPending = true;
     clearFirstVertexCloseTimer();
-    finishDrawing({ closedExplicitly: true });
+
+    window.requestAnimationFrame(() => {
+      closePolygonFromVertexPending = false;
+
+      if (!drawingMode.value || drawingPoints.value.length < 3) {
+        return;
+      }
+
+      finishDrawing({ closedExplicitly: true });
+    });
+
     return true;
   }
 
@@ -465,14 +481,22 @@ export function useMapDrawing(options) {
     bindVertexMarkerDrag(marker);
 
     marker.on('click', (event) => {
+      if (!isFirstVertexClosable(marker)) {
+        return;
+      }
+
       L.DomEvent.stopPropagation(event);
+      L.DomEvent.preventDefault(event);
       tryClosePolygonOnFirstVertexTap(marker);
     });
 
     marker.on('touchend', (event) => {
-      if (canDragVertexMarkers()) return;
+      if (canDragVertexMarkers() || !isFirstVertexClosable(marker)) {
+        return;
+      }
 
       L.DomEvent.stopPropagation(event);
+      L.DomEvent.preventDefault(event);
       tryClosePolygonOnFirstVertexTap(marker);
     });
 
@@ -1017,6 +1041,7 @@ export function useMapDrawing(options) {
 
   function cancelDrawing() {
     clearFirstVertexCloseTimer();
+    closePolygonFromVertexPending = false;
     gpsPreview.stop();
     cursorPreview.unbind();
     clearTempLayers();
@@ -1060,6 +1085,7 @@ export function useMapDrawing(options) {
     gpsPreview.stop();
     cursorPreview.unbind();
     drawSavedFeatureLayer();
+    scheduleMapLayoutRefresh();
     toast.success(
       mode === 'lot'
         ? 'Demarcação registrada no formulário. Clique em Salvar para persistir o lote.'
