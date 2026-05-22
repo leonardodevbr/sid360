@@ -105,7 +105,7 @@ export function useMapDrawing(options) {
     }
 
     if (drawingPoints.value.length >= 3 && !startedFromExistingPolygon.value) {
-      return 'Clique no primeiro vértice para fechar e salvar o lote';
+      return 'Polígono pronto — clique em Salvar demarcação ou no primeiro vértice';
     }
 
     return '';
@@ -113,10 +113,6 @@ export function useMapDrawing(options) {
 
   const canSaveDrawing = computed(() => {
     if (!isDrawing.value || drawingPoints.value.length < 3) {
-      return false;
-    }
-
-    if (!startedFromExistingPolygon.value) {
       return false;
     }
 
@@ -243,9 +239,20 @@ export function useMapDrawing(options) {
     }
   }
 
+  function tryClosePolygonOnFirstVertexTap(marker) {
+    if (marker._vertexIndex !== 0 || drawingPoints.value.length < 3) {
+      return false;
+    }
+
+    clearFirstVertexCloseTimer();
+    finishDrawing({ closedExplicitly: true });
+    return true;
+  }
+
   function bindVertexMarkerDrag(marker) {
     const onMove = (moveEvent) => {
       L.DomEvent.preventDefault(moveEvent);
+      marker._wasDragged = true;
       const containerPoint = getMapContainerPointFromEvent(moveEvent);
       const latLng = map.containerPointToLatLng(containerPoint);
 
@@ -269,6 +276,11 @@ export function useMapDrawing(options) {
       document.removeEventListener('touchend', onEnd);
 
       enableMapDraggingAfterVertexDrag();
+
+      if (!marker._wasDragged && tryClosePolygonOnFirstVertexTap(marker)) {
+        return;
+      }
+
       refreshTempPolyline(drawingPoints.value.length >= 3);
       refreshVertexMarkerStyles();
       bringVertexMarkersToFront();
@@ -284,6 +296,7 @@ export function useMapDrawing(options) {
 
       L.DomEvent.stopPropagation(startEvent);
       L.DomEvent.preventDefault(startEvent);
+      marker._wasDragged = false;
 
       if (!map._vertexDragActiveCount) {
         map._vertexDragActiveCount = 0;
@@ -355,9 +368,7 @@ export function useMapDrawing(options) {
 
     marker.on('click', (event) => {
       L.DomEvent.stopPropagation(event);
-      if (marker._vertexIndex === 0 && drawingPoints.value.length > 2) {
-        scheduleCloseOnFirstVertex();
-      }
+      tryClosePolygonOnFirstVertexTap(marker);
     });
 
     marker.on('dblclick', (event) => {
@@ -704,11 +715,6 @@ export function useMapDrawing(options) {
   function finishDrawing({ closedExplicitly = false } = {}) {
     if (drawingPoints.value.length < 3) {
       toast.warning('O lote precisa de pelo menos 3 pontos.');
-      return;
-    }
-
-    if (!startedFromExistingPolygon.value && !closedExplicitly) {
-      toast.warning('Feche o polígono clicando no primeiro vértice para concluir a demarcação.');
       return;
     }
 

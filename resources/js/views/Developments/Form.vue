@@ -238,10 +238,9 @@
                   {{ drawingMode === 'zone' ? 'Cancelar edição' : drawingMode === 'street' ? 'Cancelar traçado' : 'Cancelar desenho' }}
                 </button>
                 <button
-                  v-if="drawingMode && startedFromExistingPolygon"
+                  v-if="drawingMode && canSaveDrawing"
                   type="button"
                   class="map-toolbar-btn map-toolbar-btn--save flex items-center gap-1.5 rounded-lg px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
-                  :disabled="!canSaveDrawing"
                   @click="finishDrawing()"
                 >
                   {{ drawingMode === 'street' ? 'Salvar traçado' : 'Salvar demarcação' }}
@@ -260,15 +259,14 @@
                   v-if="drawingMode === 'perimeter'"
                   class="self-center text-xs font-medium text-blue-600"
                 >
-                  Clique no mapa para adicionar pontos. Duplo clique na bolinha remove um ponto. Com 3+ pontos, clique no primeiro vértice para fechar e salvar
+                  Clique no mapa para adicionar pontos. Duplo clique na bolinha remove um ponto. Com 3+ pontos, use Salvar demarcação ou clique no primeiro vértice
                   {{ perimeterPoints.length ? ` (${perimeterPoints.length} pontos)` : '' }}
                 </span>
                 <span
                   v-else-if="drawingMode === 'zone'"
                   class="self-center text-xs font-medium text-emerald-600"
                 >
-                  Editando {{ drawingZone?.name }} — arraste os vértices, duplo clique remove um ponto ou feche clicando no primeiro
-                  {{ startedFromExistingPolygon ? ' · use Salvar demarcação após ajustes' : '' }}
+                  Editando {{ drawingZone?.name }} — arraste os vértices, duplo clique remove um ponto. Com pontos suficientes, use Salvar demarcação ou clique no primeiro vértice
                   {{ perimeterPoints.length ? ` (${perimeterPoints.length} pontos)` : '' }}
                 </span>
                 <span
@@ -862,7 +860,7 @@ const zoneInvalidHint = computed(() => {
   }
 
   if (perimeterPoints.value.length >= 3 && !startedFromExistingPolygon.value) {
-    return 'Clique no primeiro vértice para fechar e salvar a zona';
+    return 'Polígono pronto — clique em Salvar demarcação ou no primeiro vértice';
   }
 
   return '';
@@ -880,14 +878,14 @@ const streetDrawingHint = computed(() => {
   }
 
   if (!startedFromExistingPolygon.value) {
-    return 'clique no primeiro vértice para fechar e salvar';
+    return 'polígono pronto — clique em Salvar traçado ou no primeiro vértice';
   }
 
   return '';
 });
 
 const canSaveDrawing = computed(() => {
-  if (!drawingMode.value || !startedFromExistingPolygon.value) {
+  if (!drawingMode.value) {
     return false;
   }
 
@@ -1307,9 +1305,21 @@ function enableMapDraggingAfterVertexDrag() {
   }
 }
 
+function tryClosePolygonOnFirstVertexTap(marker) {
+  const minimumPoints = getMinimumPolygonPoints(drawingMode.value);
+  if (marker._vertexIndex !== 0 || perimeterPoints.value.length < minimumPoints) {
+    return false;
+  }
+
+  clearFirstVertexCloseTimer();
+  finishDrawing({ closedExplicitly: true });
+  return true;
+}
+
 function bindVertexMarkerDrag(marker) {
   const onMove = (moveEvent) => {
     L.DomEvent.preventDefault(moveEvent);
+    marker._wasDragged = true;
 
     const containerPoint = getMapContainerPointFromEvent(moveEvent);
     const latLng = map.containerPointToLatLng(containerPoint);
@@ -1335,6 +1345,10 @@ function bindVertexMarkerDrag(marker) {
 
     enableMapDraggingAfterVertexDrag();
 
+    if (!marker._wasDragged && tryClosePolygonOnFirstVertexTap(marker)) {
+      return;
+    }
+
     refreshTempPolyline(perimeterPoints.value.length >= 3);
     refreshVertexMarkerStyles();
     bringVertexMarkersToFront();
@@ -1350,6 +1364,7 @@ function bindVertexMarkerDrag(marker) {
 
     L.DomEvent.stopPropagation(startEvent);
     L.DomEvent.preventDefault(startEvent);
+    marker._wasDragged = false;
 
     if (!map._vertexDragActiveCount) {
       map._vertexDragActiveCount = 0;
@@ -1408,10 +1423,7 @@ function addDrawingMarker(coord, color, index) {
 
   marker.on('click', (e) => {
     L.DomEvent.stopPropagation(e);
-    const minimumPoints = getMinimumPolygonPoints(drawingMode.value);
-    if (marker._vertexIndex === 0 && perimeterPoints.value.length >= minimumPoints) {
-      scheduleCloseOnFirstVertex();
-    }
+    tryClosePolygonOnFirstVertexTap(marker);
   });
 
   marker.on('dblclick', (e) => {
@@ -1645,15 +1657,6 @@ async function finishDrawing({ closedExplicitly = false } = {}) {
 
   if (drawingMode.value === 'street' && !hasValidStreetPolygon(perimeterPoints.value.length)) {
     toast.warning('A rua precisa de no mínimo 4 pontos.');
-    return;
-  }
-
-  if (
-    (drawingMode.value === 'zone' || drawingMode.value === 'perimeter' || drawingMode.value === 'street')
-    && !startedFromExistingPolygon.value
-    && !closedExplicitly
-  ) {
-    toast.warning('Feche o traçado clicando no primeiro vértice para concluir.');
     return;
   }
 
