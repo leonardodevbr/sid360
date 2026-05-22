@@ -44,6 +44,8 @@ export function useMapDrawing(options) {
     fitContextOnLoad = true,
     onMapViewChange,
     onDemarcationSaved,
+    savedCoordinates,
+    onCoordinatesChange,
   } = options;
 
   const mapContainer = ref(null);
@@ -104,6 +106,15 @@ export function useMapDrawing(options) {
     ),
   );
   const isDrawing = computed(() => Boolean(drawingMode.value));
+
+  const peekSavedCoordinates = computed(() =>
+    normalizePolygonCoordinates(coordinates?.value)
+    ?? normalizePolygonCoordinates(savedCoordinates?.value),
+  );
+
+  const hasSavedDemarcation = computed(
+    () => (peekSavedCoordinates.value?.length ?? 0) >= 3,
+  );
 
   const boundaryHint = computed(() => {
     if (!isDrawing.value || !isLotMode.value) {
@@ -973,7 +984,22 @@ export function useMapDrawing(options) {
   let didFitToSavedFeature = false;
 
   function getSavedFeatureCoordinates() {
-    return normalizePolygonCoordinates(coordinates?.value);
+    return peekSavedCoordinates.value;
+  }
+
+  function seedActiveCoordinatesFromSaved() {
+    const saved = normalizePolygonCoordinates(savedCoordinates?.value);
+    if (!saved?.length || !coordinates) {
+      return saved;
+    }
+
+    if ((coordinates.value?.length ?? 0) < 3) {
+      coordinates.value = saved;
+    }
+
+    onCoordinatesChange?.(normalizePolygonCoordinates(coordinates.value) ?? saved);
+
+    return normalizePolygonCoordinates(coordinates.value) ?? saved;
   }
 
   function hasSavedFeatureCoordinates() {
@@ -1097,10 +1123,11 @@ export function useMapDrawing(options) {
   }
 
   function startDrawLot() {
-    if (drawingMode.value === 'lot') {
-      cancelDrawing();
+    if (drawingMode.value) {
       return;
     }
+
+    const seedCoords = seedActiveCoordinatesFromSaved();
 
     clearTempLayers();
     prepareMapForVertexEditing();
@@ -1112,9 +1139,8 @@ export function useMapDrawing(options) {
       savedFeatureLayer = null;
     }
 
-    if (coordinates?.value?.length >= 3) {
-      preloadDrawingPoints(coordinates.value);
-      toast.info('Área do lote carregada. Arraste os vértices ou adicione novos pontos.');
+    if (seedCoords?.length >= 3) {
+      preloadDrawingPoints(seedCoords);
     } else {
       drawingPoints.value = [];
       startedFromExistingPolygon.value = false;
@@ -1168,6 +1194,8 @@ export function useMapDrawing(options) {
     if (coordinates) {
       coordinates.value = savedCoords;
     }
+
+    onCoordinatesChange?.(savedCoords);
 
     gpsPreview.stop();
     cursorPreview.unbind();
@@ -1260,6 +1288,8 @@ export function useMapDrawing(options) {
     if (coordinates) {
       coordinates.value = null;
     }
+
+    onCoordinatesChange?.(null);
 
     if (savedFeatureLayer) {
       map?.removeLayer(savedFeatureLayer);
@@ -1384,6 +1414,8 @@ export function useMapDrawing(options) {
 
     map.on('click', onMapClick);
 
+    seedActiveCoordinatesFromSaved();
+
     if (persistMapView) {
       map.on('moveend zoomend', () => {
         const centerPoint = map.getCenter();
@@ -1436,6 +1468,7 @@ export function useMapDrawing(options) {
       mapCenter?.value,
       mapZoom?.value,
       coordinates?.value,
+      savedCoordinates?.value,
     ],
     () => {
       if (!map || !L || drawingMode.value) return;
@@ -1477,6 +1510,21 @@ export function useMapDrawing(options) {
   );
 
   watch(
+    () => savedCoordinates?.value,
+    () => {
+      if (!map || !L || drawingMode.value) return;
+
+      seedActiveCoordinatesFromSaved();
+      drawSavedFeatureLayer();
+
+      if (!didFitToSavedFeature && hasSavedFeatureCoordinates()) {
+        fitMapToSavedFeature({ force: true });
+      }
+    },
+    { deep: true },
+  );
+
+  watch(
     () => boundaryPolygon?.value,
     () => {
       if (!map || !L || !drawingMode.value) return;
@@ -1511,6 +1559,7 @@ export function useMapDrawing(options) {
     isDrawing,
     boundaryHint,
     canSaveDrawing,
+    hasSavedDemarcation,
     startedFromExistingPolygon,
     locatingUser,
     capturingGps,
@@ -1534,7 +1583,7 @@ export function useMapDrawing(options) {
     mappedZonesCountByType,
     syncZoneNameLabels,
     computedArea: computed(() => {
-      const coords = coordinates?.value;
+      const coords = peekSavedCoordinates.value;
       if (!Array.isArray(coords) || coords.length < 3) return null;
       return computeGeodesicArea(coords);
     }),

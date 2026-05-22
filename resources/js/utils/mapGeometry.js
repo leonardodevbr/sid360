@@ -256,7 +256,12 @@ export function computeGeodesicArea(coords) {
 export function normalizePolygonCoordinates(coords) {
   if (typeof coords === 'string') {
     try {
-      return normalizePolygonCoordinates(JSON.parse(coords));
+      const parsed = JSON.parse(coords.trim());
+      if (typeof parsed === 'string') {
+        return normalizePolygonCoordinates(parsed);
+      }
+
+      return normalizePolygonCoordinates(parsed);
     } catch {
       return null;
     }

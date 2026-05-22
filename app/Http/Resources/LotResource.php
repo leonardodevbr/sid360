@@ -39,7 +39,7 @@ class LotResource extends JsonResource
             'block' => $this->block,
             'area' => $this->area !== null ? (float) $this->area : null,
             'area_computed' => $this->area_computed !== null ? (float) $this->area_computed : null,
-            'coordinates' => $this->coordinates,
+            'coordinates' => $this->normalizedCoordinates(),
             'total_value' => $this->total_value !== null ? (int) $this->total_value : null,
             'down_payment_percent' => $this->down_payment_percent !== null
                 ? (float) $this->down_payment_percent
@@ -50,5 +50,44 @@ class LotResource extends JsonResource
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * @return list<list<float>>|null
+     */
+    private function normalizedCoordinates(): ?array
+    {
+        $value = $this->coordinates;
+
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+
+            return is_array($decoded) ? $this->castCoordinatePairs($decoded) : null;
+        }
+
+        if (! is_array($value)) {
+            return null;
+        }
+
+        return $this->castCoordinatePairs($value);
+    }
+
+    /**
+     * @param  array<mixed>  $coordinates
+     * @return list<list<float>>|null
+     */
+    private function castCoordinatePairs(array $coordinates): ?array
+    {
+        $pairs = [];
+
+        foreach ($coordinates as $point) {
+            if (! is_array($point) || count($point) < 2) {
+                continue;
+            }
+
+            $pairs[] = [(float) $point[0], (float) $point[1]];
+        }
+
+        return count($pairs) >= 3 ? $pairs : (count($pairs) ? $pairs : null);
     }
 }

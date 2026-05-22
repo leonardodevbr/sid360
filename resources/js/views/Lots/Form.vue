@@ -136,7 +136,8 @@
           :map-zoom="developmentMapZoom"
           :demarcation-saving="savingDemarcation"
           :editing-lot-id="isEdit ? route.params.id : null"
-          @update:coordinates="form.coordinates = $event"
+          :saved-coordinates="editingLotSavedCoordinates"
+          @update:coordinates="updateFormCoordinates"
           @update:area-computed="form.area_computed = $event"
           @update:gps-accuracy="gpsAccuracy = $event"
           @save-demarcation="saveLotDemarcation"
@@ -170,18 +171,6 @@
         <p v-else-if="!form.development_id" class="text-xs text-slate-400">
           Selecione um empreendimento para exibir o mapa e demarcar o lote.
         </p>
-
-        <p v-if="form.development_id && hasLotDemarcation" class="text-xs text-slate-400">
-          <strong>Para editar:</strong> clique em "Editar demarcação", arraste os vértices no mapa e use
-          "Salvar demarcação" na barra inferior.
-          <strong>Campo:</strong> use "Capturar ponto GPS" em cada vértice.
-        </p>
-
-        <p v-else-if="form.development_id" class="text-xs text-slate-400">
-          <strong>Desktop:</strong> clique em "Demarcar lote" e marque os vértices no mapa.
-          <strong>Campo:</strong> vá a cada vértice e use "Capturar ponto GPS".
-          Arraste as bolinhas para ajustar e use "Salvar demarcação" na barra do mapa.
-        </p>
       </div>
 
       <div class="flex justify-end gap-3">
@@ -197,7 +186,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import api from '@/services/api';
@@ -244,6 +233,7 @@ const developments = ref([]);
 const zones = ref([]);
 const streets = ref([]);
 const developmentLots = ref([]);
+const loadedLotCoordinates = ref(null);
 const developmentPerimeter = ref(null);
 const developmentMapCenter = ref(null);
 const developmentMapZoom = ref(null);
@@ -276,44 +266,57 @@ const mappedContextLots = computed(() => {
     }))
     .filter((lot) => Array.isArray(lot.coordinates) && lot.coordinates.length >= 3);
 
-  if (isEdit.value && (form.value.coordinates?.length ?? 0) >= 3) {
+  if (isEdit.value) {
     return lots.filter((lot) => String(lot.id) !== String(route.params.id));
   }
 
   return lots;
 });
 
-const hasLotDemarcation = computed(() => {
-  if ((form.value.coordinates?.length ?? 0) >= 3) {
-    return true;
+const editingLotSavedCoordinates = computed(() => {
+  const fromForm = normalizePolygonCoordinates(form.value.coordinates);
+  if (fromForm?.length >= 3) {
+    return fromForm;
+  }
+
+  const fromLoaded = normalizePolygonCoordinates(loadedLotCoordinates.value);
+  if (fromLoaded?.length >= 3) {
+    return fromLoaded;
   }
 
   if (!isEdit.value) {
-    return false;
+    return null;
   }
 
   const currentLot = developmentLots.value.find(
     (lot) => String(lot.id) === String(route.params.id),
   );
 
-  return (normalizePolygonCoordinates(currentLot?.coordinates)?.length ?? 0) >= 3;
+  return normalizePolygonCoordinates(currentLot?.coordinates);
 });
 
-const demarcationPointCount = computed(() => {
-  if ((form.value.coordinates?.length ?? 0) >= 3) {
-    return form.value.coordinates.length;
+function updateFormCoordinates(coords) {
+  const normalized = normalizePolygonCoordinates(coords);
+
+  if (normalized?.length >= 3) {
+    form.value.coordinates = normalized;
+    loadedLotCoordinates.value = normalized;
+    return;
   }
 
-  if (!isEdit.value) {
-    return 0;
+  if (coords === null) {
+    form.value.coordinates = null;
+    loadedLotCoordinates.value = null;
   }
+}
 
-  const currentLot = developmentLots.value.find(
-    (lot) => String(lot.id) === String(route.params.id),
-  );
+const hasLotDemarcation = computed(
+  () => (editingLotSavedCoordinates.value?.length ?? 0) >= 3,
+);
 
-  return normalizePolygonCoordinates(currentLot?.coordinates)?.length ?? 0;
-});
+const demarcationPointCount = computed(
+  () => editingLotSavedCoordinates.value?.length ?? 0,
+);
 
 const zoneOptions = computed(() =>
   selectableZones.value.map((z) => ({
@@ -473,25 +476,37 @@ async function loadDevelopmentMapContext() {
 }
 
 function syncCoordinatesFromDevelopmentLots() {
-  if (!isEdit.value || form.value.coordinates?.length >= 3) {
+  const coords = editingLotSavedCoordinates.value;
+  if (!coords?.length) {
     return;
   }
 
-  const currentLot = developmentLots.value.find(
-    (lot) => String(lot.id) === String(route.params.id),
-  );
-  const coords = normalizePolygonCoordinates(currentLot?.coordinates);
-
-  if (!coords?.length) {
+  if ((form.value.coordinates?.length ?? 0) >= 3) {
     return;
   }
 
   form.value.coordinates = coords;
 
-  if (!form.value.area_computed && currentLot.area_computed != null) {
+  if (coords?.length >= 3) {
+    loadedLotCoordinates.value = coords;
+  }
+
+  const currentLot = developmentLots.value.find(
+    (lot) => String(lot.id) === String(route.params.id),
+  );
+
+  if (!form.value.area_computed && currentLot?.area_computed != null) {
     form.value.area_computed = currentLot.area_computed;
   }
 }
+
+watch(
+  editingLotSavedCoordinates,
+  (coords) => {
+    syncCoordinatesFromDevelopmentLots();
+  },
+  { immediate: true },
+);
 
 const isOffline = ref(typeof navigator !== 'undefined' ? !navigator.onLine : false);
 const hasPendingSync = ref(false);
@@ -621,6 +636,8 @@ async function loadItem() {
     const item = data.data ?? data;
     const normalizedCoordinates = normalizePolygonCoordinates(item.coordinates);
 
+    loadedLotCoordinates.value = normalizedCoordinates;
+
     form.value = {
       development_id: String(item.development_id ?? ''),
       zone_id: item.zone_id ? String(item.zone_id) : '',
@@ -674,7 +691,8 @@ function buildLotPayload() {
 }
 
 async function saveLotDemarcation(coords) {
-  form.value.coordinates = normalizePolygonCoordinates(coords);
+  const normalized = normalizePolygonCoordinates(coords);
+  updateFormCoordinates(normalized);
 
   if (!isEdit.value) {
     toast.success('Demarcação registrada. Clique em Salvar para persistir o lote.');

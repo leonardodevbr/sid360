@@ -66,6 +66,10 @@ const props = defineProps({
     type: [String, Number],
     default: null,
   },
+  savedCoordinates: {
+    type: Array,
+    default: null,
+  },
 });
 
 const emit = defineEmits([
@@ -75,64 +79,22 @@ const emit = defineEmits([
   'save-demarcation',
 ]);
 
-const coordinatesModel = ref(normalizePolygonCoordinates(props.coordinates));
-
-function resolveLotCoordinatesFromContext() {
-  if (props.editingLotId == null) {
-    return null;
-  }
-
-  const currentLot = props.contextLots.find(
-    (lot) => String(lot.id) === String(props.editingLotId),
-  );
-
-  return normalizePolygonCoordinates(currentLot?.coordinates);
-}
-
-function resolveEffectiveCoordinates() {
-  const fromModel = normalizePolygonCoordinates(coordinatesModel.value);
-  if (fromModel?.length >= 3) {
-    return fromModel;
-  }
-
-  const fromProps = normalizePolygonCoordinates(props.coordinates);
-  if (fromProps?.length >= 3) {
-    return fromProps;
-  }
-
-  return resolveLotCoordinatesFromContext();
-}
-
-const hasSavedDemarcation = computed(
-  () => (resolveEffectiveCoordinates()?.length ?? 0) >= 3,
+const coordinatesModel = ref(
+  normalizePolygonCoordinates(props.savedCoordinates ?? props.coordinates),
 );
 
-function ensureCoordinatesLoaded() {
-  if ((coordinatesModel.value?.length ?? 0) >= 3) {
-    return true;
-  }
-
-  const effective = resolveEffectiveCoordinates();
-  if (!effective?.length) {
-    return false;
-  }
-
-  coordinatesModel.value = effective;
-  return true;
-}
-
-function handleStartDrawLot() {
-  ensureCoordinatesLoaded();
-  startDrawLot();
-}
-
 watch(
-  () => props.coordinates,
-  (value) => {
-    const normalized = normalizePolygonCoordinates(value);
-    const current = normalizePolygonCoordinates(coordinatesModel.value);
+  () => [props.savedCoordinates, props.coordinates],
+  () => {
+    const normalized =
+      normalizePolygonCoordinates(props.savedCoordinates)
+      ?? normalizePolygonCoordinates(props.coordinates);
 
-    if (JSON.stringify(normalized) === JSON.stringify(current)) {
+    if (!normalized?.length) {
+      return;
+    }
+
+    if (JSON.stringify(normalized) === JSON.stringify(coordinatesModel.value)) {
       return;
     }
 
@@ -141,43 +103,11 @@ watch(
   { immediate: true, deep: true },
 );
 
-watch(
-  coordinatesModel,
-  (value) => {
-    const normalized = normalizePolygonCoordinates(value);
-    const fromProps = normalizePolygonCoordinates(props.coordinates);
-
-    if (JSON.stringify(normalized) === JSON.stringify(fromProps)) {
-      return;
-    }
-
-    emit('update:coordinates', normalized);
-  },
-  { deep: true },
-);
-
-watch(
-  () => [props.contextLots, props.editingLotId, props.coordinates],
-  () => {
-    if ((normalizePolygonCoordinates(props.coordinates)?.length ?? 0) >= 3) {
-      return;
-    }
-
-    const fromContext = resolveLotCoordinatesFromContext();
-    if (!fromContext?.length) {
-      return;
-    }
-
-    coordinatesModel.value = fromContext;
-    emit('update:coordinates', fromContext);
-  },
-  { deep: true, immediate: true },
-);
-
 const contextPerimeterRef = computed(() => props.contextPerimeter);
 const contextStreetsRef = computed(() => props.contextStreets);
 const contextZonesRef = computed(() => props.contextZones);
 const contextLotsRef = computed(() => props.contextLots);
+const savedCoordinatesRef = computed(() => props.savedCoordinates);
 const boundaryPolygonRef = computed(() => props.boundaryPolygon);
 const mapCenterRef = computed(() => props.mapCenter);
 const mapZoomRef = computed(() => props.mapZoom);
@@ -193,6 +123,7 @@ const {
   isDrawing,
   boundaryHint,
   canSaveDrawing,
+  hasSavedDemarcation,
   startedFromExistingPolygon,
   locatingUser,
   capturingGps,
@@ -223,9 +154,13 @@ const {
   boundaryPolygon: boundaryPolygonRef,
   mapCenter: mapCenterRef,
   mapZoom: mapZoomRef,
+  savedCoordinates: savedCoordinatesRef,
   fitContextOnLoad: props.fitContextOnLoad,
   onDemarcationSaved: (coords) => {
     emit('save-demarcation', coords);
+  },
+  onCoordinatesChange: (coords) => {
+    emit('update:coordinates', normalizePolygonCoordinates(coords));
   },
 });
 
@@ -354,7 +289,7 @@ onMounted(async () => {
               v-if="!isDrawing"
               type="button"
               class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50 sm:px-3 sm:text-xs"
-              @click="handleStartDrawLot"
+              @click="startDrawLot"
             >
               <MapIcon class="h-3.5 w-3.5" />
               {{ hasSavedDemarcation ? 'Editar demarcação' : 'Demarcar lote' }}
@@ -463,18 +398,6 @@ onMounted(async () => {
             </button>
           </div>
         </div>
-
-        <p
-          v-if="isDrawing"
-          class="text-[11px] font-medium leading-snug text-blue-600 sm:text-xs"
-        >
-          <template v-if="startedFromExistingPolygon">
-            Arraste os vértices para ajustar o lote. Use "Salvar demarcação" para confirmar.
-          </template>
-          <template v-else>
-            Clique no mapa para adicionar pontos. Duplo clique na bolinha remove um ponto. Com 3+ pontos, use Salvar demarcação ou clique no primeiro vértice
-          </template>
-        </p>
       </div>
     </div>
   </div>
