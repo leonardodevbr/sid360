@@ -304,6 +304,13 @@
   box-shadow: none !important;
 }
 
+.leaflet-container .map-lot-path,
+.leaflet-container .map-lot-path:focus,
+.leaflet-container .map-lot-path:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 .map-feature-popup {
   font-family: 'DM Sans', system-ui, sans-serif;
   min-width: 11rem;

@@ -113,75 +113,20 @@
           </span>
         </div>
 
-        <div
-          ref="mapSectionRef"
-          class="map-fullscreen-section space-y-4"
-          :class="{ 'map-fullscreen-section--overlay': isMapFullscreen }"
-        >
-          <div
-            ref="mapContainer"
-            class="map-fullscreen-canvas w-full overflow-hidden rounded-lg border border-slate-300"
-            :class="{ '!h-full min-h-0': isMapFullscreen }"
-            :style="isMapFullscreen ? null : { height: '380px' }"
-          />
-
-          <div class="map-fullscreen-toolbar flex flex-wrap gap-2">
-          <button
-            type="button"
-            class="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
-            :class="drawing ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-slate-300 bg-white text-slate-700'"
-            @click="startDrawing"
-          >
-            <PencilSquareIcon class="h-3.5 w-3.5" />
-            {{
-              drawing
-                ? 'Clique no mapa para marcar pontos'
-                : form.coordinates?.length
-                  ? 'Redesenhar'
-                  : 'Marcar no mapa'
-            }}
-          </button>
-
-          <button
-            type="button"
-            class="flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
-            :disabled="capturingGPS"
-            @click="captureGPS"
-          >
-            <MapPinIcon class="h-3.5 w-3.5" />
-            {{ capturingGPS ? 'Capturando GPS...' : 'Capturar ponto GPS' }}
-          </button>
-
-          <button
-            v-if="form.coordinates?.length"
-            type="button"
-            class="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50"
-            @click="undoLastPoint"
-          >
-            <ArrowUturnLeftIcon class="h-3.5 w-3.5" />
-            Desfazer último ponto
-          </button>
-
-          <button
-            v-if="form.coordinates?.length"
-            type="button"
-            class="flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-            @click="clearPolygon"
-          >
-            Limpar
-          </button>
-
-          <button
-            type="button"
-            class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-            @click="toggleMapFullscreen"
-          >
-            <ArrowsPointingOutIcon v-if="!isMapFullscreen" class="h-3.5 w-3.5" />
-            <ArrowsPointingInIcon v-else class="h-3.5 w-3.5" />
-            {{ isMapFullscreen ? 'Sair da tela cheia' : 'Tela cheia' }}
-          </button>
-          </div>
-        </div>
+        <MapDrawingCanvas
+          v-if="form.development_id"
+          :key="form.development_id"
+          mode="lot"
+          :coordinates="form.coordinates"
+          :context-perimeter="developmentPerimeter"
+          :context-zones="selectableZones"
+          :boundary-polygon="lotBoundaryPolygon"
+          :map-center="developmentMapCenter"
+          :map-zoom="developmentMapZoom"
+          @update:coordinates="form.coordinates = $event"
+          @update:area-computed="form.area_computed = $event"
+          @update:gps-accuracy="gpsAccuracy = $event"
+        />
 
         <div
           v-if="gpsAccuracy !== null"
@@ -204,10 +149,14 @@
           }}
         </div>
 
-        <p class="text-xs text-slate-400">
-          <strong>Desktop:</strong> clique "Marcar no mapa" e clique nos vértices do lote.
-          <strong>Campo:</strong> vá a cada vértice do lote e clique "Capturar ponto GPS".
-          Desfaça pontos errados com "Desfazer". Quando terminar, salve.
+        <p v-else class="text-xs text-slate-400">
+          Selecione um empreendimento para exibir o mapa e demarcar o lote.
+        </p>
+
+        <p v-if="form.development_id" class="text-xs text-slate-400">
+          <strong>Desktop:</strong> clique em "Demarcar lote" e marque os vértices no mapa.
+          <strong>Campo:</strong> vá a cada vértice e use "Capturar ponto GPS".
+          Arraste as bolinhas para ajustar. Clique em "Salvar demarcação" ao terminar.
         </p>
       </div>
 
@@ -224,26 +173,20 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import api from '@/services/api';
 import { lotStatusFormOptions } from '@/utils/labels';
-import { setupMapBaseLayers } from '@/utils/mapLayers';
 import { buildZoneTitleLabel, isLotSelectableZone } from '@/utils/zone';
-import { useMapFullscreen } from '@/composables/useMapFullscreen';
 import Input from '@/components/Common/Input.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
 import Button from '@/components/Common/Button.vue';
 import CurrencyInput from '@/components/Common/CurrencyInput.vue';
+import MapDrawingCanvas from '@/components/Map/MapDrawingCanvas.vue';
 import {
   ArrowLeftIcon,
   ArrowPathIcon,
-  ArrowsPointingInIcon,
-  ArrowsPointingOutIcon,
-  ArrowUturnLeftIcon,
-  MapPinIcon,
-  PencilSquareIcon,
   SignalSlashIcon,
 } from '@heroicons/vue/24/outline';
 
@@ -271,6 +214,10 @@ const form = ref({
 
 const developments = ref([]);
 const zones = ref([]);
+const developmentPerimeter = ref(null);
+const developmentMapCenter = ref(null);
+const developmentMapZoom = ref(null);
+const gpsAccuracy = ref(null);
 
 const developmentOptions = computed(() =>
   developments.value.map((d) => ({ value: String(d.id), label: d.name })),
@@ -339,10 +286,26 @@ function getSelectedZone() {
   ) ?? null;
 }
 
+const lotBoundaryPolygon = computed(() => {
+  const selectedZone = getSelectedZone();
+  if (selectedZone?.coordinates?.length >= 3) {
+    return selectedZone.coordinates;
+  }
+
+  return developmentPerimeter.value;
+});
+
+const computedArea = computed(() =>
+  form.value.area_computed ? form.value.area_computed.toLocaleString('pt-BR') : null,
+);
+
 async function loadDevelopmentMapContext() {
   zones.value = [];
+  developmentPerimeter.value = null;
+  developmentMapCenter.value = null;
+  developmentMapZoom.value = null;
 
-  if (!form.value.development_id || !map || !L) return;
+  if (!form.value.development_id) return;
 
   try {
     const { data } = await api.get(`/developments/${form.value.development_id}/zones`);
@@ -364,264 +327,9 @@ async function loadDevelopmentMapContext() {
     (await fetchDevelopmentMapData(form.value.development_id))
     ?? developments.value.find((d) => String(d.id) === String(form.value.development_id));
 
-  if (dev?.map_center?.length === 2) {
-    map.setView(dev.map_center, dev.map_zoom ?? 17);
-  }
-
-  if (dev?.coordinates?.length) {
-    drawDevelopmentPerimeter(dev.coordinates);
-  }
-
-  if (selectableZones.value.length) {
-    drawZonesOnMap();
-  }
-}
-
-const mapContainer = ref(null);
-const mapSectionRef = ref(null);
-let map = null;
-let L = null;
-let polygonLayer = null;
-let devPerimLayer = null;
-let zoneLayers = [];
-let pointMarkers = [];
-const drawing = ref(false);
-
-const { isFullscreen: isMapFullscreen, toggleFullscreen: toggleMapFullscreen } = useMapFullscreen(
-  mapSectionRef,
-  () => map?.invalidateSize(),
-);
-
-async function initMap() {
-  if (!mapContainer.value) return;
-
-  L = (await import('leaflet')).default;
-  await import('leaflet/dist/leaflet.css');
-
-  map = L.map(mapContainer.value, { scrollWheelZoom: false }).setView([-11.4667, -39.9833], 16);
-
-  await setupMapBaseLayers(map, L, { maxZoom: 22 });
-
-  map.on('click', onMapClick);
-  map.invalidateSize();
-
-  if (form.value.coordinates?.length) {
-    restorePointMarkers(form.value.coordinates);
-    renderPolygon(form.value.coordinates);
-  }
-}
-
-function onMapClick(e) {
-  if (!drawing.value) return;
-  addPoint([e.latlng.lat, e.latlng.lng]);
-}
-
-function addPoint(coords) {
-  if (!L || !map) return;
-
-  if (!form.value.coordinates) {
-    form.value.coordinates = [];
-  }
-
-  form.value.coordinates.push(coords);
-
-  const marker = L.circleMarker(coords, {
-    radius: 5,
-    color: '#1E5F8E',
-    fillColor: '#fff',
-    fillOpacity: 1,
-    weight: 2,
-  }).addTo(map);
-
-  pointMarkers.push(marker);
-  renderPolygon(form.value.coordinates);
-}
-
-function restorePointMarkers(coords) {
-  if (!L || !map) return;
-
-  pointMarkers.forEach((marker) => map.removeLayer(marker));
-  pointMarkers = [];
-
-  coords.forEach((coordsPoint) => {
-    const marker = L.circleMarker(coordsPoint, {
-      radius: 5,
-      color: '#1E5F8E',
-      fillColor: '#fff',
-      fillOpacity: 1,
-      weight: 2,
-    }).addTo(map);
-    pointMarkers.push(marker);
-  });
-}
-
-function renderPolygon(coords) {
-  if (!L || !map) return;
-
-  if (polygonLayer) {
-    map.removeLayer(polygonLayer);
-    polygonLayer = null;
-  }
-
-  if (coords.length < 2) {
-    if (coords.length === 1) {
-      map.setView(coords[0], 18);
-    }
-    return;
-  }
-
-  polygonLayer = (coords.length >= 3 ? L.polygon : L.polyline)(coords, {
-    color: '#1E5F8E',
-    weight: 2,
-    fillColor: '#1E5F8E',
-    fillOpacity: 0.15,
-  }).addTo(map);
-
-  if (coords.length >= 2 && polygonLayer.getBounds) {
-    map.fitBounds(polygonLayer.getBounds(), { padding: [20, 20] });
-  }
-
-  if (coords.length >= 3) {
-    form.value.area_computed = computeGeodesicArea(coords);
-  }
-}
-
-function startDrawing() {
-  drawing.value = !drawing.value;
-  if (drawing.value) {
-    map?.getContainer()?.style.setProperty('cursor', 'crosshair');
-  } else {
-    map?.getContainer()?.style.removeProperty('cursor');
-  }
-}
-
-function undoLastPoint() {
-  if (!form.value.coordinates?.length) return;
-
-  form.value.coordinates.pop();
-
-  const marker = pointMarkers.pop();
-  if (marker) {
-    map?.removeLayer(marker);
-  }
-
-  if (polygonLayer) {
-    map?.removeLayer(polygonLayer);
-    polygonLayer = null;
-  }
-
-  if (form.value.coordinates.length >= 2) {
-    renderPolygon(form.value.coordinates);
-  }
-
-  form.value.area_computed =
-    form.value.coordinates.length >= 3
-      ? computeGeodesicArea(form.value.coordinates)
-      : null;
-}
-
-function clearPolygon() {
-  form.value.coordinates = null;
-  form.value.area_computed = null;
-
-  if (polygonLayer) {
-    map?.removeLayer(polygonLayer);
-    polygonLayer = null;
-  }
-
-  pointMarkers.forEach((marker) => map?.removeLayer(marker));
-  pointMarkers = [];
-}
-
-function drawDevelopmentPerimeter(coords) {
-  if (!L || !map) return;
-
-  if (devPerimLayer) {
-    map.removeLayer(devPerimLayer);
-  }
-
-  devPerimLayer = L.polygon(coords, {
-    color: '#94A3B8',
-    weight: 1.5,
-    dashArray: '6',
-    fillColor: '#94A3B8',
-    fillOpacity: 0.05,
-  }).addTo(map);
-
-  map.fitBounds(devPerimLayer.getBounds(), { padding: [30, 30] });
-}
-
-function drawZonesOnMap() {
-  if (!L || !map) return;
-
-  zoneLayers.forEach((layer) => map.removeLayer(layer));
-  zoneLayers = [];
-
-  zones.value.forEach((zone) => {
-    if (!isLotSelectableZone(zone) || !zone.coordinates?.length) return;
-
-    const layer = L.polygon(zone.coordinates, {
-      color: zone.color,
-      weight: 1.5,
-      fillColor: zone.color,
-      fillOpacity: 0.1,
-    })
-      .bindTooltip(zone.name)
-      .addTo(map);
-
-    zoneLayers.push(layer);
-  });
-}
-
-function computeGeodesicArea(coords) {
-  if (coords.length < 3) return null;
-
-  const earthRadius = 6371000;
-  let area = 0;
-  const pointCount = coords.length;
-
-  for (let i = 0; i < pointCount; i++) {
-    const [lat1, lng1] = coords[i];
-    const [lat2, lng2] = coords[(i + 1) % pointCount];
-    area +=
-      ((lng2 - lng1) * Math.PI) / 180
-      * (2 + Math.sin((lat1 * Math.PI) / 180) + Math.sin((lat2 * Math.PI) / 180));
-  }
-
-  return Math.round(Math.abs((area * earthRadius * earthRadius) / 2));
-}
-
-const computedArea = computed(() =>
-  form.value.area_computed ? form.value.area_computed.toLocaleString('pt-BR') : null,
-);
-
-const capturingGPS = ref(false);
-const gpsAccuracy = ref(null);
-
-async function captureGPS() {
-  if (!navigator.geolocation) {
-    toast.error('GPS não disponível neste dispositivo.');
-    return;
-  }
-
-  capturingGPS.value = true;
-  gpsAccuracy.value = null;
-
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      gpsAccuracy.value = pos.coords.accuracy;
-      const coords = [pos.coords.latitude, pos.coords.longitude];
-      addPoint(coords);
-      map?.setView(coords, 20);
-      toast.success(`Ponto capturado! Precisão: ±${Math.round(pos.coords.accuracy)}m`);
-      capturingGPS.value = false;
-    },
-    (err) => {
-      toast.error(`Erro ao capturar GPS: ${err.message}`);
-      capturingGPS.value = false;
-    },
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-  );
+  developmentPerimeter.value = dev?.coordinates?.length ? dev.coordinates : null;
+  developmentMapCenter.value = dev?.map_center?.length === 2 ? dev.map_center : null;
+  developmentMapZoom.value = dev?.map_zoom ?? 17;
 }
 
 const isOffline = ref(typeof navigator !== 'undefined' ? !navigator.onLine : false);
@@ -835,15 +543,9 @@ onMounted(async () => {
 
   await loadDevelopments();
   await loadItem();
-  await nextTick();
-  await initMap();
 
   if (form.value.development_id) {
     await loadDevelopmentMapContext();
-    if (form.value.coordinates?.length) {
-      restorePointMarkers(form.value.coordinates);
-      renderPolygon(form.value.coordinates);
-    }
   }
 
   await checkPending();
@@ -852,7 +554,5 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('online', handleOnline);
   window.removeEventListener('offline', handleOffline);
-  map?.remove();
-  map = null;
 });
 </script>
