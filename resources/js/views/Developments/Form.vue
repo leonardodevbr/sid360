@@ -723,6 +723,7 @@ import {
   generateLotsBlockedReason,
   zoneTypeLabel as zoneTypeLabelHelper,
 } from '@/utils/zone';
+import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import Input from '@/components/Common/Input.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
 import Button from '@/components/Common/Button.vue';
@@ -797,6 +798,55 @@ const locatingUser = ref(false);
 const mapReady = ref(false);
 const startedFromExistingPolygon = ref(false);
 let firstVertexCloseTimer = null;
+const cursorPreview = createCursorPreviewController();
+
+function getDrawingStrokeColor() {
+  const lineColor = drawingMode.value === 'perimeter'
+    ? getPerimeterColor()
+    : drawingMode.value === 'street'
+      ? getStreetColor(drawingStreet.value)
+      : drawingZone.value?.color ?? '#10B981';
+  const zoneInvalid = drawingMode.value === 'zone'
+    && getDevelopmentPerimeter()
+    && getInvalidPointsInsidePolygon(perimeterPoints.value, getDevelopmentPerimeter()).length > 0;
+
+  return zoneInvalid ? '#DC2626' : lineColor;
+}
+
+function isDrawingStrokeInvalid() {
+  return drawingMode.value === 'zone'
+    && getDevelopmentPerimeter()
+    && getInvalidPointsInsidePolygon(perimeterPoints.value, getDevelopmentPerimeter()).length > 0;
+}
+
+function syncDrawingCursorPreview() {
+  if (!map || !L || !drawingMode.value) {
+    cursorPreview.unbind();
+    return;
+  }
+
+  cursorPreview.bind(map, L, {
+    isActive: () => Boolean(drawingMode.value) && perimeterPoints.value.length >= 1,
+    getLastPoint: () => {
+      const points = perimeterPoints.value;
+      return points.length ? points[points.length - 1] : null;
+    },
+    getStrokeColor: getDrawingStrokeColor,
+    getInvalid: isDrawingStrokeInvalid,
+    isCursorInvalid: (latLng) => {
+      if (drawingMode.value !== 'zone' || !latLng) {
+        return false;
+      }
+
+      const perimeter = getDevelopmentPerimeter();
+      if (!perimeter) {
+        return false;
+      }
+
+      return !isPointInsideOrOnPolygon([latLng.lat, latLng.lng], perimeter);
+    },
+  });
+}
 
 function clearFirstVertexCloseTimer() {
   if (firstVertexCloseTimer) {
@@ -1486,6 +1536,7 @@ function preloadDrawingPoints(coords, color) {
 
   perimeterPoints.value.forEach((coord, index) => addDrawingMarker(coord, color, index));
   refreshTempPolyline(perimeterPoints.value.length >= 3);
+  syncDrawingCursorPreview();
 }
 
 function removeVertexAtIndex(index) {
@@ -1581,6 +1632,7 @@ function onMapClick(e) {
 
   refreshTempPolyline(false);
   refreshVertexMarkerStyles();
+  syncDrawingCursorPreview();
 
   if (drawingMode.value === 'zone' && !canPlaceZonePoint([lat, lng])) {
     toast.warning('Vértice fora do perímetro do empreendimento.');
@@ -1608,11 +1660,9 @@ function refreshEdgeLabels() {
   const isPolygonDrawing = drawingMode.value === 'street'
     ? false
     : perimeterPoints.value.length >= 3;
-  const includeClosingPreview = drawingMode.value === 'street'
-    && perimeterPoints.value.length >= 3;
   const edges = getPolygonEdgesMeters(perimeterPoints.value, {
     closed: isPolygonDrawing,
-    includeClosingPreview,
+    includeClosingPreview: false,
   });
 
   const zoneInvalid = drawingMode.value === 'zone'
@@ -1720,6 +1770,7 @@ async function finishDrawing({ closedExplicitly = false } = {}) {
   const savedStreet = drawingStreet.value;
   const savedCoords = [...perimeterPoints.value];
 
+  cursorPreview.unbind();
   clearTempLayers();
   resetMapCursor();
   perimeterPoints.value = [];
@@ -1770,6 +1821,8 @@ function clearTempLayers() {
     map.removeLayer(map._tempClosingLine);
     delete map._tempClosingLine;
   }
+
+  cursorPreview.clear();
 }
 
 function drawPerimeterOnMap(coords) {
@@ -1863,6 +1916,7 @@ function startDrawPerimeter() {
   }
 
   map?.getContainer()?.style.setProperty('cursor', 'crosshair');
+  syncDrawingCursorPreview();
 }
 
 function startDrawZone(zone) {
@@ -1890,6 +1944,7 @@ function startDrawZone(zone) {
   }
 
   map?.getContainer()?.style.setProperty('cursor', 'crosshair');
+  syncDrawingCursorPreview();
 }
 
 function toggleZoneMapPicker() {
@@ -1917,6 +1972,7 @@ function openNewZoneFromMapPicker() {
 
 function cancelDrawing() {
   clearFirstVertexCloseTimer();
+  cursorPreview.unbind();
   clearTempLayers();
   resetMapCursor();
   perimeterPoints.value = [];
@@ -2332,6 +2388,7 @@ function startDrawStreet(street) {
   }
 
   map?.getContainer()?.style.setProperty('cursor', 'crosshair');
+  syncDrawingCursorPreview();
 }
 
 async function saveStreetCoordinates(street, coords) {
@@ -2655,5 +2712,6 @@ onUnmounted(() => {
   }
   map?.remove();
   map = null;
+  cursorPreview.unbind();
 });
 </script>

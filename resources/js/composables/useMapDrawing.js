@@ -20,6 +20,7 @@ import {
 } from '@/utils/mapGeometry';
 import { buildZoneTitleLabel } from '@/utils/zone';
 import { getStreetColor, hasValidStreetPolygon } from '@/utils/mapStreets';
+import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 
 const LOT_DRAWING_COLOR = '#1E5F8E';
 
@@ -66,6 +67,7 @@ export function useMapDrawing(options) {
   const visibleZoneNameTypes = ref([]);
   const startedFromExistingPolygon = ref(false);
   let firstVertexCloseTimer = null;
+  const cursorPreview = createCursorPreviewController();
 
   function clearFirstVertexCloseTimer() {
     if (firstVertexCloseTimer) {
@@ -419,6 +421,48 @@ export function useMapDrawing(options) {
     tempMarkers.push(marker);
   }
 
+  function getDrawingStrokeColor() {
+    const boundary = getBoundary();
+    const zoneInvalid = boundary
+      && getInvalidPointsInsidePolygon(drawingPoints.value, boundary).length > 0;
+
+    return zoneInvalid ? '#DC2626' : getDrawingBaseColor();
+  }
+
+  function isDrawingStrokeInvalid() {
+    const boundary = getBoundary();
+
+    return Boolean(
+      boundary
+      && getInvalidPointsInsidePolygon(drawingPoints.value, boundary).length > 0,
+    );
+  }
+
+  function syncDrawingCursorPreview() {
+    if (!map || !L || !drawingMode.value) {
+      cursorPreview.unbind();
+      return;
+    }
+
+    cursorPreview.bind(map, L, {
+      isActive: () => Boolean(drawingMode.value) && drawingPoints.value.length >= 1,
+      getLastPoint: () => {
+        const points = drawingPoints.value;
+        return points.length ? points[points.length - 1] : null;
+      },
+      getStrokeColor: getDrawingStrokeColor,
+      getInvalid: isDrawingStrokeInvalid,
+      isCursorInvalid: (latLng) => {
+        const boundary = getBoundary();
+        if (!boundary || !latLng) {
+          return false;
+        }
+
+        return !isPointInsideOrOnPolygon([latLng.lat, latLng.lng], boundary);
+      },
+    });
+  }
+
   function clearEdgeLabelMarkers() {
     edgeLabelMarkers.forEach((marker) => map?.removeLayer(marker));
     edgeLabelMarkers = [];
@@ -525,6 +569,8 @@ export function useMapDrawing(options) {
       map.removeLayer(map._tempLine);
       delete map._tempLine;
     }
+
+    cursorPreview.clear();
   }
 
   function prepareMapForVertexEditing() {
@@ -784,6 +830,7 @@ export function useMapDrawing(options) {
       addDrawingMarker(coord, getDrawingBaseColor(), index);
     });
     refreshTempPolyline(drawingPoints.value.length >= 3);
+    syncDrawingCursorPreview();
   }
 
   function isNearFirst(latlng) {
@@ -806,6 +853,7 @@ export function useMapDrawing(options) {
 
     refreshTempPolyline(false);
     refreshVertexMarkerStyles();
+    syncDrawingCursorPreview();
 
     const boundary = getBoundary();
     if (boundary && !isPointInsideOrOnPolygon([lat, lng], boundary)) {
@@ -838,10 +886,12 @@ export function useMapDrawing(options) {
     }
 
     map?.getContainer()?.style.setProperty('cursor', 'crosshair');
+    syncDrawingCursorPreview();
   }
 
   function cancelDrawing() {
     clearFirstVertexCloseTimer();
+    cursorPreview.unbind();
     clearTempLayers();
     resetMapCursor();
     drawingPoints.value = [];
@@ -878,6 +928,7 @@ export function useMapDrawing(options) {
       coordinates.value = savedCoords;
     }
 
+    cursorPreview.unbind();
     drawSavedFeatureLayer();
     toast.success(
       mode === 'lot'
@@ -1101,6 +1152,7 @@ export function useMapDrawing(options) {
     map?.remove();
     map = null;
     L = null;
+    cursorPreview.unbind();
     didInitialFit = false;
     didFitToSavedFeature = false;
     mapReady.value = false;

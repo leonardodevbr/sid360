@@ -205,6 +205,10 @@ export function getPolygonEdgesMeters(coords, options = {}) {
   return edges;
 }
 
+export function getLiveSegmentEdge(start, end) {
+  return createEdge(start, end, 0, 0, true);
+}
+
 function createEdge(start, end, from, to, isClosingPreview) {
   const lengthMeters = distanceBetweenPointsMeters(start, end);
   const midpoint = [
