@@ -38,6 +38,10 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  contextLots: {
+    type: Array,
+    default: () => [],
+  },
   boundaryPolygon: {
     type: Array,
     default: null,
@@ -54,28 +58,47 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  demarcationSaving: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits([
   'update:coordinates',
   'update:areaComputed',
   'update:gpsAccuracy',
+  'save-demarcation',
 ]);
 
-const coordinatesModel = ref(props.coordinates);
+const coordinatesModel = ref(normalizePolygonCoordinates(props.coordinates));
 
 watch(
   () => props.coordinates,
   (value) => {
-    coordinatesModel.value = normalizePolygonCoordinates(value);
+    const normalized = normalizePolygonCoordinates(value);
+    const current = normalizePolygonCoordinates(coordinatesModel.value);
+
+    if (JSON.stringify(normalized) === JSON.stringify(current)) {
+      return;
+    }
+
+    coordinatesModel.value = normalized;
   },
-  { immediate: true },
+  { immediate: true, deep: true },
 );
 
 watch(
   coordinatesModel,
   (value) => {
-    emit('update:coordinates', value);
+    const normalized = normalizePolygonCoordinates(value);
+    const fromProps = normalizePolygonCoordinates(props.coordinates);
+
+    if (JSON.stringify(normalized) === JSON.stringify(fromProps)) {
+      return;
+    }
+
+    emit('update:coordinates', normalized);
   },
   { deep: true },
 );
@@ -83,6 +106,7 @@ watch(
 const contextPerimeterRef = computed(() => props.contextPerimeter);
 const contextStreetsRef = computed(() => props.contextStreets);
 const contextZonesRef = computed(() => props.contextZones);
+const contextLotsRef = computed(() => props.contextLots);
 const boundaryPolygonRef = computed(() => props.boundaryPolygon);
 const mapCenterRef = computed(() => props.mapCenter);
 const mapZoomRef = computed(() => props.mapZoom);
@@ -124,10 +148,14 @@ const {
   contextPerimeter: contextPerimeterRef,
   contextStreets: contextStreetsRef,
   contextZones: contextZonesRef,
+  contextLots: contextLotsRef,
   boundaryPolygon: boundaryPolygonRef,
   mapCenter: mapCenterRef,
   mapZoom: mapZoomRef,
   fitContextOnLoad: props.fitContextOnLoad,
+  onDemarcationSaved: (coords) => {
+    emit('save-demarcation', coords);
+  },
 });
 
 watch(computedArea, (value) => {
@@ -258,7 +286,7 @@ onMounted(async () => {
               @click="startDrawLot"
             >
               <MapIcon class="h-3.5 w-3.5" />
-              {{ coordinatesModel?.length ? 'Redesenhar lote' : 'Demarcar lote' }}
+              {{ coordinatesModel?.length >= 3 ? 'Editar demarcação' : 'Demarcar lote' }}
             </button>
 
             <button
@@ -294,9 +322,10 @@ onMounted(async () => {
               v-if="isDrawing && canSaveDrawing"
               type="button"
               class="map-toolbar-btn map-toolbar-btn--save map-toolbar-action-btn flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] disabled:cursor-not-allowed disabled:opacity-50 sm:px-3 sm:text-xs"
+              :disabled="demarcationSaving"
               @click="finishDrawing()"
             >
-              Salvar demarcação
+              {{ demarcationSaving ? 'Salvando...' : 'Salvar demarcação' }}
             </button>
 
             <button

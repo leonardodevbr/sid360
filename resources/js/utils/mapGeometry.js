@@ -254,6 +254,14 @@ export function computeGeodesicArea(coords) {
 }
 
 export function normalizePolygonCoordinates(coords) {
+  if (typeof coords === 'string') {
+    try {
+      return normalizePolygonCoordinates(JSON.parse(coords));
+    } catch {
+      return null;
+    }
+  }
+
   if (!Array.isArray(coords)) {
     return null;
   }

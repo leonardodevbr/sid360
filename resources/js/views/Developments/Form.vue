@@ -715,7 +715,9 @@ import {
   getInvalidPointsInsidePolygon,
   getPolygonEdgesMeters,
   isPointInsideOrOnPolygon,
+  normalizePolygonCoordinates,
 } from '@/utils/mapGeometry';
+import { lotStatusLabel } from '@/utils/status';
 import {
   buildZoneMetaLabel,
   buildZoneTitleLabel,
@@ -787,6 +789,7 @@ let tempMarkers = [];
 let edgeLabelMarkers = [];
 let zoneLayers = {};
 let streetLayersMap = {};
+let lotLayersMap = {};
 let locationMarker = null;
 let mapLayersSetup = null;
 let fullscreenResizeHandler = null;
@@ -1181,6 +1184,39 @@ function buildStreetPopupHtml(street) {
   `;
 }
 
+const LOT_STATUS_MAP_STYLES = {
+  available: { color: '#2d6a45', fill: '#3d8a5a' },
+  reserved: { color: '#92400e', fill: '#f59e0b' },
+  sold: { color: '#475569', fill: '#94a3b8' },
+};
+
+function getLotMapStyle(status) {
+  return LOT_STATUS_MAP_STYLES[status] ?? LOT_STATUS_MAP_STYLES.available;
+}
+
+function buildLotLabel(lot) {
+  const blockLabel = lot.block ? `Quadra ${lot.block}` : lot.zone?.name;
+  return blockLabel ? `${blockLabel} · Lote ${lot.number}` : `Lote ${lot.number}`;
+}
+
+function buildLotPopupHtml(lot) {
+  const areaLabel = lot.area_computed ?? lot.area;
+
+  return `
+    <div class="map-feature-popup">
+      <p class="map-feature-popup-title">${escapeHtml(buildLotLabel(lot))}</p>
+      <p class="map-feature-popup-meta">
+        ${escapeHtml(lotStatusLabel(lot.status))}${areaLabel ? ` · ${Number(areaLabel).toLocaleString('pt-BR')} m²` : ''}
+      </p>
+      <div class="map-feature-popup-actions">
+        <button type="button" class="map-feature-popup-btn" data-map-edit>
+          Editar lote
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 function setMapOverlaysPointerEvents(enabled) {
   map?.getContainer()?.classList.toggle('map-overlays-inactive', !enabled);
 }
@@ -1194,6 +1230,12 @@ function resetMapFeatureLayerInteraction(layer) {
 
 function bringZoneLayersToFront() {
   Object.values(zoneLayers).forEach((layer) => {
+    layer.bringToFront?.();
+  });
+}
+
+function bringLotLayersToFront() {
+  Object.values(lotLayersMap).forEach((layer) => {
     layer.bringToFront?.();
   });
 }
@@ -1889,6 +1931,7 @@ function drawZonesOnMap() {
   });
 
   bringZoneLayersToFront();
+  bringLotLayersToFront();
 }
 
 function startDrawPerimeter() {
@@ -1990,6 +2033,7 @@ function cancelDrawing() {
 
   drawZonesOnMap();
   drawStreetsOnMap();
+  drawLotsOnMap();
 }
 
 function goToMyLocation() {
@@ -2137,6 +2181,7 @@ async function confirmClearZone(zone) {
 
 const zones = ref([]);
 const streets = ref([]);
+const lots = ref([]);
 const visibleZoneNameTypes = ref([]);
 const showZoneNamePicker = ref(false);
 const zoneNamePickerDraft = ref([]);
@@ -2224,6 +2269,65 @@ async function loadStreets() {
   } catch {
     streets.value = [];
   }
+}
+
+async function loadLots() {
+  if (!route.params.id) return;
+
+  try {
+    const { data } = await api.get(`/developments/${route.params.id}/lots`, {
+      params: { all: 1 },
+    });
+    const items = Array.isArray(data) ? data : data.data ?? [];
+
+    lots.value = items.map((lot) => ({
+      ...lot,
+      coordinates: normalizePolygonCoordinates(lot.coordinates),
+    }));
+  } catch {
+    lots.value = [];
+  }
+}
+
+function drawLotsOnMap() {
+  if (!L || !map) return;
+
+  Object.values(lotLayersMap).forEach((layer) => map.removeLayer(layer));
+  lotLayersMap = {};
+
+  lots.value.forEach((lot) => {
+    const coords = normalizePolygonCoordinates(lot.coordinates);
+    if (!coords || coords.length < 3) return;
+
+    const style = getLotMapStyle(lot.status);
+    const layer = L.polygon(coords, {
+      color: style.color,
+      weight: 2,
+      fillColor: style.fill,
+      fillOpacity: 0.35,
+      className: 'map-feature-polygon map-lot-context-path',
+    }).addTo(map);
+
+    layer.bindTooltip(buildLotLabel(lot), {
+      sticky: true,
+      direction: 'center',
+      className: 'map-lot-context-label',
+    });
+
+    resetMapFeatureLayerInteraction(layer);
+
+    bindMapFeaturePopup(
+      layer,
+      buildLotPopupHtml(lot),
+      {
+        onEdit: () => router.push({ name: 'lots.edit', params: { id: lot.id } }),
+      },
+    );
+
+    lotLayersMap[lot.id] = layer;
+  });
+
+  bringLotLayersToFront();
 }
 
 function drawStreetsOnMap() {
@@ -2596,6 +2700,8 @@ async function doGenerateLots() {
     toast.success(`${data.created} lotes gerados com sucesso!`);
     generateLotsZone.value = null;
     await loadZones();
+    await loadLots();
+    drawLotsOnMap();
   } catch (err) {
     toast.error(err?.response?.data?.message ?? 'Erro ao gerar lotes.');
   } finally {
@@ -2654,10 +2760,12 @@ onMounted(async () => {
   await loadItem();
   await loadZones();
   await loadStreets();
+  await loadLots();
   await nextTick();
   await initMap();
   if (zones.value.length) drawZonesOnMap();
   if (streets.value.length) drawStreetsOnMap();
+  drawLotsOnMap();
 });
 
 watch(() => form.value.map_color, () => {

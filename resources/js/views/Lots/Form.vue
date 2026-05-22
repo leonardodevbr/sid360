@@ -130,12 +130,15 @@
           :context-perimeter="developmentPerimeter"
           :context-streets="mappedStreets"
           :context-zones="mappedZones"
+          :context-lots="mappedContextLots"
           :boundary-polygon="lotBoundaryPolygon"
           :map-center="developmentMapCenter"
           :map-zoom="developmentMapZoom"
+          :demarcation-saving="savingDemarcation"
           @update:coordinates="form.coordinates = $event"
           @update:area-computed="form.area_computed = $event"
           @update:gps-accuracy="gpsAccuracy = $event"
+          @save-demarcation="saveLotDemarcation"
         />
 
         <div
@@ -170,7 +173,7 @@
         <p v-if="form.development_id" class="text-xs text-slate-400">
           <strong>Desktop:</strong> clique em "Demarcar lote" e marque os vértices no mapa.
           <strong>Campo:</strong> vá a cada vértice e use "Capturar ponto GPS".
-          Arraste as bolinhas para ajustar. Clique em "Salvar demarcação" ao terminar.
+          Arraste as bolinhas para ajustar e use "Salvar demarcação" na barra do mapa.
         </p>
       </div>
 
@@ -213,6 +216,7 @@ const toast = useToast();
 const isEdit = computed(() => Boolean(route.params.id));
 const loading = ref(false);
 const saving = ref(false);
+const savingDemarcation = ref(false);
 const useDevelopmentPaymentTerms = ref(true);
 
 const form = ref({
@@ -232,6 +236,7 @@ const form = ref({
 const developments = ref([]);
 const zones = ref([]);
 const streets = ref([]);
+const developmentLots = ref([]);
 const developmentPerimeter = ref(null);
 const developmentMapCenter = ref(null);
 const developmentMapZoom = ref(null);
@@ -255,6 +260,15 @@ const mappedZones = computed(() =>
 );
 
 const mappedStreets = computed(() => getMappedStreets(streets.value));
+
+const mappedContextLots = computed(() =>
+  developmentLots.value
+    .map((lot) => ({
+      ...lot,
+      coordinates: normalizePolygonCoordinates(lot.coordinates),
+    }))
+    .filter((lot) => Array.isArray(lot.coordinates) && lot.coordinates.length >= 3),
+);
 
 const zoneOptions = computed(() =>
   selectableZones.value.map((z) => ({
@@ -346,10 +360,27 @@ function resolveDevelopmentMapCenter(dev) {
   return getPolygonCentroid(dev?.coordinates);
 }
 
+async function loadDevelopmentLots() {
+  if (!form.value.development_id) {
+    developmentLots.value = [];
+    return;
+  }
+
+  try {
+    const { data } = await api.get(`/developments/${form.value.development_id}/lots`, {
+      params: { all: 1 },
+    });
+    developmentLots.value = Array.isArray(data) ? data : data.data ?? [];
+  } catch {
+    developmentLots.value = [];
+  }
+}
+
 async function loadDevelopmentMapContext() {
   mapContextReady.value = false;
   zones.value = [];
   streets.value = [];
+  developmentLots.value = [];
   developmentPerimeter.value = null;
   developmentMapCenter.value = null;
   developmentMapZoom.value = null;
@@ -360,6 +391,7 @@ async function loadDevelopmentMapContext() {
     const [zonesRes, streetsRes] = await Promise.all([
       api.get(`/developments/${form.value.development_id}/zones`),
       api.get(`/developments/${form.value.development_id}/streets`),
+      loadDevelopmentLots(),
     ]);
     zones.value = Array.isArray(zonesRes.data) ? zonesRes.data : zonesRes.data.data ?? [];
     streets.value = Array.isArray(streetsRes.data) ? streetsRes.data : streetsRes.data.data ?? [];
@@ -392,6 +424,27 @@ async function loadDevelopmentMapContext() {
   developmentMapCenter.value = resolveDevelopmentMapCenter(dev);
   developmentMapZoom.value = dev?.map_zoom ?? 17;
   mapContextReady.value = true;
+}
+
+function syncCoordinatesFromDevelopmentLots() {
+  if (!isEdit.value || form.value.coordinates?.length >= 3) {
+    return;
+  }
+
+  const currentLot = developmentLots.value.find(
+    (lot) => String(lot.id) === String(route.params.id),
+  );
+  const coords = normalizePolygonCoordinates(currentLot?.coordinates);
+
+  if (!coords?.length) {
+    return;
+  }
+
+  form.value.coordinates = coords;
+
+  if (!form.value.area_computed && currentLot.area_computed != null) {
+    form.value.area_computed = currentLot.area_computed;
+  }
 }
 
 const isOffline = ref(typeof navigator !== 'undefined' ? !navigator.onLine : false);
@@ -520,6 +573,7 @@ async function loadItem() {
   try {
     const { data } = await api.get(`/lots/${route.params.id}`);
     const item = data.data ?? data;
+    const normalizedCoordinates = normalizePolygonCoordinates(item.coordinates);
 
     form.value = {
       development_id: String(item.development_id ?? ''),
@@ -531,9 +585,13 @@ async function loadItem() {
       total_value: item.total_value ?? 0,
       down_payment_percent: item.down_payment_percent != null ? String(item.down_payment_percent) : '',
       status: item.status ?? 'available',
-      coordinates: normalizePolygonCoordinates(item.coordinates),
+      coordinates: normalizedCoordinates,
       area_computed: item.area_computed ?? null,
     };
+
+    if (!normalizedCoordinates?.length && item.coordinates) {
+      toast.warning('Não foi possível interpretar a demarcação salva. Redesenhe o lote no mapa.');
+    }
 
     useDevelopmentPaymentTerms.value = item.down_payment_percent == null;
   } catch {
@@ -545,19 +603,14 @@ async function loadItem() {
   }
 }
 
-async function submit() {
+function buildLotPayload() {
   if (form.value.area_computed && !form.value.area) {
     form.value.area = form.value.area_computed;
   }
 
-  if (selectableZones.value.length && !form.value.zone_id) {
-    toast.warning('Selecione a quadra do lote.');
-    return;
-  }
-
   const selectedZone = getSelectedZone();
 
-  const payload = {
+  return {
     ...form.value,
     development_id: Number(form.value.development_id),
     zone_id: selectedZone ? selectedZone.id : null,
@@ -572,6 +625,40 @@ async function submit() {
         ? null
         : Number(form.value.down_payment_percent),
   };
+}
+
+async function saveLotDemarcation(coords) {
+  form.value.coordinates = normalizePolygonCoordinates(coords);
+
+  if (!isEdit.value) {
+    toast.success('Demarcação registrada. Clique em Salvar para persistir o lote.');
+    return;
+  }
+
+  if (isOffline.value) {
+    toast.warning('Sem conexão. A demarcação foi aplicada localmente — sincronize ao voltar online.');
+    return;
+  }
+
+  savingDemarcation.value = true;
+  try {
+    await api.put(`/lots/${route.params.id}`, buildLotPayload());
+    await loadDevelopmentLots();
+    toast.success('Demarcação do lote salva.');
+  } catch (err) {
+    toast.error(err?.response?.data?.message ?? 'Erro ao salvar demarcação do lote.');
+  } finally {
+    savingDemarcation.value = false;
+  }
+}
+
+async function submit() {
+  if (selectableZones.value.length && !form.value.zone_id) {
+    toast.warning('Selecione a quadra do lote.');
+    return;
+  }
+
+  const payload = buildLotPayload();
 
   if (isOffline.value) {
     try {
@@ -614,6 +701,7 @@ onMounted(async () => {
 
   if (form.value.development_id) {
     await loadDevelopmentMapContext();
+    syncCoordinatesFromDevelopmentLots();
   }
 
   await checkPending();

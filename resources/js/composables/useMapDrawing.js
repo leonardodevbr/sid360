@@ -19,11 +19,13 @@ import {
   normalizePolygonCoordinates,
 } from '@/utils/mapGeometry';
 import { buildZoneTitleLabel } from '@/utils/zone';
+import { getLotMapStyle, buildLotMapLabel } from '@/utils/mapLots';
 import { getStreetColor, hasValidStreetPolygon } from '@/utils/mapStreets';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import { createGpsPreviewController, isCoarsePointerDevice } from '@/utils/mapGpsPreview';
 
 const LOT_DRAWING_COLOR = '#1E5F8E';
+const LOT_SAVED_FEATURE_COLOR = '#c9a84c';
 
 export function useMapDrawing(options) {
   const toast = useToast();
@@ -34,12 +36,14 @@ export function useMapDrawing(options) {
     contextPerimeter,
     contextStreets,
     contextZones,
+    contextLots,
     boundaryPolygon,
     mapCenter,
     mapZoom,
     persistMapView = false,
     fitContextOnLoad = true,
     onMapViewChange,
+    onDemarcationSaved,
   } = options;
 
   const mapContainer = ref(null);
@@ -54,6 +58,7 @@ export function useMapDrawing(options) {
   let contextPerimeterLayer = null;
   const contextStreetLayerMap = {};
   const contextZoneLayerMap = {};
+  const contextLotLayerMap = {};
   let savedFeatureLayer = null;
   let tempMarkers = [];
   let edgeLabelMarkers = [];
@@ -117,6 +122,10 @@ export function useMapDrawing(options) {
 
     if (drawingPoints.value.length > 0 && drawingPoints.value.length < 3) {
       return `Adicione mais ${3 - drawingPoints.value.length} ponto(s) para fechar o lote`;
+    }
+
+    if (drawingPoints.value.length >= 3 && startedFromExistingPolygon.value) {
+      return 'Ajuste os vértices se necessário e clique em Salvar demarcação';
     }
 
     if (drawingPoints.value.length >= 3 && !startedFromExistingPolygon.value) {
@@ -326,6 +335,26 @@ export function useMapDrawing(options) {
     }
   }
 
+  function closePolygonDrawing() {
+    if (drawingPoints.value.length < 3) {
+      return false;
+    }
+
+    const boundary = getBoundary();
+    if (boundary && !arePointsInsideOrOnPolygon(drawingPoints.value, boundary)) {
+      toast.error('Todos os pontos do lote devem ficar dentro da quadra selecionada.');
+      return false;
+    }
+
+    startedFromExistingPolygon.value = true;
+    refreshTempPolyline(true);
+    refreshVertexMarkerStyles();
+    syncDrawingCursorPreview();
+    ensureMapDraggingEnabled();
+    toast.info('Polígono fechado. Clique em Salvar demarcação para confirmar a área.');
+    return true;
+  }
+
   function tryClosePolygonOnFirstVertexTap(marker) {
     if (marker._vertexIndex !== 0 || drawingPoints.value.length < 3) {
       return false;
@@ -345,7 +374,7 @@ export function useMapDrawing(options) {
         return;
       }
 
-      finishDrawing({ closedExplicitly: true });
+      closePolygonDrawing();
     });
 
     return true;
@@ -761,16 +790,68 @@ export function useMapDrawing(options) {
     }
 
     savedFeatureLayer = (coords.length >= 3 ? L.polygon : L.polyline)(coords, {
-      color: LOT_DRAWING_COLOR,
-      weight: 2,
-      fillColor: LOT_DRAWING_COLOR,
-      fillOpacity: 0.15,
+      color: LOT_SAVED_FEATURE_COLOR,
+      weight: 3,
+      fillColor: LOT_SAVED_FEATURE_COLOR,
+      fillOpacity: 0.28,
       interactive: false,
-      className: 'map-lot-path',
+      className: 'map-lot-path map-lot-saved-feature',
     }).addTo(map);
 
     configureMapPathLayer(savedFeatureLayer);
+    savedFeatureLayer.bringToFront?.();
     refreshSavedEdgeLabels();
+  }
+
+  function drawContextLots() {
+    if (!L || !map) return;
+
+    Object.values(contextLotLayerMap).forEach((layer) => map.removeLayer(layer));
+    Object.keys(contextLotLayerMap).forEach((key) => {
+      delete contextLotLayerMap[key];
+    });
+
+    const lots = contextLots?.value ?? [];
+    lots.forEach((lot) => {
+      const coords = normalizePolygonCoordinates(lot.coordinates);
+      if (!coords || coords.length < 3) {
+        return;
+      }
+
+      const style = getLotMapStyle(lot.status);
+      const layer = L.polygon(coords, {
+        color: style.color,
+        weight: 2,
+        fillColor: style.fill,
+        fillOpacity: 0.35,
+        interactive: false,
+        className: 'map-lot-context-path',
+      })
+        .bindTooltip(buildLotMapLabel(lot), {
+          sticky: true,
+          direction: 'center',
+          className: 'map-lot-context-label',
+        })
+        .addTo(map);
+
+      configureMapPathLayer(layer);
+      contextLotLayerMap[String(lot.id)] = layer;
+    });
+  }
+
+  function getContextLotCoordinatePoints() {
+    const lots = contextLots?.value ?? [];
+
+    return lots.flatMap((lot) => normalizePolygonCoordinates(lot.coordinates) ?? []);
+  }
+
+  function fitMapToContextLots() {
+    const points = getContextLotCoordinatePoints();
+    if (points.length < 3) {
+      return false;
+    }
+
+    return fitMapToPolygonCoords(points, [40, 40]);
   }
 
   function drawContextPerimeter() {
@@ -940,6 +1021,11 @@ export function useMapDrawing(options) {
       return;
     }
 
+    if (fitMapToContextLots()) {
+      didInitialFit = true;
+      return;
+    }
+
     const boundary = boundaryPolygon?.value;
     if (fitMapToPolygonCoords(boundary)) {
       didInitialFit = true;
@@ -968,6 +1054,7 @@ export function useMapDrawing(options) {
     drawContextPerimeter();
     drawContextStreets();
     drawContextZones();
+    drawContextLots();
     drawSavedFeatureLayer();
 
     if (fit || !didInitialFit) {
@@ -1086,11 +1173,16 @@ export function useMapDrawing(options) {
     cursorPreview.unbind();
     drawSavedFeatureLayer();
     scheduleMapLayoutRefresh();
-    toast.success(
-      mode === 'lot'
-        ? 'Demarcação registrada no formulário. Clique em Salvar para persistir o lote.'
-        : 'Demarcação salva.',
-    );
+
+    if (onDemarcationSaved) {
+      onDemarcationSaved(savedCoords);
+    } else {
+      toast.success(
+        mode === 'lot'
+          ? 'Demarcação registrada no formulário. Clique em Salvar para persistir o lote.'
+          : 'Demarcação salva.',
+      );
+    }
   }
 
   function removeVertexAtIndex(index) {
@@ -1197,7 +1289,7 @@ export function useMapDrawing(options) {
         gpsWalkPreviewEnabled.value = true;
 
         if (drawingPoints.value.length && isNearFirst(L.latLng(coords[0], coords[1]))) {
-          finishDrawing({ closedExplicitly: true });
+          closePolygonDrawing();
         } else {
           drawingPoints.value.push(coords);
           addDrawingMarker(coords, getDrawingBaseColor(), drawingPoints.value.length - 1);
@@ -1339,6 +1431,7 @@ export function useMapDrawing(options) {
       contextPerimeter?.value,
       contextStreets?.value,
       contextZones?.value,
+      contextLots?.value,
       boundaryPolygon?.value,
       mapCenter?.value,
       mapZoom?.value,

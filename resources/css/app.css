@@ -539,6 +539,21 @@
   display: none;
 }
 
+.leaflet-container .map-lot-context-label {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(26, 58, 40, 0.18);
+  border-radius: 9999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #1a3a28;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+}
+
+.leaflet-container .map-lot-saved-feature {
+  filter: drop-shadow(0 0 2px rgba(201, 168, 76, 0.65));
+}
+
 .map-vertex-handle-icon {
   background: transparent !important;
   border: none !important;
