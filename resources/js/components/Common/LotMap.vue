@@ -170,7 +170,7 @@
       scrollWheelZoom: false,
     })
   
-    await setupMapBaseLayers(map, L, { maxZoom: 20 })
+    await setupMapBaseLayers(map, L)
   
     // Camada editável
     drawnLayer = new L.FeatureGroup().addTo(map)

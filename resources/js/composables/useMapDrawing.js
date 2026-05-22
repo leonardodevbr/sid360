@@ -8,6 +8,7 @@ import {
   refreshMapDisplay,
   hideMapScrollZoomHint,
   showMapScrollZoomHint,
+  eventToMapLatLng,
 } from '@/utils/mapLayers';
 import {
   arePointsInsideOrOnPolygon,
@@ -220,22 +221,13 @@ export function useMapDrawing(options) {
     });
   }
 
-  function getMapContainerPointFromEvent(event) {
-    const container = map.getContainer();
-    const rect = container.getBoundingClientRect();
-    const touch = event.changedTouches?.[0] ?? event.touches?.[0];
-    const clientX = touch?.clientX ?? event.clientX;
-    const clientY = touch?.clientY ?? event.clientY;
-
-    return L.point(clientX - rect.left, clientY - rect.top);
-  }
-
   function enableMapDraggingAfterVertexDrag() {
     if (!map) return;
 
     map._vertexDragActiveCount = Math.max(0, (map._vertexDragActiveCount ?? 1) - 1);
     if (map._vertexDragActiveCount === 0) {
       map.dragging.enable();
+      map.scrollWheelZoom?.disable?.();
     }
   }
 
@@ -253,8 +245,11 @@ export function useMapDrawing(options) {
     const onMove = (moveEvent) => {
       L.DomEvent.preventDefault(moveEvent);
       marker._wasDragged = true;
-      const containerPoint = getMapContainerPointFromEvent(moveEvent);
-      const latLng = map.containerPointToLatLng(containerPoint);
+
+      const latLng = eventToMapLatLng(map, moveEvent);
+      if (!latLng) {
+        return;
+      }
 
       marker.setLatLng(latLng);
       drawingPoints.value[marker._vertexIndex] = [latLng.lat, latLng.lng];
@@ -301,6 +296,7 @@ export function useMapDrawing(options) {
       if (!map._vertexDragActiveCount) {
         map._vertexDragActiveCount = 0;
         map.dragging.disable();
+        map.scrollWheelZoom?.disable?.();
       }
       map._vertexDragActiveCount += 1;
 
@@ -626,14 +622,63 @@ export function useMapDrawing(options) {
 
   let didInitialFit = false;
 
+  function hasSavedFeatureCoordinates() {
+    const coords = coordinates?.value;
+    return Array.isArray(coords) && coords.length >= 3;
+  }
+
+  function fitMapToPolygonCoords(coords, padding = [30, 30]) {
+    if (!map || !L || !Array.isArray(coords) || coords.length < 3) {
+      return false;
+    }
+
+    map.fitBounds(L.polygon(coords).getBounds(), { padding });
+    return true;
+  }
+
+  function applyInitialMapView() {
+    if (!map || !L || didInitialFit || drawingMode.value || !fitContextOnLoad) {
+      return;
+    }
+
+    if (hasSavedFeatureCoordinates()) {
+      if (fitMapToPolygonCoords(coordinates.value)) {
+        didInitialFit = true;
+      }
+      return;
+    }
+
+    const boundary = boundaryPolygon?.value;
+    if (fitMapToPolygonCoords(boundary)) {
+      didInitialFit = true;
+      return;
+    }
+
+    if (contextPerimeterLayer) {
+      map.fitBounds(contextPerimeterLayer.getBounds(), { padding: [30, 30] });
+      didInitialFit = true;
+      return;
+    }
+
+    const center = mapCenter?.value;
+    if (
+      Array.isArray(center)
+      && center.length === 2
+      && Number.isFinite(Number(center[0]))
+      && Number.isFinite(Number(center[1]))
+    ) {
+      map.setView(center, mapZoom?.value ?? 17);
+      didInitialFit = true;
+    }
+  }
+
   function refreshContextLayers({ fit = false } = {}) {
     drawContextPerimeter();
     drawContextZones();
     drawSavedFeatureLayer();
 
-    if (fit && fitContextOnLoad && !didInitialFit && contextPerimeterLayer) {
-      map.fitBounds(contextPerimeterLayer.getBounds(), { padding: [30, 30] });
-      didInitialFit = true;
+    if (fit || !didInitialFit) {
+      applyInitialMapView();
     }
   }
 
@@ -929,7 +974,7 @@ export function useMapDrawing(options) {
     }).setView(center, zoom);
 
     configureMapRotation(map);
-    mapLayersSetup = await setupMapBaseLayers(map, L, { maxZoom: 22 });
+    mapLayersSetup = await setupMapBaseLayers(map, L);
 
     map.on('click', onMapClick);
 
@@ -957,14 +1002,34 @@ export function useMapDrawing(options) {
     map?.remove();
     map = null;
     L = null;
+    didInitialFit = false;
     mapReady.value = false;
   }
 
   watch(
-    () => [contextPerimeter?.value, contextZones?.value],
+    () => [
+      contextPerimeter?.value,
+      contextZones?.value,
+      boundaryPolygon?.value,
+      mapCenter?.value,
+      mapZoom?.value,
+      coordinates?.value,
+    ],
     () => {
       if (!map || !L) return;
       refreshContextLayers();
+    },
+    { deep: true },
+  );
+
+  watch(
+    () => boundaryPolygon?.value,
+    () => {
+      if (!map || !L || !didInitialFit || drawingMode.value || hasSavedFeatureCoordinates()) {
+        return;
+      }
+
+      fitMapToPolygonCoords(boundaryPolygon?.value);
     },
     { deep: true },
   );

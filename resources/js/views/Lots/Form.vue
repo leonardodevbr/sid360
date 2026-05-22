@@ -123,7 +123,7 @@
         </div>
 
         <MapDrawingCanvas
-          v-if="form.development_id"
+          v-if="form.development_id && mapContextReady"
           :key="form.development_id"
           mode="lot"
           :coordinates="form.coordinates"
@@ -158,6 +158,10 @@
           }}
         </div>
 
+        <p v-else-if="form.development_id && !mapContextReady" class="text-xs text-slate-400">
+          Carregando mapa do empreendimento...
+        </p>
+
         <p v-else-if="!form.development_id" class="text-xs text-slate-400">
           Selecione um empreendimento para exibir o mapa e demarcar o lote.
         </p>
@@ -188,6 +192,7 @@ import { useToast } from 'vue-toastification';
 import api from '@/services/api';
 import { lotStatusFormOptions } from '@/utils/labels';
 import { buildZoneTitleLabel, isLotSelectableZone } from '@/utils/zone';
+import { getPolygonCentroid } from '@/utils/mapGeometry';
 import Input from '@/components/Common/Input.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
 import Button from '@/components/Common/Button.vue';
@@ -228,6 +233,7 @@ const streets = ref([]);
 const developmentPerimeter = ref(null);
 const developmentMapCenter = ref(null);
 const developmentMapZoom = ref(null);
+const mapContextReady = ref(false);
 const gpsAccuracy = ref(null);
 
 const developmentOptions = computed(() =>
@@ -322,7 +328,16 @@ const computedArea = computed(() =>
   form.value.area_computed ? form.value.area_computed.toLocaleString('pt-BR') : null,
 );
 
+function resolveDevelopmentMapCenter(dev) {
+  if (dev?.map_center?.length === 2) {
+    return dev.map_center;
+  }
+
+  return getPolygonCentroid(dev?.coordinates);
+}
+
 async function loadDevelopmentMapContext() {
+  mapContextReady.value = false;
   zones.value = [];
   streets.value = [];
   developmentPerimeter.value = null;
@@ -364,8 +379,9 @@ async function loadDevelopmentMapContext() {
     ?? developments.value.find((d) => String(d.id) === String(form.value.development_id));
 
   developmentPerimeter.value = dev?.coordinates?.length ? dev.coordinates : null;
-  developmentMapCenter.value = dev?.map_center?.length === 2 ? dev.map_center : null;
+  developmentMapCenter.value = resolveDevelopmentMapCenter(dev);
   developmentMapZoom.value = dev?.map_zoom ?? 17;
+  mapContextReady.value = true;
 }
 
 const isOffline = ref(typeof navigator !== 'undefined' ? !navigator.onLine : false);

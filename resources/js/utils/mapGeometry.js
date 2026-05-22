@@ -121,6 +121,25 @@ export function distanceBetweenPointsMeters(pointA, pointB) {
   return haversineMeters(lat1, lng1, lat2, lng2);
 }
 
+/**
+ * @param {Array<[number, number]>} polygon
+ * @returns {[number, number] | null}
+ */
+export function getPolygonCentroid(polygon) {
+  if (!Array.isArray(polygon) || polygon.length < 1) {
+    return null;
+  }
+
+  const lat = polygon.reduce((sum, point) => sum + Number(point[0]), 0) / polygon.length;
+  const lng = polygon.reduce((sum, point) => sum + Number(point[1]), 0) / polygon.length;
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null;
+  }
+
+  return [lat, lng];
+}
+
 export function formatMeters(lengthMeters) {
   if (!Number.isFinite(lengthMeters)) {
     return '—';

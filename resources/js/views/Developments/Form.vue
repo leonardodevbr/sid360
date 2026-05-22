@@ -701,7 +701,7 @@ import { getApiErrorMessage } from '@/utils/apiError';
 import { useAlert } from '@/composables/useAlert';
 import { useMapFullscreen } from '@/composables/useMapFullscreen';
 import { developmentStatusFormOptions } from '@/utils/labels';
-import { setupMapBaseLayers, ensureMapRotation, configureMapRotation, refreshMapDisplay, hideMapScrollZoomHint, showMapScrollZoomHint } from '@/utils/mapLayers';
+import { setupMapBaseLayers, ensureMapRotation, configureMapRotation, refreshMapDisplay, hideMapScrollZoomHint, showMapScrollZoomHint, eventToMapLatLng } from '@/utils/mapLayers';
 import {
   arePointsInsideOrOnPolygon,
   getInvalidPointsInsidePolygon,
@@ -933,7 +933,7 @@ async function initMap() {
 
   configureMapRotation(map);
 
-  mapLayersSetup = await setupMapBaseLayers(map, L, { maxZoom: 22 });
+  mapLayersSetup = await setupMapBaseLayers(map, L);
 
   if (form.value.coordinates?.length) {
     drawPerimeterOnMap(form.value.coordinates);
@@ -1286,22 +1286,13 @@ function bringVertexMarkersToFront() {
   });
 }
 
-function getMapContainerPointFromEvent(event) {
-  const container = map.getContainer();
-  const rect = container.getBoundingClientRect();
-  const touch = event.changedTouches?.[0] ?? event.touches?.[0];
-  const clientX = touch?.clientX ?? event.clientX;
-  const clientY = touch?.clientY ?? event.clientY;
-
-  return L.point(clientX - rect.left, clientY - rect.top);
-}
-
 function enableMapDraggingAfterVertexDrag() {
   if (!map) return;
 
   map._vertexDragActiveCount = Math.max(0, (map._vertexDragActiveCount ?? 1) - 1);
   if (map._vertexDragActiveCount === 0) {
     map.dragging.enable();
+    map.scrollWheelZoom?.disable?.();
   }
 }
 
@@ -1321,8 +1312,10 @@ function bindVertexMarkerDrag(marker) {
     L.DomEvent.preventDefault(moveEvent);
     marker._wasDragged = true;
 
-    const containerPoint = getMapContainerPointFromEvent(moveEvent);
-    const latLng = map.containerPointToLatLng(containerPoint);
+    const latLng = eventToMapLatLng(map, moveEvent);
+    if (!latLng) {
+      return;
+    }
 
     marker.setLatLng(latLng);
     perimeterPoints.value[marker._vertexIndex] = [latLng.lat, latLng.lng];
@@ -1369,6 +1362,7 @@ function bindVertexMarkerDrag(marker) {
     if (!map._vertexDragActiveCount) {
       map._vertexDragActiveCount = 0;
       map.dragging.disable();
+      map.scrollWheelZoom?.disable?.();
     }
     map._vertexDragActiveCount += 1;
 

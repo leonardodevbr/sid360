@@ -1,6 +1,49 @@
 const GOOGLE_MUTANT_SCRIPT_URL =
   'https://cdn.jsdelivr.net/npm/leaflet.gridlayer.googlemutant@0.16.0/dist/Leaflet.GoogleMutant.js';
 
+const OPEN_STREET_MAP_MAX_ZOOM = 19;
+
+/**
+ * Converts a DOM or Leaflet mouse/touch event to map coordinates.
+ * Returns null when conversion fails (e.g. during zoom animation).
+ * @param {import('leaflet').Map | null | undefined} map
+ * @param {Event | { latlng?: import('leaflet').LatLng, originalEvent?: Event }} event
+ * @returns {import('leaflet').LatLng | null}
+ */
+export function eventToMapLatLng(map, event) {
+  if (!map || !event) {
+    return null;
+  }
+
+  if (event.latlng && Number.isFinite(event.latlng.lat) && Number.isFinite(event.latlng.lng)) {
+    return event.latlng;
+  }
+
+  if (map._animatingZoom) {
+    return null;
+  }
+
+  const domEvent = event.originalEvent ?? event;
+
+  try {
+    let latLng = null;
+
+    if (typeof map.mouseEventToLatLng === 'function') {
+      latLng = map.mouseEventToLatLng(domEvent);
+    } else if (typeof map.mouseEventToContainerPoint === 'function') {
+      latLng = map.containerPointToLatLng(map.mouseEventToContainerPoint(domEvent));
+    }
+
+    if (latLng && Number.isFinite(latLng.lat) && Number.isFinite(latLng.lng)) {
+      return latLng;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 let googleMutantPromise = null;
 
 function getGoogleMapsApiKey() {
@@ -85,11 +128,17 @@ async function ensureGoogleMutant(leaflet) {
  */
 export async function setupMapBaseLayers(map, leaflet, options = {}) {
   const L = leaflet.default ?? leaflet;
-  const maxZoom = options.maxZoom ?? 22;
+  const streetMaxZoom = options.streetMaxZoom ?? OPEN_STREET_MAP_MAX_ZOOM;
+  const mapMaxZoom = options.maxZoom ?? 21;
+
+  if (typeof map.setMaxZoom === 'function') {
+    map.setMaxZoom(mapMaxZoom);
+  }
 
   const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap',
-    maxZoom,
+    maxZoom: streetMaxZoom,
+    maxNativeZoom: streetMaxZoom,
   });
 
   const baseLayers = {
