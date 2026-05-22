@@ -21,6 +21,7 @@ import {
 import { buildZoneTitleLabel } from '@/utils/zone';
 import { getStreetColor, hasValidStreetPolygon } from '@/utils/mapStreets';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
+import { createGpsPreviewController, isCoarsePointerDevice } from '@/utils/mapGpsPreview';
 
 const LOT_DRAWING_COLOR = '#1E5F8E';
 
@@ -66,9 +67,12 @@ export function useMapDrawing(options) {
   const gpsAccuracy = ref(null);
   const visibleZoneNameTypes = ref([]);
   const startedFromExistingPolygon = ref(false);
+  const gpsWalkPreviewEnabled = ref(false);
   let firstVertexCloseTimer = null;
   let mapFooterResizeObserver = null;
   const cursorPreview = createCursorPreviewController();
+  const gpsPreview = createGpsPreviewController();
+  let gpsPreviewErrorNotified = false;
 
   function clearFirstVertexCloseTimer() {
     if (firstVertexCloseTimer) {
@@ -460,8 +464,67 @@ export function useMapDrawing(options) {
     );
   }
 
+  function updateLiveGpsMarker(latLng) {
+    if (!map || !L || !latLng) {
+      return;
+    }
+
+    const coords = [latLng.lat, latLng.lng];
+
+    if (locationMarker) {
+      locationMarker.setLatLng(coords);
+      return;
+    }
+
+    locationMarker = L.circleMarker(coords, {
+      radius: 8,
+      color: '#2563EB',
+      fillColor: '#3B82F6',
+      fillOpacity: 0.85,
+      weight: 2,
+    }).addTo(map);
+  }
+
+  function shouldUseGpsLivePreview() {
+    return Boolean(
+      drawingMode.value
+      && drawingPoints.value.length >= 1
+      && gpsWalkPreviewEnabled.value
+      && isCoarsePointerDevice()
+      && typeof navigator !== 'undefined'
+      && navigator.geolocation,
+    );
+  }
+
+  function syncGpsDrawingPreview() {
+    gpsPreview.sync({
+      active: shouldUseGpsLivePreview(),
+      onPosition: (position) => {
+        gpsPreviewErrorNotified = false;
+        gpsAccuracy.value = position.coords.accuracy;
+
+        const latLng = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+
+        cursorPreview.update(latLng);
+        updateLiveGpsMarker(latLng);
+      },
+      onError: (error) => {
+        if (gpsPreviewErrorNotified) {
+          return;
+        }
+
+        gpsPreviewErrorNotified = true;
+        toast.warning(`GPS em tempo real indisponível: ${error.message}`);
+      },
+    });
+  }
+
   function syncDrawingCursorPreview() {
     if (!map || !L || !drawingMode.value) {
+      gpsPreview.stop();
       cursorPreview.unbind();
       return;
     }
@@ -483,6 +546,8 @@ export function useMapDrawing(options) {
         return !isPointInsideOrOnPolygon([latLng.lat, latLng.lng], boundary);
       },
     });
+
+    syncGpsDrawingPreview();
   }
 
   function clearEdgeLabelMarkers() {
@@ -908,6 +973,7 @@ export function useMapDrawing(options) {
     } else {
       drawingPoints.value = [];
       startedFromExistingPolygon.value = false;
+      gpsWalkPreviewEnabled.value = false;
     }
 
     map?.getContainer()?.style.setProperty('cursor', 'crosshair');
@@ -917,11 +983,13 @@ export function useMapDrawing(options) {
 
   function cancelDrawing() {
     clearFirstVertexCloseTimer();
+    gpsPreview.stop();
     cursorPreview.unbind();
     clearTempLayers();
     resetMapCursor();
     drawingPoints.value = [];
     startedFromExistingPolygon.value = false;
+    gpsWalkPreviewEnabled.value = false;
     drawingMode.value = null;
     setMapOverlaysPointerEvents(true);
     restoreMapInteractionAfterDrawing();
@@ -946,6 +1014,7 @@ export function useMapDrawing(options) {
     resetMapCursor();
     drawingPoints.value = [];
     startedFromExistingPolygon.value = false;
+    gpsWalkPreviewEnabled.value = false;
     drawingMode.value = null;
     setMapOverlaysPointerEvents(true);
     restoreMapInteractionAfterDrawing();
@@ -954,6 +1023,7 @@ export function useMapDrawing(options) {
       coordinates.value = savedCoords;
     }
 
+    gpsPreview.stop();
     cursorPreview.unbind();
     drawSavedFeatureLayer();
     toast.success(
@@ -1064,6 +1134,7 @@ export function useMapDrawing(options) {
       (position) => {
         gpsAccuracy.value = position.coords.accuracy;
         const coords = [position.coords.latitude, position.coords.longitude];
+        gpsWalkPreviewEnabled.value = true;
 
         if (drawingPoints.value.length && isNearFirst(L.latLng(coords[0], coords[1]))) {
           finishDrawing({ closedExplicitly: true });
@@ -1071,6 +1142,8 @@ export function useMapDrawing(options) {
           drawingPoints.value.push(coords);
           addDrawingMarker(coords, getDrawingBaseColor(), drawingPoints.value.length - 1);
           refreshTempPolyline(false);
+          syncDrawingCursorPreview();
+          scheduleMapLayoutRefresh();
         }
 
         map?.setView(coords, Math.max(map.getZoom(), 18));
@@ -1187,6 +1260,7 @@ export function useMapDrawing(options) {
     map?.remove();
     map = null;
     L = null;
+    gpsPreview.stop();
     cursorPreview.unbind();
     didInitialFit = false;
     didFitToSavedFeature = false;
