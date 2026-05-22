@@ -34,22 +34,9 @@ export function generateLotsBlockedReason(zone) {
   return '';
 }
 
-export function computeGeodesicArea(coords) {
-  if (!Array.isArray(coords) || coords.length < 3) return null;
+import { computeGeodesicArea } from '@/utils/mapGeometry';
 
-  const earthRadius = 6371000;
-  let area = 0;
-
-  for (let i = 0; i < coords.length; i += 1) {
-    const [lat1, lng1] = coords[i];
-    const [lat2, lng2] = coords[(i + 1) % coords.length];
-    area +=
-      ((lng2 - lng1) * Math.PI) / 180
-      * (2 + Math.sin((lat1 * Math.PI) / 180) + Math.sin((lat2 * Math.PI) / 180));
-  }
-
-  return Math.round(Math.abs((area * earthRadius * earthRadius) / 2));
-}
+export { computeGeodesicArea };
 
 export function zoneShowsLotsCount(type) {
   return ZONE_LOT_GENERATION_TYPES.includes(type);

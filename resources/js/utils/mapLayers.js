@@ -132,8 +132,99 @@ export async function setupMapBaseLayers(map, leaflet, options = {}) {
   };
 }
 
+export function hideMapScrollZoomHint(map) {
+  const hint = map?.getContainer()?.querySelector('.map-scroll-zoom-hint');
+  if (!hint) return;
+
+  hint.classList.remove('is-visible');
+  hint.style.display = 'none';
+}
+
+export function showMapScrollZoomHint(map) {
+  const hint = map?.getContainer()?.querySelector('.map-scroll-zoom-hint');
+  if (!hint) return;
+
+  hint.style.display = '';
+}
+
+function refreshActiveBaseLayers(map, layers = {}) {
+  if (!layers.baseLayers) return;
+
+  Object.values(layers.baseLayers).forEach((baseLayer) => {
+    if (!map.hasLayer(baseLayer)) return;
+
+    map.removeLayer(baseLayer);
+    baseLayer.addTo(map);
+  });
+}
+
+/**
+ * @param {import('leaflet').Map} map
+ * @param {{ streetLayer?: import('leaflet').Layer, baseLayers?: Record<string, import('leaflet').Layer> }} [layers]
+ */
+export function refreshMapDisplay(map, layers = {}) {
+  if (!map) return;
+
+  hideMapScrollZoomHint(map);
+  map.invalidateSize({ animate: false, pan: false, debounceMoveend: false });
+
+  refreshActiveBaseLayers(map, layers);
+
+  const center = map.getCenter();
+  const zoom = map.getZoom();
+  const bearing = typeof map.getBearing === 'function' ? map.getBearing() : 0;
+
+  map.setView(center, zoom, { animate: false });
+
+  if (typeof map.setBearing === 'function') {
+    map.setBearing(bearing);
+  }
+
+  layers.streetLayer?.redraw?.();
+
+  map.eachLayer((layer) => {
+    if (typeof layer.redraw === 'function') {
+      layer.redraw();
+    }
+  });
+}
+
 export function hasGoogleMapsApiKey() {
   return Boolean(getGoogleMapsApiKey());
+}
+
+let mapRotationPromise = null;
+
+/**
+ * Enables leaflet-rotate (patches global L).
+ * @param {typeof import('leaflet')} leaflet
+ */
+export async function ensureMapRotation(leaflet) {
+  const L = leaflet.default ?? leaflet;
+
+  if (typeof window !== 'undefined') {
+    window.L = L;
+  }
+
+  if (!mapRotationPromise) {
+    mapRotationPromise = import('leaflet-rotate/dist/leaflet-rotate.js');
+  }
+
+  await mapRotationPromise;
+
+  return L;
+}
+
+/**
+ * @param {import('leaflet').Map} map
+ * @param {{ touch?: boolean }} [options]
+ */
+export function configureMapRotation(map, options = {}) {
+  if (!map?.setBearing) return;
+
+  if (options.touch !== false && map.touchRotate?.enable) {
+    map.touchRotate.enable();
+  }
 }
 
 function getScrollZoomHintLabel() {
@@ -141,8 +232,8 @@ function getScrollZoomHintLabel() {
     typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   return isMac
-    ? 'Pressione ⌘ + scroll para alterar o zoom'
-    : 'Pressione Ctrl + scroll para alterar o zoom';
+    ? 'Pressione ⌘ para alterar o zoom'
+    : 'Pressione Ctrl para alterar o zoom';
 }
 
 /**
@@ -174,6 +265,8 @@ export function configureModifierScrollZoom(map) {
   };
 
   const showHint = () => {
+    if (container.closest('.map-fullscreen-section--overlay')) return;
+
     overlay.classList.add('is-visible');
     if (hideHintTimer) {
       window.clearTimeout(hideHintTimer);
@@ -204,9 +297,16 @@ export function configureModifierScrollZoom(map) {
   container.addEventListener('wheel', onWheel, { capture: true, passive: false });
   container.addEventListener('mouseleave', onMouseLeave);
 
+  const resizeObserver = typeof ResizeObserver !== 'undefined'
+    ? new ResizeObserver(() => hideHint())
+    : null;
+
+  resizeObserver?.observe(container);
+
   return () => {
     container.removeEventListener('wheel', onWheel, { capture: true });
     container.removeEventListener('mouseleave', onMouseLeave);
+    resizeObserver?.disconnect();
     hideHint();
     overlay.remove();
     map.scrollWheelZoom.disable();

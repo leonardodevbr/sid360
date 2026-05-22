@@ -1,40 +1,39 @@
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 
-export function useMapFullscreen(sectionRef, onResize) {
+export function useMapFullscreen(_sectionRef, onResize) {
   const isFullscreen = ref(false);
 
   function refreshMapSize() {
-    window.setTimeout(() => onResize?.(), 100);
+    window.requestAnimationFrame(() => {
+      onResize?.();
+      window.setTimeout(() => onResize?.(), 150);
+      window.setTimeout(() => onResize?.(), 400);
+    });
   }
 
-  function syncFullscreenState() {
-    isFullscreen.value = document.fullscreenElement === sectionRef.value;
-    refreshMapSize();
+  function toggleFullscreen() {
+    isFullscreen.value = !isFullscreen.value;
   }
 
-  async function toggleFullscreen() {
-    if (!sectionRef.value) return;
-
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
-      } else {
-        await sectionRef.value.requestFullscreen();
-      }
-    } catch {
-      // Browser blocked or unsupported — ignore silently
+  function onKeyDown(event) {
+    if (event.key === 'Escape' && isFullscreen.value) {
+      isFullscreen.value = false;
     }
   }
 
+  watch(isFullscreen, async () => {
+    document.body.style.overflow = isFullscreen.value ? 'hidden' : '';
+    await nextTick();
+    refreshMapSize();
+  });
+
   onMounted(() => {
-    document.addEventListener('fullscreenchange', syncFullscreenState);
+    document.addEventListener('keydown', onKeyDown);
   });
 
   onUnmounted(() => {
-    document.removeEventListener('fullscreenchange', syncFullscreenState);
-    if (sectionRef.value && document.fullscreenElement === sectionRef.value) {
-      document.exitFullscreen();
-    }
+    document.removeEventListener('keydown', onKeyDown);
+    document.body.style.overflow = '';
   });
 
   return {

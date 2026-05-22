@@ -3479,8 +3479,8 @@ footer {
     var hideHintTimer = null;
     var isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
     var hintLabel = isMac
-      ? 'Pressione ⌘ + scroll para alterar o zoom'
-      : 'Pressione Ctrl + scroll para alterar o zoom';
+      ? 'Pressione ⌘ para alterar o zoom'
+      : 'Pressione Ctrl para alterar o zoom';
 
     var overlay = document.createElement('div');
     overlay.className = 'map-scroll-zoom-hint';

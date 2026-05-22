@@ -93,28 +93,156 @@
   border-color: #c9a84c;
 }
 
-.map-fullscreen-section:fullscreen {
+.map-fullscreen-section--overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
   display: flex;
   flex-direction: column;
   gap: 1rem;
   overflow: hidden;
+  box-sizing: border-box;
   background: #fff;
   padding: 1rem;
 }
 
-.map-fullscreen-section:fullscreen .map-fullscreen-canvas {
-  flex: 1 1 auto;
-  height: auto !important;
+.map-fullscreen-section--overlay .map-canvas-wrap {
+  position: relative;
+  flex: 1 1 0;
   min-height: 0;
 }
 
-.map-fullscreen-section:fullscreen .map-fullscreen-toolbar {
+.map-fullscreen-section--overlay .map-canvas-wrap .map-fullscreen-canvas {
+  width: 100% !important;
+  min-height: 240px;
+}
+
+.map-fullscreen-section--overlay .map-scroll-zoom-hint {
+  display: none !important;
+}
+
+.map-fullscreen-section--overlay > .map-fullscreen-canvas {
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100% !important;
+}
+
+.map-fullscreen-section--overlay .map-fullscreen-toolbar {
   flex-shrink: 0;
 }
 
-.map-fullscreen-section:fullscreen .map-zone-picker {
+.map-fullscreen-section--overlay .map-zone-picker {
   flex-shrink: 0;
   max-width: 24rem;
+}
+
+.map-canvas-wrap .map-floating-controls {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.map-floating-controls-group {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+  pointer-events: auto;
+}
+
+.map-floating-controls-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0;
+  background: #fff;
+  color: #334155;
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.map-floating-controls-btn:hover {
+  background: #f8fafc;
+}
+
+.map-floating-controls-btn + .map-floating-controls-btn {
+  border-top: 1px solid #e2e8f0;
+}
+
+.map-floating-controls-btn svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.map-zone-invalid-hint {
+  position: absolute;
+  left: 50%;
+  top: 0.75rem;
+  z-index: 1000;
+  max-width: calc(100% - 6rem);
+  transform: translateX(-50%);
+  border: 1px solid #fecaca;
+  border-radius: 9999px;
+  background: rgba(254, 242, 242, 0.96);
+  padding: 0.375rem 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #b91c1c;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
+  pointer-events: none;
+  text-align: center;
+}
+
+.map-vertex-handle--invalid {
+  border-color: #dc2626 !important;
+  background: #fef2f2 !important;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
+}
+
+.map-edge-label--invalid {
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.map-edge-label-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.map-edge-label {
+  display: inline-block;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.94);
+  padding: 0.125rem 0.4375rem;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #1a3a28;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  white-space: nowrap;
+}
+
+.map-edge-label--closing {
+  border-style: dashed;
+  color: #64748b;
 }
 
 .leaflet-container .map-scroll-zoom-hint {
@@ -148,12 +276,20 @@
 }
 
 /* Remove browser focus rectangle when clicking polygons/polylines on the map */
-.leaflet-container .leaflet-interactive:focus {
+.leaflet-container .leaflet-interactive,
+.leaflet-container .leaflet-interactive:focus,
+.leaflet-container .leaflet-interactive:focus-visible {
   outline: none !important;
+  box-shadow: none !important;
 }
 
-.leaflet-container .leaflet-overlay-pane svg:focus {
-  outline: none;
+.leaflet-container .leaflet-overlay-pane svg,
+.leaflet-container .leaflet-overlay-pane svg:focus,
+.leaflet-container .leaflet-overlay-pane svg:focus-visible,
+.leaflet-container .leaflet-overlay-pane path:focus,
+.leaflet-container .leaflet-overlay-pane path:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .map-feature-popup {
@@ -220,6 +356,14 @@
 .map-vertex-handle-icon {
   background: transparent !important;
   border: none !important;
+}
+
+.map-vertex-handle-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
 }
 
 .map-vertex-handle {

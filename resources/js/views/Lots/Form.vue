@@ -106,11 +106,16 @@
           </span>
         </div>
 
-        <div ref="mapSectionRef" class="map-fullscreen-section space-y-4">
+        <div
+          ref="mapSectionRef"
+          class="map-fullscreen-section space-y-4"
+          :class="{ 'map-fullscreen-section--overlay': isMapFullscreen }"
+        >
           <div
             ref="mapContainer"
             class="map-fullscreen-canvas w-full overflow-hidden rounded-lg border border-slate-300"
-            style="height: 380px"
+            :class="{ '!h-full min-h-0': isMapFullscreen }"
+            :style="isMapFullscreen ? null : { height: '380px' }"
           />
 
           <div class="map-fullscreen-toolbar flex flex-wrap gap-2">
