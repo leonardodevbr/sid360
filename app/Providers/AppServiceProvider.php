@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Models\Sale;
+use App\Models\User;
 use App\Observers\SaleObserver;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -27,12 +28,11 @@ class AppServiceProvider extends ServiceProvider
         Sale::observe(SaleObserver::class);
 
         Gate::before(function ($user, $ability) {
-            // Super-admin sempre tem acesso a tudo, independente de cache ou permissões no banco
-            if ($user && method_exists($user, 'hasRole') && $user->hasRole('super-admin')) {
+            if ($user instanceof User && $user->isSuperAdmin()) {
                 return true;
             }
 
-            return null; // deixa o Gate seguir com as permissões do Spatie para os demais
+            return null;
         });
     }
 }

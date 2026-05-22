@@ -22,10 +22,11 @@ class UserSeeder extends Seeder
             ]
         );
 
-        if (! $superAdmin->hasRole('super-admin')) {
-            $superAdminRole = Role::firstOrCreate(['name' => 'super-admin']);
-            $superAdmin->assignRole($superAdminRole);
-        }
+        $superAdminRole = Role::firstOrCreate([
+            'name' => 'super-admin',
+            'guard_name' => 'web',
+        ]);
+        $superAdmin->syncRoles([$superAdminRole]);
 
         $this->command->info('Usuário admin@sid360.com.br criado (senha: 123$qweR---).');
     }

@@ -15,7 +15,7 @@ class SettingController extends Controller
     {
         $user = auth()->user();
         
-        if (!$user || !$user->hasRole('super-admin')) {
+        if (! $user || ! $user->isSuperAdmin()) {
             abort(403, 'Apenas super-administradores podem acessar as configurações do sistema.');
         }
     }

@@ -27,7 +27,7 @@ class UserResource extends JsonResource
             'role' => $role,
             'roles' => $this->getRoleNames()->values()->all(),
             'permissions' => $this->getAllPermissions()->pluck('name')->values()->all(),
-            'is_super_admin' => $this->hasRole('super-admin'),
+            'is_super_admin' => $this->isSuperAdmin(),
         ];
     }
 }

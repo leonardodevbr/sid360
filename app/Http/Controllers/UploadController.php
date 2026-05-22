@@ -20,7 +20,7 @@ class UploadController extends Controller
     public function logo(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (! $user || ! $user->hasRole(['super-admin', 'admin'])) {
+        if (! $user || (! $user->isSuperAdmin() && ! $user->hasRole('admin'))) {
             abort(403, 'Sem permissão para enviar logo.');
         }
 

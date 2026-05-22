@@ -45,4 +45,15 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function isSuperAdmin(): bool
+    {
+        if ($this->relationLoaded('roles')) {
+            return $this->roles->contains(
+                fn ($role) => $role->name === 'super-admin',
+            );
+        }
+
+        return $this->roles()->where('name', 'super-admin')->exists();
+    }
 }
