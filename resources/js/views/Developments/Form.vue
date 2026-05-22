@@ -189,9 +189,18 @@
                   v-if="form.coordinates?.length && !drawingMode"
                   type="button"
                   class="flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-                  @click="clearPerimeter"
+                  @click="confirmClearPerimeter"
                 >
                   Limpar perímetro
+                </button>
+                <button
+                  v-if="clearedPerimeterSnapshot && !drawingMode"
+                  type="button"
+                  class="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50"
+                  @click="undoClearPerimeter"
+                >
+                  <ArrowUturnLeftIcon class="h-3.5 w-3.5" />
+                  Desfazer
                 </button>
                 <button
                   v-if="drawingMode && perimeterPoints.length"
@@ -214,7 +223,7 @@
                 <button
                   v-if="drawingMode"
                   type="button"
-                  class="flex items-center gap-1.5 rounded-lg border border-[#c9a84c] bg-[#c9a84c] px-3 py-1.5 text-xs font-semibold text-[#1a3a28] hover:bg-[#e8c96a] disabled:cursor-not-allowed disabled:opacity-50"
+                  class="map-toolbar-btn map-toolbar-btn--save flex items-center gap-1.5 rounded-lg px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
                   :disabled="!canSaveDrawing"
                   @click="finishDrawing"
                 >
@@ -772,6 +781,9 @@ function buildZonePopupHtml(zone) {
         <button type="button" class="map-feature-popup-btn" data-map-edit>
           Editar demarcação
         </button>
+        <button type="button" class="map-feature-popup-btn map-feature-popup-btn--danger" data-map-clear>
+          Limpar demarcação
+        </button>
       </div>
     </div>
   `;
@@ -782,7 +794,7 @@ function buildPerimeterPopupHtml() {
     <div class="map-feature-popup">
       <p class="map-feature-popup-title">Perímetro do empreendimento</p>
       <p class="map-feature-popup-meta">Limite geral do empreendimento no mapa</p>
-      <div class="map-feature-popup-actions map-feature-popup-actions--stacked">
+      <div class="map-feature-popup-actions">
         <button type="button" class="map-feature-popup-btn" data-map-edit>
           Editar demarcação
         </button>
@@ -803,6 +815,12 @@ function resetMapFeatureLayerInteraction(layer) {
     layer._path.style.pointerEvents = '';
     layer._path.style.removeProperty('pointer-events');
   }
+}
+
+function bringZoneLayersToFront() {
+  Object.values(zoneLayers).forEach((layer) => {
+    layer.bringToFront?.();
+  });
 }
 
 function getDevelopmentPerimeter() {
@@ -1085,8 +1103,10 @@ function finishDrawing() {
   setMapOverlaysPointerEvents(true);
 
   if (mode === 'perimeter') {
+    clearedPerimeterSnapshot.value = null;
     form.value.coordinates = savedCoords;
     drawPerimeterOnMap(form.value.coordinates);
+    drawZonesOnMap();
     return;
   }
 
@@ -1133,10 +1153,11 @@ function drawPerimeterOnMap(coords) {
     buildPerimeterPopupHtml(),
     {
       onEdit: () => startDrawPerimeter(),
-      onClear: () => clearPerimeter(),
+      onClear: () => confirmClearPerimeter(),
     },
   );
 
+  bringZoneLayersToFront();
   map.fitBounds(perimeterLayer.getBounds(), { padding: [20, 20] });
 }
 
@@ -1165,11 +1186,16 @@ function drawZonesOnMap() {
     bindMapFeaturePopup(
       layer,
       buildZonePopupHtml(zone),
-      { onEdit: () => startDrawZone(zone) },
+      {
+        onEdit: () => startDrawZone(zone),
+        onClear: () => confirmClearZone(zone),
+      },
     );
 
     zoneLayers[zone.id] = layer;
   });
+
+  bringZoneLayersToFront();
 }
 
 function startDrawPerimeter() {
@@ -1253,10 +1279,12 @@ function cancelDrawing() {
   drawingZone.value = null;
   showZoneMapPicker.value = false;
   setMapOverlaysPointerEvents(true);
-  drawZonesOnMap();
+
   if (form.value.coordinates?.length) {
     drawPerimeterOnMap(form.value.coordinates);
   }
+
+  drawZonesOnMap();
 }
 
 function goToMyLocation() {
@@ -1297,12 +1325,40 @@ function goToMyLocation() {
   );
 }
 
-function clearPerimeter() {
+const clearedPerimeterSnapshot = ref(null);
+
+async function confirmClearPerimeter() {
+  const ok = await confirm(
+    'Limpar perímetro',
+    'O desenho do perímetro será removido do mapa. Você poderá desfazer esta ação em seguida.',
+    'Sim, limpar',
+  );
+  if (!ok) return;
+
+  applyClearPerimeter();
+}
+
+function applyClearPerimeter() {
+  const coords = form.value.coordinates;
+  if (Array.isArray(coords) && coords.length >= 3) {
+    clearedPerimeterSnapshot.value = coords.map((point) => [Number(point[0]), Number(point[1])]);
+  }
+
   form.value.coordinates = null;
   if (perimeterLayer) {
     map?.removeLayer(perimeterLayer);
     perimeterLayer = null;
   }
+}
+
+function undoClearPerimeter() {
+  const snapshot = clearedPerimeterSnapshot.value;
+  if (!Array.isArray(snapshot) || snapshot.length < 3) return;
+
+  form.value.coordinates = snapshot.map((point) => [Number(point[0]), Number(point[1])]);
+  clearedPerimeterSnapshot.value = null;
+  drawPerimeterOnMap(form.value.coordinates);
+  toast.info('Perímetro restaurado.');
 }
 
 async function saveZoneCoordinates(zone, coords) {
@@ -1326,6 +1382,30 @@ async function saveZoneCoordinates(zone, coords) {
   }
 }
 
+async function confirmClearZone(zone) {
+  const ok = await confirm(
+    'Limpar demarcação',
+    `A área demarcada de "${zone.name}" será removida do mapa.`,
+    'Sim, limpar',
+  );
+  if (!ok) return;
+
+  try {
+    await api.put(`/developments/${route.params.id}/zones/${zone.id}`, {
+      name: zone.name,
+      type: zone.type,
+      color: zone.color,
+      order: zone.order,
+      coordinates: null,
+    });
+    toast.success('Demarcação da zona removida.');
+    await loadZones();
+    drawZonesOnMap();
+  } catch {
+    toast.error('Erro ao limpar demarcação da zona.');
+  }
+}
+
 const zones = ref([]);
 const showZoneForm = ref(false);
 const showZoneMapPicker = ref(false);
@@ -1334,13 +1414,25 @@ const editingZone = ref(null);
 
 const zoneColors = [
   '#3B82F6',
-  '#10B981',
-  '#F59E0B',
-  '#EF4444',
-  '#8B5CF6',
-  '#EC4899',
+  '#0EA5E9',
   '#06B6D4',
+  '#14B8A6',
+  '#10B981',
+  '#059669',
   '#84CC16',
+  '#65A30D',
+  '#EAB308',
+  '#F59E0B',
+  '#F97316',
+  '#EF4444',
+  '#F43F5E',
+  '#EC4899',
+  '#D946EF',
+  '#A855F7',
+  '#8B5CF6',
+  '#6366F1',
+  '#64748B',
+  '#78716C',
 ];
 
 const zoneTypeOptions = [
