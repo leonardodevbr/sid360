@@ -260,14 +260,14 @@
                   v-if="drawingMode === 'perimeter'"
                   class="self-center text-xs font-medium text-blue-600"
                 >
-                  Clique no mapa para adicionar pontos. Com 3+ pontos, clique no primeiro vértice para fechar e salvar
+                  Clique no mapa para adicionar pontos. Duplo clique na bolinha remove um ponto. Com 3+ pontos, clique no primeiro vértice para fechar e salvar
                   {{ perimeterPoints.length ? ` (${perimeterPoints.length} pontos)` : '' }}
                 </span>
                 <span
                   v-else-if="drawingMode === 'zone'"
                   class="self-center text-xs font-medium text-emerald-600"
                 >
-                  Editando {{ drawingZone?.name }} — arraste os vértices ou feche clicando no primeiro ponto
+                  Editando {{ drawingZone?.name }} — arraste os vértices, duplo clique remove um ponto ou feche clicando no primeiro
                   {{ startedFromExistingPolygon ? ' · use Salvar demarcação após ajustes' : '' }}
                   {{ perimeterPoints.length ? ` (${perimeterPoints.length} pontos)` : '' }}
                 </span>
@@ -275,7 +275,8 @@
                   v-else-if="drawingMode === 'street'"
                   class="self-center text-xs font-medium text-slate-600"
                 >
-                  Traçando {{ drawingStreet?.name }} — marque os pontos e feche clicando no primeiro vértice
+                  Traçando {{ drawingStreet?.name }} — polígono fechado com no mínimo 4 pontos. Duplo clique remove um ponto
+                  {{ streetDrawingHint ? ` · ${streetDrawingHint}` : '' }}
                   {{ startedFromExistingPolygon ? ' · use Salvar traçado após ajustes' : '' }}
                   {{ perimeterPoints.length ? ` (${perimeterPoints.length} pontos)` : '' }}
                 </span>
@@ -438,8 +439,11 @@
               <p class="text-sm font-medium text-slate-800">{{ street.name }}</p>
               <p class="text-xs text-slate-400">
                 Rua
-                <span v-if="street.coordinates?.length" class="text-emerald-600">
-                  · traçado definido ({{ street.coordinates.length }} pontos)
+                <span v-if="hasValidStreetPolygon(street.coordinates?.length ?? 0)" class="text-emerald-600">
+                  · área definida ({{ street.coordinates.length }} pontos)
+                </span>
+                <span v-else-if="street.coordinates?.length" class="text-amber-500">
+                  · traçado incompleto (mínimo 4 pontos)
                 </span>
                 <span v-else class="text-amber-500"> · sem traçado</span>
               </p>
@@ -747,6 +751,23 @@ const form = ref({
 
 const defaultPerimeterColor = '#1E5F8E';
 const defaultStreetColor = '#64748B';
+const STREET_MIN_POINTS = 4;
+
+function getMinimumPolygonPoints(mode) {
+  if (mode === 'street') {
+    return STREET_MIN_POINTS;
+  }
+
+  return 3;
+}
+
+function hasValidStreetPolygon(pointCount) {
+  return pointCount >= STREET_MIN_POINTS;
+}
+
+function getMinimumPointsToClose(mode) {
+  return getMinimumPolygonPoints(mode);
+}
 
 const mapContainer = ref(null);
 const mapSectionRef = ref(null);
@@ -769,6 +790,22 @@ const drawingStreet = ref(null);
 const locatingUser = ref(false);
 const mapReady = ref(false);
 const startedFromExistingPolygon = ref(false);
+let firstVertexCloseTimer = null;
+
+function clearFirstVertexCloseTimer() {
+  if (firstVertexCloseTimer) {
+    clearTimeout(firstVertexCloseTimer);
+    firstVertexCloseTimer = null;
+  }
+}
+
+function scheduleCloseOnFirstVertex() {
+  clearFirstVertexCloseTimer();
+  firstVertexCloseTimer = setTimeout(() => {
+    firstVertexCloseTimer = null;
+    finishDrawing({ closedExplicitly: true });
+  }, 250);
+}
 
 function syncMapContainerHeight() {
   if (!mapContainer.value || !mapSectionRef.value) return;
@@ -831,12 +868,36 @@ const zoneInvalidHint = computed(() => {
   return '';
 });
 
+const streetDrawingHint = computed(() => {
+  if (drawingMode.value !== 'street') {
+    return '';
+  }
+
+  const remaining = STREET_MIN_POINTS - perimeterPoints.value.length;
+
+  if (remaining > 0) {
+    return `faltam ${remaining} ponto(s) para atingir o mínimo de 4`;
+  }
+
+  if (!startedFromExistingPolygon.value) {
+    return 'clique no primeiro vértice para fechar e salvar';
+  }
+
+  return '';
+});
+
 const canSaveDrawing = computed(() => {
   if (!drawingMode.value || !startedFromExistingPolygon.value) {
     return false;
   }
 
-  if (perimeterPoints.value.length < 3) {
+  const minimumPoints = getMinimumPolygonPoints(drawingMode.value);
+
+  if (perimeterPoints.value.length < minimumPoints) {
+    return false;
+  }
+
+  if (drawingMode.value === 'street' && !hasValidStreetPolygon(perimeterPoints.value.length)) {
     return false;
   }
 
@@ -1051,7 +1112,7 @@ function buildStreetPopupHtml(street) {
   return `
     <div class="map-feature-popup">
       <p class="map-feature-popup-title">${escapeHtml(street.name)}</p>
-      <p class="map-feature-popup-meta">Rua · ${pointCount} ponto(s) no traçado</p>
+      <p class="map-feature-popup-meta">Rua · ${pointCount} ponto(s) demarcados</p>
       <div class="map-feature-popup-actions">
         <button type="button" class="map-feature-popup-btn" data-map-edit>
           Editar traçado
@@ -1347,18 +1408,16 @@ function addDrawingMarker(coord, color, index) {
 
   marker.on('click', (e) => {
     L.DomEvent.stopPropagation(e);
-    if (marker._vertexIndex === 0 && perimeterPoints.value.length >= 3) {
-      if (drawingMode.value === 'street') {
-        const first = perimeterPoints.value[0];
-        perimeterPoints.value.push([first[0], first[1]]);
-      }
-      finishDrawing({ closedExplicitly: true });
+    const minimumPoints = getMinimumPolygonPoints(drawingMode.value);
+    if (marker._vertexIndex === 0 && perimeterPoints.value.length >= minimumPoints) {
+      scheduleCloseOnFirstVertex();
     }
   });
 
   marker.on('dblclick', (e) => {
     L.DomEvent.stopPropagation(e);
     L.DomEvent.preventDefault(e);
+    clearFirstVertexCloseTimer();
     removeVertexAtIndex(marker._vertexIndex);
   });
 
@@ -1372,7 +1431,8 @@ function addDrawingMarker(coord, color, index) {
 function preloadDrawingPoints(coords, color) {
   clearTempLayers();
   perimeterPoints.value = coords.map((c) => [Number(c[0]), Number(c[1])]);
-  startedFromExistingPolygon.value = perimeterPoints.value.length >= 3;
+  const minimumPoints = getMinimumPolygonPoints(drawingMode.value);
+  startedFromExistingPolygon.value = perimeterPoints.value.length >= minimumPoints;
 
   perimeterPoints.value.forEach((coord, index) => addDrawingMarker(coord, color, index));
   refreshTempPolyline(perimeterPoints.value.length >= 3);
@@ -1391,7 +1451,8 @@ function removeVertexAtIndex(index) {
 
   perimeterPoints.value.splice(index, 1);
 
-  if (perimeterPoints.value.length < 3) {
+  const minimumPoints = getMinimumPolygonPoints(drawingMode.value);
+  if (perimeterPoints.value.length < minimumPoints) {
     startedFromExistingPolygon.value = false;
   }
 
@@ -1421,7 +1482,10 @@ function undoLastPoint() {
   if (!perimeterPoints.value.length) return;
 
   perimeterPoints.value.pop();
-  if (perimeterPoints.value.length < 3) {
+  const minimumPoints = drawingMode.value
+    ? getMinimumPolygonPoints(drawingMode.value)
+    : 3;
+  if (perimeterPoints.value.length < minimumPoints) {
     startedFromExistingPolygon.value = false;
   }
 
@@ -1444,6 +1508,7 @@ function onMapClick(e) {
   if (!drawingMode.value || !L) return;
 
   const { lat, lng } = e.latlng;
+  const minPointsToClose = getMinimumPointsToClose(drawingMode.value);
 
   perimeterPoints.value.push([lat, lng]);
 
@@ -1455,11 +1520,7 @@ function onMapClick(e) {
 
   addDrawingMarker([lat, lng], markerColor, perimeterPoints.value.length - 1);
 
-  if (perimeterPoints.value.length > 2 && isNearFirst(e.latlng)) {
-    if (drawingMode.value === 'street') {
-      const first = perimeterPoints.value[0];
-      perimeterPoints.value.push([first[0], first[1]]);
-    }
+  if (perimeterPoints.value.length >= minPointsToClose && isNearFirst(e.latlng)) {
     finishDrawing({ closedExplicitly: true });
     return;
   }
@@ -1489,10 +1550,10 @@ function refreshEdgeLabels() {
     return;
   }
 
-  const isPolygonDrawing = drawingMode.value !== 'street' && perimeterPoints.value.length >= 3;
+  const minPointsToClose = getMinimumPointsToClose(drawingMode.value);
+  const isPolygonDrawing = perimeterPoints.value.length >= 3 && drawingMode.value !== 'street';
   const includeClosingPreview = drawingMode.value === 'street'
-    ? perimeterPoints.value.length >= 3
-    : isPolygonDrawing;
+    && perimeterPoints.value.length >= minPointsToClose;
   const edges = getPolygonEdgesMeters(perimeterPoints.value, {
     closed: isPolygonDrawing,
     includeClosingPreview,
@@ -1532,41 +1593,11 @@ function refreshTempPolyline(closed = false, options = {}) {
     delete map._tempClosingLine;
   }
 
-  if (drawingMode.value === 'street') {
-    map._tempLine = L.polyline(perimeterPoints.value, {
-      color: getStreetColor(drawingStreet.value),
-      weight: 4,
-      opacity: 0.8,
-      interactive: false,
-    }).addTo(map);
-
-    if (perimeterPoints.value.length >= 3) {
-      const closingPoints = [
-        perimeterPoints.value[perimeterPoints.value.length - 1],
-        perimeterPoints.value[0],
-      ];
-      map._tempClosingLine = L.polyline(closingPoints, {
-        color: getStreetColor(drawingStreet.value),
-        weight: 4,
-        opacity: 0.45,
-        dashArray: '6 6',
-        interactive: false,
-      }).addTo(map);
-    }
-
-    if (livePreview) {
-      return;
-    }
-
-    refreshEdgeLabels();
-    refreshVertexMarkerStyles();
-    bringVertexMarkersToFront();
-    return;
-  }
-
   const lineColor = drawingMode.value === 'perimeter'
     ? getPerimeterColor()
-    : drawingZone.value?.color ?? '#10B981';
+    : drawingMode.value === 'street'
+      ? getStreetColor(drawingStreet.value)
+      : drawingZone.value?.color ?? '#10B981';
   const zoneInvalid = drawingMode.value === 'zone'
     && getDevelopmentPerimeter()
     && getInvalidPointsInsidePolygon(perimeterPoints.value, getDevelopmentPerimeter()).length > 0;
@@ -1574,16 +1605,18 @@ function refreshTempPolyline(closed = false, options = {}) {
 
   const layerOptions = {
     color: strokeColor,
-    weight: 2,
-    dashArray: '4',
+    weight: drawingMode.value === 'street' ? 2 : 2,
+    dashArray: drawingMode.value === 'street' ? undefined : '4',
     interactive: false,
   };
 
-  if (closed && perimeterPoints.value.length >= 3) {
+  const shouldRenderClosed = closed && perimeterPoints.value.length >= 3 && drawingMode.value !== 'street';
+
+  if (shouldRenderClosed) {
     map._tempLine = L.polygon(perimeterPoints.value, {
       ...layerOptions,
       fillColor: strokeColor,
-      fillOpacity: 0.12,
+      fillOpacity: drawingMode.value === 'street' ? 0.15 : 0.12,
     }).addTo(map);
   } else {
     map._tempLine = L.polyline(perimeterPoints.value, layerOptions).addTo(map);
@@ -1610,8 +1643,8 @@ async function finishDrawing({ closedExplicitly = false } = {}) {
     return;
   }
 
-  if (drawingMode.value === 'street' && perimeterPoints.value.length < 3) {
-    toast.warning('A rua precisa de pelo menos 3 pontos para fechar o traçado.');
+  if (drawingMode.value === 'street' && !hasValidStreetPolygon(perimeterPoints.value.length)) {
+    toast.warning('A rua precisa de no mínimo 4 pontos.');
     return;
   }
 
@@ -1834,6 +1867,7 @@ function openNewZoneFromMapPicker() {
 }
 
 function cancelDrawing() {
+  clearFirstVertexCloseTimer();
   clearTempLayers();
   resetMapCursor();
   perimeterPoints.value = [];
@@ -2094,13 +2128,15 @@ function drawStreetsOnMap() {
   streetLayersMap = {};
 
   streets.value.forEach((street) => {
-    if (!street.coordinates?.length || street.coordinates.length < 3) return;
+    if (!hasValidStreetPolygon(street.coordinates?.length ?? 0)) return;
 
-    const layer = L.polyline(street.coordinates, {
-      color: getStreetColor(street),
-      weight: 4,
-      opacity: 0.8,
-      className: 'map-lot-path',
+    const color = getStreetColor(street);
+    const layer = L.polygon(street.coordinates, {
+      color,
+      weight: 2,
+      fillColor: color,
+      fillOpacity: 0.15,
+      className: 'map-feature-polygon',
     })
       .bindTooltip(street.name, { sticky: true })
       .addTo(map);
@@ -2233,16 +2269,17 @@ function startDrawStreet(street) {
   drawingZone.value = null;
   showZoneMapPicker.value = false;
 
-  if (street.coordinates?.length >= 3) {
+  if (hasValidStreetPolygon(street.coordinates?.length ?? 0)) {
     if (streetLayersMap[street.id]) {
       map?.removeLayer(streetLayersMap[street.id]);
       delete streetLayersMap[street.id];
     }
     preloadDrawingPoints(street.coordinates, getStreetColor(street));
-    toast.info(`Traçado de "${street.name}" carregado. Arraste os pontos ou feche novamente para salvar.`);
+    toast.info(`Área de "${street.name}" carregada. Arraste os vértices ou feche novamente para salvar.`);
   } else {
     perimeterPoints.value = [];
     startedFromExistingPolygon.value = false;
+    toast.info(`Marque no mínimo 4 pontos para demarcar "${street.name}".`);
   }
 
   map?.getContainer()?.style.setProperty('cursor', 'crosshair');

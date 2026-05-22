@@ -60,6 +60,22 @@ export function useMapDrawing(options) {
   const gpsAccuracy = ref(null);
   const visibleZoneNameTypes = ref([]);
   const startedFromExistingPolygon = ref(false);
+  let firstVertexCloseTimer = null;
+
+  function clearFirstVertexCloseTimer() {
+    if (firstVertexCloseTimer) {
+      clearTimeout(firstVertexCloseTimer);
+      firstVertexCloseTimer = null;
+    }
+  }
+
+  function scheduleCloseOnFirstVertex() {
+    clearFirstVertexCloseTimer();
+    firstVertexCloseTimer = setTimeout(() => {
+      firstVertexCloseTimer = null;
+      finishDrawing({ closedExplicitly: true });
+    }, 250);
+  }
 
   const isLotMode = computed(() => mode === 'lot');
   const hasMappedZones = computed(() =>
@@ -340,13 +356,14 @@ export function useMapDrawing(options) {
     marker.on('click', (event) => {
       L.DomEvent.stopPropagation(event);
       if (marker._vertexIndex === 0 && drawingPoints.value.length > 2) {
-        finishDrawing({ closedExplicitly: true });
+        scheduleCloseOnFirstVertex();
       }
     });
 
     marker.on('dblclick', (event) => {
       L.DomEvent.stopPropagation(event);
       L.DomEvent.preventDefault(event);
+      clearFirstVertexCloseTimer();
       removeVertexAtIndex(marker._vertexIndex);
     });
 
@@ -673,6 +690,7 @@ export function useMapDrawing(options) {
   }
 
   function cancelDrawing() {
+    clearFirstVertexCloseTimer();
     clearTempLayers();
     resetMapCursor();
     drawingPoints.value = [];

@@ -32,7 +32,7 @@ class DevelopmentStreetController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'coordinates' => ['nullable', 'array'],
+            'coordinates' => ['nullable', 'array', 'min:4'],
             'order' => ['nullable', 'integer'],
         ]);
 
@@ -52,7 +52,7 @@ class DevelopmentStreetController extends Controller
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:100'],
             'color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'coordinates' => ['nullable', 'array'],
+            'coordinates' => ['nullable', 'array', 'min:4'],
             'order' => ['nullable', 'integer'],
         ]);
 

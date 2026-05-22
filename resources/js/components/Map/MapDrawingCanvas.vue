@@ -316,7 +316,7 @@ onMounted(async () => {
             v-if="isDrawing"
             class="self-center text-xs font-medium text-blue-600"
           >
-            Clique no mapa para adicionar pontos. Com 3+ pontos, clique no primeiro vértice para fechar e salvar
+            Clique no mapa para adicionar pontos. Duplo clique na bolinha remove um ponto. Com 3+ pontos, clique no primeiro vértice para fechar e salvar
             {{ startedFromExistingPolygon ? ' · ou use Salvar demarcação após ajustes' : '' }}
           </span>
         </div>
