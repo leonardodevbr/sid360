@@ -70,6 +70,8 @@ export function useMapDrawing(options) {
   const gpsWalkPreviewEnabled = ref(false);
   let firstVertexCloseTimer = null;
   let mapFooterResizeObserver = null;
+  let mapLayoutRefreshTimer = null;
+  let lastMapContainerSizeKey = '';
   const cursorPreview = createCursorPreviewController();
   const gpsPreview = createGpsPreviewController();
   let gpsPreviewErrorNotified = false;
@@ -155,22 +157,57 @@ export function useMapDrawing(options) {
     showMapScrollZoomHint(map);
   }
 
-  function refreshMapLayout() {
-    syncMapContainerHeight();
-    refreshMapDisplay(map, mapLayersSetup ?? {});
-
-    if (map && drawingMode.value && !(map._vertexDragActiveCount > 0)) {
-      map.dragging.enable();
+  function ensureMapDraggingEnabled() {
+    if (!map || map._vertexDragActiveCount > 0) {
+      return;
     }
+
+    map.dragging.enable();
   }
 
-  function scheduleMapLayoutRefresh() {
-    if (!map) return;
+  function invalidateMapContainerSize() {
+    if (!map || !mapContainer.value) {
+      return false;
+    }
 
-    window.requestAnimationFrame(() => {
-      refreshMapLayout();
-      window.setTimeout(() => refreshMapLayout(), 150);
-    });
+    const { width, height } = mapContainer.value.getBoundingClientRect();
+    const sizeKey = `${Math.round(width)}x${Math.round(height)}`;
+
+    if (sizeKey === lastMapContainerSizeKey || width <= 0 || height <= 0) {
+      return false;
+    }
+
+    lastMapContainerSizeKey = sizeKey;
+    map.invalidateSize({ animate: false, pan: false, debounceMoveend: false });
+    ensureMapDraggingEnabled();
+    return true;
+  }
+
+  function refreshMapLayout({ forceFullRefresh = false } = {}) {
+    syncMapContainerHeight();
+
+    const sizeChanged = invalidateMapContainerSize();
+
+    if (forceFullRefresh || (!drawingMode.value && sizeChanged)) {
+      refreshMapDisplay(map, mapLayersSetup ?? {});
+    }
+
+    ensureMapDraggingEnabled();
+  }
+
+  function scheduleMapLayoutRefresh({ forceFullRefresh = false } = {}) {
+    if (!map) {
+      return;
+    }
+
+    if (mapLayoutRefreshTimer) {
+      window.clearTimeout(mapLayoutRefreshTimer);
+    }
+
+    mapLayoutRefreshTimer = window.setTimeout(() => {
+      mapLayoutRefreshTimer = null;
+      refreshMapLayout({ forceFullRefresh });
+    }, 120);
   }
 
   function bindMapFooterResizeObserver() {
@@ -299,6 +336,10 @@ export function useMapDrawing(options) {
   }
 
   function bindVertexMarkerDrag(marker) {
+    if (!canDragVertexMarkers()) {
+      return;
+    }
+
     const onMove = (moveEvent) => {
       L.DomEvent.preventDefault(moveEvent);
       marker._wasDragged = true;
@@ -390,20 +431,17 @@ export function useMapDrawing(options) {
     handle.classList.toggle('map-vertex-handle--close-target', isFirstVertexClosable(marker));
     handle.classList.toggle('map-vertex-handle--draw-only', !canDragVertexMarkers());
     handle.style.setProperty('--vertex-color', color);
+
+    const iconElement = marker.getElement?.();
+    if (iconElement) {
+      const interactive = canDragVertexMarkers() || isFirstVertexClosable(marker);
+      iconElement.classList.toggle('map-vertex-handle-icon--interactive', interactive);
+      iconElement.style.pointerEvents = interactive ? 'auto' : 'none';
+    }
   }
 
   function refreshVertexMarkerStyles() {
-    if (!L) return;
-
-    const baseColor = getDrawingBaseColor();
-    tempMarkers.forEach((marker, index) => {
-      const coord = drawingPoints.value[index];
-      if (!coord) return;
-
-      const invalid = isVertexInvalid(coord);
-      const color = invalid ? '#DC2626' : baseColor;
-      marker.setIcon(buildVertexIcon(color, invalid, getVertexIconOptions(marker)));
-    });
+    tempMarkers.forEach((marker) => updateVertexHandleStyle(marker));
   }
 
   function bringVertexMarkersToFront() {
@@ -423,6 +461,7 @@ export function useMapDrawing(options) {
 
     marker._vertexIndex = index;
     marker.setIcon(buildVertexIcon(markerColor, invalid, getVertexIconOptions(marker)));
+    updateVertexHandleStyle(marker);
     bindVertexMarkerDrag(marker);
 
     marker.on('click', (event) => {
@@ -936,14 +975,9 @@ export function useMapDrawing(options) {
     drawingPoints.value.push([lat, lng]);
     addDrawingMarker([lat, lng], getDrawingBaseColor(), drawingPoints.value.length - 1);
 
-    if (drawingPoints.value.length > 2 && isNearFirst(event.latlng)) {
-      finishDrawing({ closedExplicitly: true });
-      return;
-    }
-
     refreshTempPolyline(false);
     syncDrawingCursorPreview();
-    scheduleMapLayoutRefresh();
+    ensureMapDraggingEnabled();
 
     const boundary = getBoundary();
     if (boundary && !isPointInsideOrOnPolygon([lat, lng], boundary)) {
@@ -978,7 +1012,7 @@ export function useMapDrawing(options) {
 
     map?.getContainer()?.style.setProperty('cursor', 'crosshair');
     syncDrawingCursorPreview();
-    scheduleMapLayoutRefresh();
+    ensureMapDraggingEnabled();
   }
 
   function cancelDrawing() {
@@ -1070,7 +1104,7 @@ export function useMapDrawing(options) {
     }
 
     syncDrawingCursorPreview();
-    scheduleMapLayoutRefresh();
+    ensureMapDraggingEnabled();
     toast.info('Ponto removido.');
   }
 
@@ -1097,7 +1131,7 @@ export function useMapDrawing(options) {
     }
 
     syncDrawingCursorPreview();
-    scheduleMapLayoutRefresh();
+    ensureMapDraggingEnabled();
   }
 
   function clearSavedFeature() {
@@ -1143,7 +1177,7 @@ export function useMapDrawing(options) {
           addDrawingMarker(coords, getDrawingBaseColor(), drawingPoints.value.length - 1);
           refreshTempPolyline(false);
           syncDrawingCursorPreview();
-          scheduleMapLayoutRefresh();
+          ensureMapDraggingEnabled();
         }
 
         map?.setView(coords, Math.max(map.getZoom(), 18));
@@ -1243,7 +1277,8 @@ export function useMapDrawing(options) {
     }
 
     refreshContextLayers({ fit: true });
-    map.invalidateSize();
+    lastMapContainerSizeKey = '';
+    refreshMapLayout({ forceFullRefresh: true });
     bindMapFooterResizeObserver();
     mapReady.value = true;
   }
@@ -1257,6 +1292,12 @@ export function useMapDrawing(options) {
     mapFooterResizeObserver?.disconnect();
     mapFooterResizeObserver = null;
 
+    if (mapLayoutRefreshTimer) {
+      window.clearTimeout(mapLayoutRefreshTimer);
+      mapLayoutRefreshTimer = null;
+    }
+
+    lastMapContainerSizeKey = '';
     map?.remove();
     map = null;
     L = null;
@@ -1278,7 +1319,7 @@ export function useMapDrawing(options) {
       coordinates?.value,
     ],
     () => {
-      if (!map || !L) return;
+      if (!map || !L || drawingMode.value) return;
       refreshContextLayers();
     },
     { deep: true },
@@ -1332,12 +1373,6 @@ export function useMapDrawing(options) {
     } else if (active) {
       fullscreenResizeHandler = () => refreshMapLayout();
       window.addEventListener('resize', fullscreenResizeHandler);
-    }
-  });
-
-  watch(canSaveDrawing, () => {
-    if (drawingMode.value) {
-      scheduleMapLayoutRefresh();
     }
   });
 

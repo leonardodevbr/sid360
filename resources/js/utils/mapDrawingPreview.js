@@ -107,14 +107,8 @@ export function createCursorPreviewController() {
     lineLayer.bringToFront?.();
   }
 
-  function bind(nextMap, nextL, nextConfig = {}) {
-    unbind();
-
-    map = nextMap;
-    L = nextL;
-    config = nextConfig;
-
-    if (!map || !L) {
+  function attachMoveListeners() {
+    if (!map || onMove) {
       return;
     }
 
@@ -134,6 +128,29 @@ export function createCursorPreviewController() {
     map.on('mousemove', onMove);
     map.on('touchmove', onMove);
     map.on('mouseleave', onLeave);
+  }
+
+  function configure(nextConfig = {}) {
+    config = nextConfig;
+  }
+
+  function bind(nextMap, nextL, nextConfig = {}) {
+    if (map === nextMap && L === nextL && onMove) {
+      configure(nextConfig);
+      return;
+    }
+
+    unbind();
+
+    map = nextMap;
+    L = nextL;
+    config = nextConfig;
+
+    if (!map || !L) {
+      return;
+    }
+
+    attachMoveListeners();
   }
 
   function unbind() {
@@ -156,6 +173,7 @@ export function createCursorPreviewController() {
 
   return {
     bind,
+    configure,
     unbind,
     clear,
     update,

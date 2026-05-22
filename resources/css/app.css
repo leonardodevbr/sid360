@@ -537,6 +537,14 @@
   border: none !important;
 }
 
+.leaflet-marker-icon.map-vertex-handle-icon {
+  pointer-events: none !important;
+}
+
+.leaflet-marker-icon.map-vertex-handle-icon.map-vertex-handle-icon--interactive {
+  pointer-events: auto !important;
+}
+
 .map-vertex-handle-wrap {
   display: flex;
   align-items: center;
