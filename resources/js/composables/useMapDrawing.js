@@ -878,13 +878,18 @@ export function useMapDrawing(options) {
         fillOpacity: 0.35,
         interactive: false,
         className: 'map-lot-context-path',
-      })
-        .bindTooltip(buildLotMapLabel(lot), {
-          sticky: true,
+      }).addTo(map);
+
+      const label = buildLotMapLabel(lot);
+      if (label) {
+        layer.bindTooltip(label, {
+          permanent: true,
           direction: 'center',
           className: 'map-lot-context-label',
-        })
-        .addTo(map);
+          opacity: 1,
+        });
+        layer.openTooltip();
+      }
 
       configureMapPathLayer(layer);
       contextLotLayerMap[String(lot.id)] = layer;
@@ -1070,7 +1075,7 @@ export function useMapDrawing(options) {
       return false;
     }
 
-    const padding = mode === 'lot' ? [24, 24] : [30, 30];
+    const padding = mode === 'lot' ? [48, 48] : [30, 30];
     if (!fitMapToPolygonCoords(savedCoords, padding)) {
       return false;
     }
@@ -1078,6 +1083,23 @@ export function useMapDrawing(options) {
     didFitToSavedFeature = true;
     didInitialFit = true;
     return true;
+  }
+
+  function refitActiveLotView({ force = true } = {}) {
+    if (!map || !L || drawingMode.value || mode !== 'lot' || !hasSavedFeatureCoordinates()) {
+      return false;
+    }
+
+    map.invalidateSize({ animate: false });
+    return fitMapToSavedFeature({ force });
+  }
+
+  function scheduleActiveLotViewRefit({ force = true } = {}) {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        refitActiveLotView({ force });
+      });
+    });
   }
 
   function applyInitialMapView() {
@@ -1208,6 +1230,10 @@ export function useMapDrawing(options) {
     setMapOverlaysPointerEvents(true);
     restoreMapInteractionAfterDrawing();
     refreshContextLayers();
+
+    if (mode === 'lot' && hasSavedFeatureCoordinates()) {
+      scheduleActiveLotViewRefit({ force: true });
+    }
   }
 
   function finishDrawing({ closedExplicitly = false } = {}) {
@@ -1259,6 +1285,10 @@ export function useMapDrawing(options) {
 
     isFinishing = false;
     scheduleMapLayoutRefresh();
+
+    if (mode === 'lot' && hasSavedFeatureCoordinates()) {
+      scheduleActiveLotViewRefit({ force: true });
+    }
 
     if (onDemarcationSaved) {
       onDemarcationSaved(savedCoords);
@@ -1484,10 +1514,17 @@ export function useMapDrawing(options) {
       });
     }
 
-    refreshContextLayers({ fit: true });
+    refreshContextLayers({ fit: false });
     lastMapContainerSizeKey = '';
     refreshMapLayout({ forceFullRefresh: true });
     bindMapFooterResizeObserver();
+
+    if (mode === 'lot' && hasSavedFeatureCoordinates()) {
+      scheduleActiveLotViewRefit({ force: true });
+    } else {
+      applyInitialMapView();
+    }
+
     mapReady.value = true;
   }
 
@@ -1581,7 +1618,11 @@ export function useMapDrawing(options) {
         && (previousSaved?.length ?? 0) < 3;
 
       if (gainedSavedFeature || (!didFitToSavedFeature && (nextSaved?.length ?? 0) >= 3)) {
-        fitMapToSavedFeature({ force: gainedSavedFeature });
+        if (mode === 'lot') {
+          scheduleActiveLotViewRefit({ force: gainedSavedFeature || !didFitToSavedFeature });
+        } else {
+          fitMapToSavedFeature({ force: gainedSavedFeature });
+        }
       }
     },
     { deep: true },
@@ -1596,7 +1637,11 @@ export function useMapDrawing(options) {
       drawSavedFeatureLayer();
 
       if (!didFitToSavedFeature && hasSavedFeatureCoordinates()) {
-        fitMapToSavedFeature({ force: true });
+        if (mode === 'lot') {
+          scheduleActiveLotViewRefit({ force: true });
+        } else {
+          fitMapToSavedFeature({ force: true });
+        }
       }
     },
     { deep: true },
@@ -1611,13 +1656,19 @@ export function useMapDrawing(options) {
     { deep: true },
   );
 
-  watch(isMapFullscreen, (active) => {
-    if (!active && fullscreenResizeHandler) {
+  watch(isMapFullscreen, () => {
+    if (!isMapFullscreen.value && fullscreenResizeHandler) {
       window.removeEventListener('resize', fullscreenResizeHandler);
       fullscreenResizeHandler = null;
-    } else if (active) {
+    } else if (isMapFullscreen.value) {
       fullscreenResizeHandler = () => refreshMapLayout();
       window.addEventListener('resize', fullscreenResizeHandler);
+    }
+
+    scheduleMapLayoutRefresh();
+
+    if (mode === 'lot' && hasSavedFeatureCoordinates() && !drawingMode.value) {
+      scheduleActiveLotViewRefit({ force: true });
     }
   });
 

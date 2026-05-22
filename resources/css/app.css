@@ -548,6 +548,14 @@
   font-weight: 600;
   color: #1a3a28;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  font-family: 'DM Sans', system-ui, sans-serif;
+  line-height: 1.2;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.leaflet-container .map-lot-context-label::before {
+  display: none;
 }
 
 .leaflet-container .map-lot-feature-label {
