@@ -14,6 +14,12 @@
     <meta name="apple-mobile-web-app-title" content="{{ config('app.name') }}" />
     <link rel="manifest" href="{{ asset('favicon/site.webmanifest') }}" />
 
+    <script>
+        window.__SID360_CONFIG__ = {
+            googleMapsApiKey: @json(config('site.loteamento.google_maps_api_key')),
+        };
+    </script>
+
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body>

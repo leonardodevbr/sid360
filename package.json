@@ -20,6 +20,7 @@
         "leaflet": "^1.9.4",
         "leaflet-draw": "^1.0.4",
         "leaflet-rotate": "^0.2.8",
+        "leaflet.gridlayer.googlemutant": "^0.16.0",
         "pinia": "^3.0.4",
         "pusher-js": "^8.4.0",
         "sweetalert2": "^11.26.17",

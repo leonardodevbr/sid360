@@ -3288,7 +3288,7 @@ footer {
       const script = document.createElement('script');
       script.src = 'https://maps.googleapis.com/maps/api/js?key=' +
         encodeURIComponent(GOOGLE_MAPS_API_KEY) +
-        '&callback=' + callbackName;
+        '&v=weekly&callback=' + callbackName;
       script.async = true;
       script.defer = true;
       script.onerror = function() {
@@ -3321,7 +3321,7 @@ footer {
     return googleMapsLibsPromise;
   }
 
-  function setupLotsMapBaseLayers(map) {
+  function setupLotsMapBaseLayers(map, googleReady) {
     if (lotsMapLayerControl) {
       map.removeControl(lotsMapLayerControl);
       lotsMapLayerControl = null;
@@ -3339,21 +3339,15 @@ footer {
     });
     baseLayers['Mapa'] = streetLayer;
 
-    if (typeof google !== 'undefined' && L.gridLayer && L.gridLayer.googleMutant) {
+    if (googleReady && typeof google !== 'undefined' && L.gridLayer && L.gridLayer.googleMutant) {
       lotsMapUsesGoogle = true;
       baseLayers['Satélite'] = L.gridLayer.googleMutant({
         type: 'satellite',
-        maxZoom: 21
+        maxZoom: 21,
+        maxNativeZoom: 21
       });
     } else {
       lotsMapUsesGoogle = false;
-      baseLayers['Satélite'] = L.tileLayer(
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        {
-          maxZoom: 19,
-          attribution: 'Tiles &copy; Esri'
-        }
-      );
     }
 
     streetLayer.addTo(map);
@@ -3363,8 +3357,8 @@ footer {
     lotsMapLayerControl.addTo(map);
   }
 
-  function addLotsMapBaseLayer(map) {
-    setupLotsMapBaseLayers(map);
+  function addLotsMapBaseLayer(map, googleReady) {
+    setupLotsMapBaseLayers(map, googleReady);
   }
 
   function normalizeLot(lot, index) {
@@ -3533,10 +3527,10 @@ footer {
         }).setView(lotsMapConfig.center, lotsMapConfig.zoom);
 
         configureModifierScrollZoom(lotsMapInstance);
-        addLotsMapBaseLayer(lotsMapInstance);
+        addLotsMapBaseLayer(lotsMapInstance, googleReady);
         lotsMapLayerGroup = L.featureGroup().addTo(lotsMapInstance);
       } else if (googleReady && !lotsMapUsesGoogle) {
-        addLotsMapBaseLayer(lotsMapInstance);
+        addLotsMapBaseLayer(lotsMapInstance, googleReady);
         lotsMapInstance.invalidateSize();
       }
 

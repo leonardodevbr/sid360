@@ -1,7 +1,9 @@
-const GOOGLE_MUTANT_SCRIPT_URL =
-  'https://cdn.jsdelivr.net/npm/leaflet.gridlayer.googlemutant@0.16.0/dist/Leaflet.GoogleMutant.js';
+import GoogleMutant from 'leaflet.gridlayer.googlemutant/src/Leaflet.GoogleMutant.mjs';
 
 const OPEN_STREET_MAP_MAX_ZOOM = 19;
+
+let googleMutantRegistered = false;
+let googleMapsLoadPromise = null;
 
 /**
  * Converts a DOM or Leaflet mouse/touch event to map coordinates.
@@ -44,10 +46,18 @@ export function eventToMapLatLng(map, event) {
   return null;
 }
 
-let googleMutantPromise = null;
-
 function getGoogleMapsApiKey() {
-  return import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+  const viteKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+
+  if (viteKey) {
+    return viteKey;
+  }
+
+  if (typeof window !== 'undefined' && window.__SID360_CONFIG__?.googleMapsApiKey) {
+    return window.__SID360_CONFIG__.googleMapsApiKey;
+  }
+
+  return '';
 }
 
 function loadScript(src) {
@@ -76,12 +86,15 @@ function loadScript(src) {
 }
 
 function loadGoogleMapsApi(apiKey) {
-  return new Promise((resolve, reject) => {
-    if (typeof google !== 'undefined' && google.maps) {
-      resolve();
-      return;
-    }
+  if (typeof google !== 'undefined' && google.maps) {
+    return Promise.resolve();
+  }
 
+  if (googleMapsLoadPromise) {
+    return googleMapsLoadPromise;
+  }
+
+  googleMapsLoadPromise = new Promise((resolve, reject) => {
     const callbackName = '__sid360GoogleMapsInit';
     window[callbackName] = () => {
       delete window[callbackName];
@@ -90,15 +103,37 @@ function loadGoogleMapsApi(apiKey) {
 
     const script = document.createElement('script');
     script.src =
-      `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&callback=${callbackName}`;
+      `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&callback=${callbackName}`;
     script.async = true;
     script.defer = true;
     script.onerror = () => {
       delete window[callbackName];
+      googleMapsLoadPromise = null;
       reject(new Error('Google Maps API failed to load'));
     };
     document.head.appendChild(script);
   });
+
+  return googleMapsLoadPromise;
+}
+
+/**
+ * @param {typeof import('leaflet')} leaflet
+ */
+function registerGoogleMutant(leaflet) {
+  const L = leaflet.default ?? leaflet;
+
+  if (googleMutantRegistered && L.gridLayer?.googleMutant) {
+    return true;
+  }
+
+  L.GridLayer.GoogleMutant = GoogleMutant;
+  L.gridLayer.googleMutant = function googleMutant(options) {
+    return new GoogleMutant(options);
+  };
+
+  googleMutantRegistered = true;
+  return true;
 }
 
 /**
@@ -108,23 +143,31 @@ async function ensureGoogleMutant(leaflet) {
   const L = leaflet.default ?? leaflet;
   const apiKey = getGoogleMapsApiKey();
 
-  if (!apiKey) return false;
-  if (L.gridLayer?.googleMutant) return true;
-
-  if (!googleMutantPromise) {
-    googleMutantPromise = loadGoogleMapsApi(apiKey)
-      .then(() => loadScript(GOOGLE_MUTANT_SCRIPT_URL))
-      .then(() => Boolean(L.gridLayer?.googleMutant))
-      .catch(() => false);
+  if (!apiKey) {
+    return false;
   }
 
-  return googleMutantPromise;
+  try {
+    await loadGoogleMapsApi(apiKey);
+    registerGoogleMutant(leaflet);
+    return Boolean(L.gridLayer?.googleMutant);
+  } catch {
+    return false;
+  }
+}
+
+function createGoogleSatelliteLayer(L) {
+  return L.gridLayer.googleMutant({
+    type: 'satellite',
+    maxZoom: 21,
+    maxNativeZoom: 21,
+  });
 }
 
 /**
  * @param {import('leaflet').Map} map
  * @param {typeof import('leaflet')} leaflet
- * @param {{ maxZoom?: number, position?: 'topleft' | 'topright' | 'bottomleft' | 'bottomright', collapsed?: boolean }} [options]
+ * @param {{ maxZoom?: number, streetMaxZoom?: number, position?: 'topleft' | 'topright' | 'bottomleft' | 'bottomright', collapsed?: boolean }} [options]
  */
 export async function setupMapBaseLayers(map, leaflet, options = {}) {
   const L = leaflet.default ?? leaflet;
@@ -147,21 +190,10 @@ export async function setupMapBaseLayers(map, leaflet, options = {}) {
 
   streetLayer.addTo(map);
 
-  const hasGoogleMutant = await ensureGoogleMutant(leaflet);
+  const hasGoogleSatellite = await ensureGoogleMutant(leaflet);
 
-  if (hasGoogleMutant && L.gridLayer?.googleMutant) {
-    baseLayers.Satélite = L.gridLayer.googleMutant({
-      type: 'satellite',
-      maxZoom: 21,
-    });
-  } else {
-    baseLayers.Satélite = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      {
-        attribution: 'Tiles © Esri',
-        maxZoom: 19,
-      },
-    );
+  if (hasGoogleSatellite) {
+    baseLayers.Satélite = createGoogleSatelliteLayer(L);
   }
 
   const layerControl = L.control.layers(baseLayers, null, {
@@ -177,7 +209,7 @@ export async function setupMapBaseLayers(map, leaflet, options = {}) {
     streetLayer,
     baseLayers,
     layerControl,
-    usesGoogleSatellite: hasGoogleMutant,
+    usesGoogleSatellite: hasGoogleSatellite,
   };
 }
 

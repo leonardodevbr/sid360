@@ -36,6 +36,8 @@ jobs:
         run: npm ci
 
       - name: Build frontend (Vue)
+        env:
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
         run: npm run build
 
       - name: Remover node_modules
