@@ -136,6 +136,15 @@ export function hasGoogleMapsApiKey() {
   return Boolean(getGoogleMapsApiKey());
 }
 
+function getScrollZoomHintLabel() {
+  const isMac =
+    typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  return isMac
+    ? 'Pressione ⌘ + scroll para alterar o zoom'
+    : 'Pressione Ctrl + scroll para alterar o zoom';
+}
+
 /**
  * Zoom with scroll wheel only when Ctrl (Windows/Linux) or Cmd (Mac) is held.
  * @param {import('leaflet').Map} map
@@ -149,19 +158,46 @@ export function configureModifierScrollZoom(map) {
   map.scrollWheelZoom.disable();
 
   const container = map.getContainer();
+  let hideHintTimer = null;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'map-scroll-zoom-hint';
+  overlay.innerHTML = `<span>${getScrollZoomHintLabel()}</span>`;
+  container.appendChild(overlay);
+
+  const hideHint = () => {
+    if (hideHintTimer) {
+      window.clearTimeout(hideHintTimer);
+      hideHintTimer = null;
+    }
+    overlay.classList.remove('is-visible');
+  };
+
+  const showHint = () => {
+    overlay.classList.add('is-visible');
+    if (hideHintTimer) {
+      window.clearTimeout(hideHintTimer);
+    }
+    hideHintTimer = window.setTimeout(hideHint, 1800);
+  };
 
   const onWheel = (event) => {
     if (event.ctrlKey || event.metaKey) {
+      hideHint();
       if (!map.scrollWheelZoom.enabled()) {
         map.scrollWheelZoom.enable();
       }
       event.preventDefault();
-    } else if (map.scrollWheelZoom.enabled()) {
-      map.scrollWheelZoom.disable();
+    } else {
+      if (map.scrollWheelZoom.enabled()) {
+        map.scrollWheelZoom.disable();
+      }
+      showHint();
     }
   };
 
   const onMouseLeave = () => {
+    hideHint();
     map.scrollWheelZoom.disable();
   };
 
@@ -171,6 +207,8 @@ export function configureModifierScrollZoom(map) {
   return () => {
     container.removeEventListener('wheel', onWheel, { capture: true });
     container.removeEventListener('mouseleave', onMouseLeave);
+    hideHint();
+    overlay.remove();
     map.scrollWheelZoom.disable();
   };
 }

@@ -1555,6 +1555,39 @@ body.nav-menu-open {
   outline: none;
 }
 
+.lots-map-canvas .map-scroll-zoom-hint,
+.leaflet-container .map-scroll-zoom-hint {
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.4);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.lots-map-canvas .map-scroll-zoom-hint.is-visible,
+.leaflet-container .map-scroll-zoom-hint.is-visible {
+  opacity: 1;
+}
+
+.lots-map-canvas .map-scroll-zoom-hint span,
+.leaflet-container .map-scroll-zoom-hint span {
+  max-width: calc(100% - 2rem);
+  border-radius: 0.5rem;
+  background: rgba(15, 23, 42, 0.88);
+  padding: 0.625rem 1rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #fff;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.25);
+}
+
 .lots-map-legend {
   display: flex;
   flex-wrap: wrap;
@@ -3443,19 +3476,48 @@ footer {
     map.scrollWheelZoom.disable();
 
     var container = map.getContainer();
+    var hideHintTimer = null;
+    var isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    var hintLabel = isMac
+      ? 'Pressione ⌘ + scroll para alterar o zoom'
+      : 'Pressione Ctrl + scroll para alterar o zoom';
+
+    var overlay = document.createElement('div');
+    overlay.className = 'map-scroll-zoom-hint';
+    overlay.innerHTML = '<span>' + hintLabel + '</span>';
+    container.appendChild(overlay);
+
+    function hideHint() {
+      if (hideHintTimer) {
+        window.clearTimeout(hideHintTimer);
+        hideHintTimer = null;
+      }
+      overlay.classList.remove('is-visible');
+    }
+
+    function showHint() {
+      overlay.classList.add('is-visible');
+      if (hideHintTimer) window.clearTimeout(hideHintTimer);
+      hideHintTimer = window.setTimeout(hideHint, 1800);
+    }
 
     container.addEventListener('wheel', function(e) {
       if (e.ctrlKey || e.metaKey) {
+        hideHint();
         if (!map.scrollWheelZoom.enabled()) {
           map.scrollWheelZoom.enable();
         }
         e.preventDefault();
-      } else if (map.scrollWheelZoom.enabled()) {
-        map.scrollWheelZoom.disable();
+      } else {
+        if (map.scrollWheelZoom.enabled()) {
+          map.scrollWheelZoom.disable();
+        }
+        showHint();
       }
     }, { capture: true, passive: false });
 
     container.addEventListener('mouseleave', function() {
+      hideHint();
       map.scrollWheelZoom.disable();
     });
   }

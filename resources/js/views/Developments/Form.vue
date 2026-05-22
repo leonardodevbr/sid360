@@ -97,6 +97,15 @@
             {{ form.coordinates?.length ? 'Redesenhar perímetro' : 'Desenhar perímetro' }}
           </button>
           <button
+            v-if="drawingMode && perimeterPoints.length"
+            type="button"
+            class="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50"
+            @click="undoLastPoint"
+          >
+            <ArrowUturnLeftIcon class="h-3.5 w-3.5" />
+            Desfazer último ponto
+          </button>
+          <button
             v-if="drawingMode"
             type="button"
             class="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100"
@@ -123,7 +132,7 @@
             Limpar perímetro
           </button>
           <button
-            v-if="isMapFullscreen && isEdit"
+            v-if="isEdit"
             type="button"
             class="relative flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
             :class="showZoneMapPicker || drawingMode === 'zone'
@@ -147,18 +156,19 @@
             v-if="drawingMode === 'perimeter'"
             class="self-center text-xs font-medium text-blue-600"
           >
-            Clique no mapa para definir os pontos. Clique no primeiro ponto para fechar.
+            Clique no mapa para adicionar pontos. Arraste as bolinhas para ajustar. Clique na primeira para fechar.
           </span>
           <span
             v-else-if="drawingMode === 'zone'"
             class="self-center text-xs font-medium text-emerald-600"
           >
-            Desenhando área de {{ drawingZone?.name }}. Clique no primeiro ponto para fechar.
+            Editando {{ drawingZone?.name }} — arraste os vértices, clique no mapa para adicionar, na primeira bolinha para fechar
+            {{ perimeterPoints.length ? ` (${perimeterPoints.length} pontos)` : '' }}
           </span>
           </div>
 
           <div
-            v-if="showZoneMapPicker && isMapFullscreen && isEdit"
+            v-if="showZoneMapPicker && isEdit"
             class="map-zone-picker rounded-lg border border-slate-200 bg-white p-3 shadow-lg"
           >
             <div class="mb-2 flex items-center justify-between gap-2">
@@ -198,8 +208,7 @@
                 <span class="min-w-0 flex-1">
                   <span class="block font-medium text-slate-800">{{ zone.name }}</span>
                   <span class="block text-slate-400">
-                    {{ zoneTypeLabel(zone.type) }}
-                    · {{ zone.coordinates?.length ? 'área demarcada' : 'sem área' }}
+                    {{ buildZoneMetaLabel(zone, zoneLotsCount(zone)) }}
                   </span>
                 </span>
               </button>
@@ -233,9 +242,7 @@
             <div class="min-w-0 flex-1">
               <p class="text-sm font-medium text-slate-800">{{ zone.name }}</p>
               <p class="text-xs text-slate-400">
-                {{ zoneTypeLabel(zone.type) }}
-                · {{ zoneLotsCount(zone) }} lote(s)
-                <span v-if="zone.coordinates?.length" class="text-emerald-600"> · perímetro definido</span>
+                {{ buildZoneMetaLabel(zone, zoneLotsCount(zone)) }}
               </p>
             </div>
             <div class="flex shrink-0 gap-2">
@@ -393,6 +400,7 @@ import { useMapFullscreen } from '@/composables/useMapFullscreen';
 import { developmentStatusFormOptions } from '@/utils/labels';
 import { setupMapBaseLayers } from '@/utils/mapLayers';
 import {
+  buildZoneMetaLabel,
   canGenerateLotsInZone,
   generateLotsBlockedReason,
   zoneTypeLabel as zoneTypeLabelHelper,
@@ -402,7 +410,7 @@ import SelectInput from '@/components/Common/SelectInput.vue';
 import Button from '@/components/Common/Button.vue';
 import Modal from '@/components/Common/Modal.vue';
 import CurrencyInput from '@/components/Common/CurrencyInput.vue';
-import { ArrowLeftIcon, ArrowsPointingInIcon, ArrowsPointingOutIcon, MapIcon, MapPinIcon, PlusIcon, RectangleGroupIcon, XMarkIcon } from '@heroicons/vue/24/outline';
+import { ArrowLeftIcon, ArrowsPointingInIcon, ArrowsPointingOutIcon, ArrowUturnLeftIcon, MapIcon, MapPinIcon, PlusIcon, RectangleGroupIcon, XMarkIcon } from '@heroicons/vue/24/outline';
 
 const route = useRoute();
 const router = useRouter();
@@ -474,6 +482,160 @@ function resetMapCursor() {
   map?.getContainer()?.style.removeProperty('cursor');
 }
 
+const MAP_POPUP_OPTIONS = {
+  closeButton: true,
+  autoPan: true,
+  keepInView: true,
+};
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function blurPolygonPath(layer) {
+  if (layer?._path && typeof layer._path.blur === 'function') {
+    layer._path.blur();
+  }
+}
+
+function bindMapFeaturePopup(layer, html, onEdit) {
+  if (!layer || !map || !L) return;
+
+  layer.bindPopup(html, MAP_POPUP_OPTIONS);
+
+  layer.on('click', (e) => {
+    if (drawingMode.value) return;
+    L.DomEvent.stopPropagation(e);
+    layer.closeTooltip?.();
+    blurPolygonPath(layer);
+  });
+
+  layer.on('popupopen', (e) => {
+    layer.closeTooltip?.();
+    blurPolygonPath(layer);
+
+    const editBtn = e.popup.getElement()?.querySelector('[data-map-edit]');
+    if (!editBtn) return;
+
+    editBtn.addEventListener('click', (ev) => {
+      L.DomEvent.preventDefault(ev);
+      L.DomEvent.stopPropagation(ev);
+      map.closePopup();
+      onEdit();
+    }, { once: true });
+  });
+}
+
+function buildZonePopupHtml(zone) {
+  return `
+    <div class="map-feature-popup">
+      <p class="map-feature-popup-title">${escapeHtml(zone.name)}</p>
+      <p class="map-feature-popup-meta">
+        ${escapeHtml(buildZoneMetaLabel(zone, zoneLotsCount(zone)))}
+      </p>
+      <div class="map-feature-popup-actions">
+        <button type="button" class="map-feature-popup-btn" data-map-edit>
+          Editar demarcação
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function buildPerimeterPopupHtml() {
+  return `
+    <div class="map-feature-popup">
+      <p class="map-feature-popup-title">Perímetro do empreendimento</p>
+      <p class="map-feature-popup-meta">Limite geral do empreendimento no mapa</p>
+      <div class="map-feature-popup-actions">
+        <button type="button" class="map-feature-popup-btn" data-map-edit>
+          Editar demarcação
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function setMapOverlaysPointerEvents(enabled) {
+  const pointerEvents = enabled ? '' : 'none';
+
+  if (perimeterLayer?._path) {
+    perimeterLayer._path.style.pointerEvents = pointerEvents;
+  }
+
+  Object.values(zoneLayers).forEach((layer) => {
+    if (layer?._path) {
+      layer._path.style.pointerEvents = pointerEvents;
+    }
+  });
+}
+
+function addDrawingMarker(coord, color, index) {
+  const marker = L.marker(coord, {
+    draggable: true,
+    autoPan: true,
+    icon: L.divIcon({
+      className: 'map-vertex-handle-icon',
+      html: `<span class="map-vertex-handle" style="--vertex-color:${color}"></span>`,
+      iconSize: [12, 12],
+      iconAnchor: [6, 6],
+    }),
+  }).addTo(map);
+
+  marker._vertexIndex = index;
+
+  marker.on('drag', function onVertexDrag() {
+    const { lat, lng } = this.getLatLng();
+    perimeterPoints[this._vertexIndex] = [lat, lng];
+    refreshTempPolyline(perimeterPoints.length >= 3);
+  });
+
+  marker.on('click', (e) => {
+    L.DomEvent.stopPropagation(e);
+    if (marker._vertexIndex === 0 && perimeterPoints.length > 2) {
+      finishDrawing();
+    }
+  });
+
+  marker.on('mousedown', (e) => {
+    L.DomEvent.stopPropagation(e);
+  });
+
+  tempMarkers.push(marker);
+}
+
+function preloadDrawingPoints(coords, color) {
+  clearTempLayers();
+  perimeterPoints = coords.map((c) => [Number(c[0]), Number(c[1])]);
+
+  perimeterPoints.forEach((coord, index) => addDrawingMarker(coord, color, index));
+  refreshTempPolyline(perimeterPoints.length >= 3);
+}
+
+function undoLastPoint() {
+  if (!perimeterPoints.length) return;
+
+  perimeterPoints.pop();
+  const marker = tempMarkers.pop();
+  if (marker) {
+    map?.removeLayer(marker);
+  }
+
+  if (map?._tempLine) {
+    map.removeLayer(map._tempLine);
+    delete map._tempLine;
+  }
+
+  if (perimeterPoints.length >= 2) {
+    refreshTempPolyline(perimeterPoints.length >= 3);
+  }
+}
+
 function onMapClick(e) {
   if (!drawingMode.value || !L) return;
 
@@ -484,25 +646,14 @@ function onMapClick(e) {
     ? '#1E5F8E'
     : drawingZone.value?.color ?? '#10B981';
 
-  const marker = L.circleMarker([lat, lng], {
-    radius: 5,
-    color: markerColor,
-    fillColor: '#fff',
-    fillOpacity: 1,
-    weight: 2,
-  }).addTo(map);
+  addDrawingMarker([lat, lng], markerColor, perimeterPoints.length - 1);
 
   if (perimeterPoints.length > 2 && isNearFirst(e.latlng)) {
     finishDrawing();
     return;
   }
 
-  marker.on('click', () => {
-    if (perimeterPoints.length > 2) finishDrawing();
-  });
-  tempMarkers.push(marker);
-
-  refreshTempPolyline();
+  refreshTempPolyline(false);
 }
 
 function isNearFirst(latlng) {
@@ -511,7 +662,7 @@ function isNearFirst(latlng) {
   return latlng.distanceTo(first) < 15;
 }
 
-function refreshTempPolyline() {
+function refreshTempPolyline(closed = false) {
   if (!L || perimeterPoints.length < 2) return;
   if (map._tempLine) map.removeLayer(map._tempLine);
 
@@ -519,16 +670,27 @@ function refreshTempPolyline() {
     ? '#1E5F8E'
     : drawingZone.value?.color ?? '#10B981';
 
-  map._tempLine = L.polyline(perimeterPoints, {
-    color: lineColor,
-    weight: 2,
-    dashArray: '4',
-  }).addTo(map);
+  if (closed && perimeterPoints.length >= 3) {
+    map._tempLine = L.polygon(perimeterPoints, {
+      color: lineColor,
+      weight: 2,
+      dashArray: '4',
+      fillColor: lineColor,
+      fillOpacity: 0.12,
+    }).addTo(map);
+  } else {
+    map._tempLine = L.polyline(perimeterPoints, {
+      color: lineColor,
+      weight: 2,
+      dashArray: '4',
+    }).addTo(map);
+  }
 }
 
 function finishDrawing() {
   clearTempLayers();
   resetMapCursor();
+  setMapOverlaysPointerEvents(true);
 
   if (drawingMode.value === 'perimeter') {
     form.value.coordinates = [...perimeterPoints];
@@ -560,7 +722,14 @@ function drawPerimeterOnMap(coords) {
     weight: 2.5,
     fillColor: '#1E5F8E',
     fillOpacity: 0.08,
+    className: 'map-feature-polygon',
   }).addTo(map);
+
+  bindMapFeaturePopup(
+    perimeterLayer,
+    buildPerimeterPopupHtml(),
+    () => startDrawPerimeter(),
+  );
 
   map.fitBounds(perimeterLayer.getBounds(), { padding: [20, 20] });
 }
@@ -579,28 +748,68 @@ function drawZonesOnMap() {
       weight: 2,
       fillColor: zone.color,
       fillOpacity: 0.15,
+      className: 'map-feature-polygon',
     })
-      .bindTooltip(zone.name, { permanent: false })
+      .bindTooltip(zone.name, { direction: 'top', opacity: 0.9 })
       .addTo(map);
+
+    bindMapFeaturePopup(
+      layer,
+      buildZonePopupHtml(zone),
+      () => startDrawZone(zone),
+    );
 
     zoneLayers[zone.id] = layer;
   });
 }
 
 function startDrawPerimeter() {
+  if (drawingMode.value === 'zone') {
+    cancelDrawing();
+  }
+
   clearTempLayers();
-  perimeterPoints = [];
+  setMapOverlaysPointerEvents(false);
   drawingMode.value = 'perimeter';
   drawingZone.value = null;
+  showZoneMapPicker.value = false;
+
+  if (form.value.coordinates?.length >= 3) {
+    if (perimeterLayer) {
+      map?.removeLayer(perimeterLayer);
+      perimeterLayer = null;
+    }
+    preloadDrawingPoints(form.value.coordinates, '#1E5F8E');
+    toast.info('Perímetro carregado. Arraste os vértices ou adicione novos pontos no mapa.');
+  } else {
+    perimeterPoints = [];
+  }
+
   map?.getContainer()?.style.setProperty('cursor', 'crosshair');
 }
 
 function startDrawZone(zone) {
+  if (drawingMode.value === 'perimeter') {
+    cancelDrawing();
+  }
+
   clearTempLayers();
-  perimeterPoints = [];
+  setMapOverlaysPointerEvents(false);
   drawingMode.value = 'zone';
   drawingZone.value = zone;
   showZoneMapPicker.value = false;
+
+  if (zone.coordinates?.length >= 3) {
+    if (zone.id && zoneLayers[zone.id]) {
+      map?.removeLayer(zoneLayers[zone.id]);
+      delete zoneLayers[zone.id];
+    }
+    preloadDrawingPoints(zone.coordinates, zone.color ?? '#10B981');
+    toast.info(`Área de "${zone.name}" carregada. Arraste os vértices ou adicione novos pontos no mapa.`);
+  } else {
+    perimeterPoints = [];
+  }
+
   map?.getContainer()?.style.setProperty('cursor', 'crosshair');
 }
 
@@ -616,7 +825,10 @@ function pickZoneForMapping(zone) {
   }
 
   startDrawZone(zone);
-  toast.info(`Desenhando área de "${zone.name}". Clique no mapa para marcar os vértices.`);
+
+  if (!zone.coordinates?.length || zone.coordinates.length < 3) {
+    toast.info(`Desenhando área de "${zone.name}". Clique no mapa para marcar os vértices.`);
+  }
 }
 
 function openNewZoneFromMapPicker() {
@@ -631,6 +843,11 @@ function cancelDrawing() {
   drawingMode.value = null;
   drawingZone.value = null;
   showZoneMapPicker.value = false;
+  setMapOverlaysPointerEvents(true);
+  drawZonesOnMap();
+  if (form.value.coordinates?.length) {
+    drawPerimeterOnMap(form.value.coordinates);
+  }
 }
 
 function goToMyLocation() {
@@ -834,7 +1051,7 @@ async function saveZone() {
     await loadZones();
     drawZonesOnMap();
 
-    if (isMapFullscreen.value && createdZone) {
+    if (createdZone) {
       const zone = zones.value.find((z) => z.id === createdZone.id) ?? createdZone;
       pickZoneForMapping(zone);
     }
