@@ -117,8 +117,8 @@
       <div class="card space-y-4 overflow-hidden p-4 sm:p-5">
         <div class="flex items-center justify-between gap-2">
           <p class="text-sm font-semibold text-slate-700">Demarcação no mapa</p>
-          <span v-if="form.coordinates?.length" class="text-xs font-medium text-emerald-600">
-            {{ form.coordinates.length }} pontos demarcados
+          <span v-if="hasLotDemarcation" class="text-xs font-medium text-emerald-600">
+            {{ demarcationPointCount }} pontos demarcados
           </span>
         </div>
 
@@ -135,6 +135,7 @@
           :map-center="developmentMapCenter"
           :map-zoom="developmentMapZoom"
           :demarcation-saving="savingDemarcation"
+          :editing-lot-id="isEdit ? route.params.id : null"
           @update:coordinates="form.coordinates = $event"
           @update:area-computed="form.area_computed = $event"
           @update:gps-accuracy="gpsAccuracy = $event"
@@ -170,7 +171,13 @@
           Selecione um empreendimento para exibir o mapa e demarcar o lote.
         </p>
 
-        <p v-if="form.development_id" class="text-xs text-slate-400">
+        <p v-if="form.development_id && hasLotDemarcation" class="text-xs text-slate-400">
+          <strong>Para editar:</strong> clique em "Editar demarcação", arraste os vértices no mapa e use
+          "Salvar demarcação" na barra inferior.
+          <strong>Campo:</strong> use "Capturar ponto GPS" em cada vértice.
+        </p>
+
+        <p v-else-if="form.development_id" class="text-xs text-slate-400">
           <strong>Desktop:</strong> clique em "Demarcar lote" e marque os vértices no mapa.
           <strong>Campo:</strong> vá a cada vértice e use "Capturar ponto GPS".
           Arraste as bolinhas para ajustar e use "Salvar demarcação" na barra do mapa.
@@ -261,14 +268,52 @@ const mappedZones = computed(() =>
 
 const mappedStreets = computed(() => getMappedStreets(streets.value));
 
-const mappedContextLots = computed(() =>
-  developmentLots.value
+const mappedContextLots = computed(() => {
+  const lots = developmentLots.value
     .map((lot) => ({
       ...lot,
       coordinates: normalizePolygonCoordinates(lot.coordinates),
     }))
-    .filter((lot) => Array.isArray(lot.coordinates) && lot.coordinates.length >= 3),
-);
+    .filter((lot) => Array.isArray(lot.coordinates) && lot.coordinates.length >= 3);
+
+  if (isEdit.value && (form.value.coordinates?.length ?? 0) >= 3) {
+    return lots.filter((lot) => String(lot.id) !== String(route.params.id));
+  }
+
+  return lots;
+});
+
+const hasLotDemarcation = computed(() => {
+  if ((form.value.coordinates?.length ?? 0) >= 3) {
+    return true;
+  }
+
+  if (!isEdit.value) {
+    return false;
+  }
+
+  const currentLot = developmentLots.value.find(
+    (lot) => String(lot.id) === String(route.params.id),
+  );
+
+  return (normalizePolygonCoordinates(currentLot?.coordinates)?.length ?? 0) >= 3;
+});
+
+const demarcationPointCount = computed(() => {
+  if ((form.value.coordinates?.length ?? 0) >= 3) {
+    return form.value.coordinates.length;
+  }
+
+  if (!isEdit.value) {
+    return 0;
+  }
+
+  const currentLot = developmentLots.value.find(
+    (lot) => String(lot.id) === String(route.params.id),
+  );
+
+  return normalizePolygonCoordinates(currentLot?.coordinates)?.length ?? 0;
+});
 
 const zoneOptions = computed(() =>
   selectableZones.value.map((z) => ({
@@ -423,6 +468,7 @@ async function loadDevelopmentMapContext() {
   developmentPerimeter.value = dev?.coordinates?.length ? dev.coordinates : null;
   developmentMapCenter.value = resolveDevelopmentMapCenter(dev);
   developmentMapZoom.value = dev?.map_zoom ?? 17;
+  syncCoordinatesFromDevelopmentLots();
   mapContextReady.value = true;
 }
 
@@ -701,7 +747,6 @@ onMounted(async () => {
 
   if (form.value.development_id) {
     await loadDevelopmentMapContext();
-    syncCoordinatesFromDevelopmentLots();
   }
 
   await checkPending();

@@ -62,6 +62,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  editingLotId: {
+    type: [String, Number],
+    default: null,
+  },
 });
 
 const emit = defineEmits([
@@ -72,6 +76,55 @@ const emit = defineEmits([
 ]);
 
 const coordinatesModel = ref(normalizePolygonCoordinates(props.coordinates));
+
+function resolveLotCoordinatesFromContext() {
+  if (props.editingLotId == null) {
+    return null;
+  }
+
+  const currentLot = props.contextLots.find(
+    (lot) => String(lot.id) === String(props.editingLotId),
+  );
+
+  return normalizePolygonCoordinates(currentLot?.coordinates);
+}
+
+function resolveEffectiveCoordinates() {
+  const fromModel = normalizePolygonCoordinates(coordinatesModel.value);
+  if (fromModel?.length >= 3) {
+    return fromModel;
+  }
+
+  const fromProps = normalizePolygonCoordinates(props.coordinates);
+  if (fromProps?.length >= 3) {
+    return fromProps;
+  }
+
+  return resolveLotCoordinatesFromContext();
+}
+
+const hasSavedDemarcation = computed(
+  () => (resolveEffectiveCoordinates()?.length ?? 0) >= 3,
+);
+
+function ensureCoordinatesLoaded() {
+  if ((coordinatesModel.value?.length ?? 0) >= 3) {
+    return true;
+  }
+
+  const effective = resolveEffectiveCoordinates();
+  if (!effective?.length) {
+    return false;
+  }
+
+  coordinatesModel.value = effective;
+  return true;
+}
+
+function handleStartDrawLot() {
+  ensureCoordinatesLoaded();
+  startDrawLot();
+}
 
 watch(
   () => props.coordinates,
@@ -101,6 +154,24 @@ watch(
     emit('update:coordinates', normalized);
   },
   { deep: true },
+);
+
+watch(
+  () => [props.contextLots, props.editingLotId, props.coordinates],
+  () => {
+    if ((normalizePolygonCoordinates(props.coordinates)?.length ?? 0) >= 3) {
+      return;
+    }
+
+    const fromContext = resolveLotCoordinatesFromContext();
+    if (!fromContext?.length) {
+      return;
+    }
+
+    coordinatesModel.value = fromContext;
+    emit('update:coordinates', fromContext);
+  },
+  { deep: true, immediate: true },
 );
 
 const contextPerimeterRef = computed(() => props.contextPerimeter);
@@ -283,14 +354,14 @@ onMounted(async () => {
               v-if="!isDrawing"
               type="button"
               class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50 sm:px-3 sm:text-xs"
-              @click="startDrawLot"
+              @click="handleStartDrawLot"
             >
               <MapIcon class="h-3.5 w-3.5" />
-              {{ coordinatesModel?.length >= 3 ? 'Editar demarcação' : 'Demarcar lote' }}
+              {{ hasSavedDemarcation ? 'Editar demarcação' : 'Demarcar lote' }}
             </button>
 
             <button
-              v-if="coordinatesModel?.length && !isDrawing"
+              v-if="hasSavedDemarcation && !isDrawing"
               type="button"
               class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-red-600 hover:bg-red-50 sm:px-3 sm:text-xs"
               @click="confirmClearFeature"
@@ -397,7 +468,12 @@ onMounted(async () => {
           v-if="isDrawing"
           class="text-[11px] font-medium leading-snug text-blue-600 sm:text-xs"
         >
-          Clique no mapa para adicionar pontos. Duplo clique na bolinha remove um ponto. Com 3+ pontos, use Salvar demarcação ou clique no primeiro vértice
+          <template v-if="startedFromExistingPolygon">
+            Arraste os vértices para ajustar o lote. Use "Salvar demarcação" para confirmar.
+          </template>
+          <template v-else>
+            Clique no mapa para adicionar pontos. Duplo clique na bolinha remove um ponto. Com 3+ pontos, use Salvar demarcação ou clique no primeiro vértice
+          </template>
         </p>
       </div>
     </div>
