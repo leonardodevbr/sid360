@@ -257,6 +257,12 @@
   color: #64748b;
 }
 
+.map-edge-label--short {
+  z-index: 1200;
+  font-size: 0.625rem;
+  padding: 0.1rem 0.35rem;
+}
+
 .leaflet-container .map-scroll-zoom-hint {
   position: absolute;
   inset: 0;

@@ -7,6 +7,9 @@
       <div class="min-w-0 flex-1">
         <h2 class="text-lg font-semibold text-slate-800">Venda #{{ sale?.id }}</h2>
         <p class="text-xs text-slate-500">{{ sale?.client?.name }}</p>
+        <p v-if="sale?.lot?.full_address" class="mt-0.5 text-xs text-slate-500">
+          {{ sale.lot.full_address }}
+        </p>
       </div>
     </div>
 
@@ -262,7 +265,8 @@
             <h3 class="text-sm font-semibold text-slate-700">Parcelas</h3>
             <span
               v-if="financingOverdueCount > 0"
-              class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700"
+              class="rounded-full px-2 py-0.5 text-xs font-semibold"
+              :class="badgeColors.danger"
             >
               {{ financingOverdueCount }} em atraso
             </span>
@@ -383,6 +387,7 @@ import {
 import { getApiErrorMessage } from '@/utils/apiError';
 import { formatCurrency } from '@/utils/format';
 import {
+  badgeColors,
   installmentStatusClass as installmentStatusClassHelper,
   installmentStatusLabel as installmentStatusLabelHelper,
   installmentTypeLabel as installmentTypeLabelHelper,

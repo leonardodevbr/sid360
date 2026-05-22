@@ -9,6 +9,7 @@ use App\Models\DevelopmentZone;
 use App\Models\Lot;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class DevelopmentZoneController extends Controller
 {
@@ -16,7 +17,7 @@ class DevelopmentZoneController extends Controller
     {
         $this->authorize('developments.view');
 
-        $development = Development::query()->with('zones.lots')->findOrFail((int) $developmentId);
+        $development = Development::query()->with(['zones.lots', 'zones.parent'])->findOrFail((int) $developmentId);
 
         return response()->json($development->zones);
     }
@@ -33,6 +34,13 @@ class DevelopmentZoneController extends Controller
             'color' => ['nullable', 'string', 'max:10'],
             'coordinates' => ['nullable', 'array'],
             'order' => ['nullable', 'integer'],
+            'parent_zone_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('development_zones', 'id')->where(
+                    fn ($query) => $query->where('development_id', $development->id),
+                ),
+            ],
         ]);
 
         $zone = $development->zones()->create($data);
@@ -54,6 +62,13 @@ class DevelopmentZoneController extends Controller
             'color' => ['nullable', 'string', 'max:10'],
             'coordinates' => ['nullable', 'array'],
             'order' => ['nullable', 'integer'],
+            'parent_zone_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('development_zones', 'id')->where(
+                    fn ($query) => $query->where('development_id', $zone->development_id),
+                ),
+            ],
         ]);
 
         $zone->update($data);

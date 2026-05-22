@@ -133,6 +133,30 @@ export function formatMeters(lengthMeters) {
   return `${Math.round(lengthMeters).toLocaleString('pt-BR')} m`;
 }
 
+const SHORT_EDGE_LABEL_OFFSET_THRESHOLD_METERS = 55;
+
+function offsetPointPerpendicular(start, end, offsetMeters, side = 1) {
+  const [lat1, lng1] = normalizePoint(start);
+  const [lat2, lng2] = normalizePoint(end);
+  const midLat = (lat1 + lat2) / 2;
+  const midLng = (lng1 + lng2) / 2;
+
+  const deltaLat = lat2 - lat1;
+  const deltaLng = lng2 - lng1;
+  const length = Math.hypot(deltaLat, deltaLng) || 1;
+
+  const perpLat = (-deltaLng / length) * side;
+  const perpLng = (deltaLat / length) * side;
+
+  const metersPerDegreeLat = 111320;
+  const metersPerDegreeLng = 111320 * Math.cos(toRadians(midLat));
+
+  return [
+    midLat + (offsetMeters * perpLat) / metersPerDegreeLat,
+    midLng + (offsetMeters * perpLng) / metersPerDegreeLng,
+  ];
+}
+
 /**
  * @param {Array<[number, number]>} coords
  * @param {{ closed?: boolean, includeClosingPreview?: boolean }} [options]
@@ -164,6 +188,16 @@ export function getPolygonEdgesMeters(coords, options = {}) {
 
 function createEdge(start, end, from, to, isClosingPreview) {
   const lengthMeters = distanceBetweenPointsMeters(start, end);
+  const midpoint = [
+    (Number(start[0]) + Number(end[0])) / 2,
+    (Number(start[1]) + Number(end[1])) / 2,
+  ];
+
+  let labelPosition = midpoint;
+  if (lengthMeters < SHORT_EDGE_LABEL_OFFSET_THRESHOLD_METERS) {
+    const offsetMeters = Math.max(10, Math.min(20, lengthMeters * 0.45));
+    labelPosition = offsetPointPerpendicular(start, end, offsetMeters, from % 2 === 0 ? 1 : -1);
+  }
 
   return {
     from,
@@ -171,11 +205,9 @@ function createEdge(start, end, from, to, isClosingPreview) {
     label: `${from}→${to}`,
     lengthMeters,
     lengthLabel: formatMeters(lengthMeters),
-    midpoint: [
-      (Number(start[0]) + Number(end[0])) / 2,
-      (Number(start[1]) + Number(end[1])) / 2,
-    ],
+    midpoint: labelPosition,
     isClosingPreview,
+    isShortEdge: lengthMeters < SHORT_EDGE_LABEL_OFFSET_THRESHOLD_METERS,
   };
 }
 

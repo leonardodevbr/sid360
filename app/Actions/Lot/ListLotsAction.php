@@ -16,7 +16,7 @@ class ListLotsAction
      */
     public function execute(Request $request): LengthAwarePaginator|Collection
     {
-        $query = Lot::query()->with(['development', 'zone']);
+        $query = Lot::query()->with(['development', 'zone.parent', 'street']);
 
         if ($request->filled('development_id')) {
             $query->where('lots.development_id', (int) $request->input('development_id'));

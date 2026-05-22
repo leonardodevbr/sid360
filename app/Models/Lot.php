@@ -31,6 +31,7 @@ class Lot extends Model
     protected $fillable = [
         'development_id',
         'zone_id',
+        'street_id',
         'number',
         'block',
         'area',
@@ -72,6 +73,14 @@ class Lot extends Model
     }
 
     /**
+     * @return BelongsTo<DevelopmentStreet, $this>
+     */
+    public function street(): BelongsTo
+    {
+        return $this->belongsTo(DevelopmentStreet::class, 'street_id');
+    }
+
+    /**
      * @return HasMany<Sale, $this>
      */
     public function sales(): HasMany
@@ -88,5 +97,30 @@ class Lot extends Model
         $this->loadMissing('development');
 
         return (float) ($this->development?->down_payment_percent ?? 20);
+    }
+
+    public function fullAddress(): string
+    {
+        $this->loadMissing(['street', 'zone.parent']);
+
+        $parts = [];
+
+        if ($this->street?->name) {
+            $parts[] = $this->street->name;
+        }
+
+        if ($this->zone?->parent?->name) {
+            $parts[] = $this->zone->parent->name;
+        }
+
+        if ($this->zone?->name) {
+            $parts[] = $this->zone->name;
+        } elseif ($this->block) {
+            $parts[] = 'Quadra ' . $this->block;
+        }
+
+        $parts[] = 'Lote ' . $this->number;
+
+        return implode(', ', $parts);
     }
 }

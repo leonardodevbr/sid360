@@ -51,4 +51,12 @@ class Development extends Model
     {
         return $this->hasMany(DevelopmentZone::class)->orderBy('order');
     }
+
+    /**
+     * @return HasMany<DevelopmentStreet, $this>
+     */
+    public function streets(): HasMany
+    {
+        return $this->hasMany(DevelopmentStreet::class)->orderBy('order');
+    }
 }

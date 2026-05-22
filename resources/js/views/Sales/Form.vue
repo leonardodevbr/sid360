@@ -217,28 +217,32 @@
 
               <span
                 v-if="otpVerified"
-                class="absolute right-2 top-1.5 flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700"
+                :class="confirmationBadgeClass"
+                class="absolute right-2 top-1.5 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold"
               >
                 Verificado
               </span>
 
               <span
                 v-else-if="whatsappStatus === 'has'"
-                class="absolute right-2 top-1.5 flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700"
+                :class="confirmationBadgeClass"
+                class="absolute right-2 top-1.5 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
               >
                 WhatsApp
               </span>
 
               <span
                 v-else-if="whatsappStatus === 'no'"
-                class="absolute right-2 top-1.5 flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700"
+                :class="badgeColors.warning"
+                class="absolute right-2 top-1.5 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
               >
                 Sem WhatsApp
               </span>
 
               <span
                 v-else-if="whatsappStatus === 'checking'"
-                class="absolute right-2 top-1.5 flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500"
+                :class="badgeColors.neutral"
+                class="absolute right-2 top-1.5 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs"
               >
                 <svg class="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
@@ -250,7 +254,8 @@
               <button
                 v-else-if="whatsappStatus === 'error'"
                 type="button"
-                class="absolute right-2 top-1.5 flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-500"
+                :class="badgeColors.danger"
+                class="absolute right-2 top-1.5 flex items-center gap-1 rounded-full px-2 py-0.5 text-xs"
                 title="Clique para tentar novamente"
                 @click="checkWhatsapp"
               >
@@ -779,6 +784,7 @@ import CurrencyInput from '@/components/Common/CurrencyInput.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
 import { maritalStatusOptions } from '@/constants/maritalStatus';
 import { formatCurrency } from '@/utils/format';
+import { badgeColors, confirmationBadgeClass } from '@/utils/status';
 import Button from '@/components/Common/Button.vue';
 import {
   ArrowLeftIcon,

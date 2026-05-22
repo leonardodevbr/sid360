@@ -63,6 +63,15 @@
           <Input v-model="form.number" label="Número" required placeholder="Ex: QA-L01" />
         </div>
 
+        <SelectInput
+          v-if="streetOptions.length"
+          v-model="form.street_id"
+          label="Rua com frente para"
+          :options="streetOptions"
+          placeholder="Selecione a rua"
+          :searchable="false"
+        />
+
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <Input v-model="form.area" label="Área (m²)" type="number" step="0.01" min="0" />
@@ -202,6 +211,7 @@ const useDevelopmentPaymentTerms = ref(true);
 const form = ref({
   development_id: route.query.development_id ? String(route.query.development_id) : '',
   zone_id: '',
+  street_id: '',
   block: '',
   number: '',
   area: '',
@@ -214,6 +224,7 @@ const form = ref({
 
 const developments = ref([]);
 const zones = ref([]);
+const streets = ref([]);
 const developmentPerimeter = ref(null);
 const developmentMapCenter = ref(null);
 const developmentMapZoom = ref(null);
@@ -233,6 +244,13 @@ const zoneOptions = computed(() =>
   selectableZones.value.map((z) => ({
     value: String(z.id),
     label: buildZoneTitleLabel(z),
+  })),
+);
+
+const streetOptions = computed(() =>
+  streets.value.map((street) => ({
+    value: String(street.id),
+    label: street.name,
   })),
 );
 
@@ -261,6 +279,7 @@ async function fetchDevelopmentMapData(developmentId) {
 
 async function handleDevelopmentChange() {
   form.value.zone_id = '';
+  form.value.street_id = '';
   await loadDevelopmentMapContext();
 }
 
@@ -305,6 +324,7 @@ const computedArea = computed(() =>
 
 async function loadDevelopmentMapContext() {
   zones.value = [];
+  streets.value = [];
   developmentPerimeter.value = null;
   developmentMapCenter.value = null;
   developmentMapZoom.value = null;
@@ -312,10 +332,15 @@ async function loadDevelopmentMapContext() {
   if (!form.value.development_id) return;
 
   try {
-    const { data } = await api.get(`/developments/${form.value.development_id}/zones`);
-    zones.value = Array.isArray(data) ? data : data.data ?? [];
+    const [zonesRes, streetsRes] = await Promise.all([
+      api.get(`/developments/${form.value.development_id}/zones`),
+      api.get(`/developments/${form.value.development_id}/streets`),
+    ]);
+    zones.value = Array.isArray(zonesRes.data) ? zonesRes.data : zonesRes.data.data ?? [];
+    streets.value = Array.isArray(streetsRes.data) ? streetsRes.data : streetsRes.data.data ?? [];
   } catch {
     zones.value = [];
+    streets.value = [];
   }
 
   if (
@@ -323,6 +348,13 @@ async function loadDevelopmentMapContext() {
     && !selectableZones.value.some((zone) => String(zone.id) === String(form.value.zone_id))
   ) {
     form.value.zone_id = '';
+  }
+
+  if (
+    form.value.street_id
+    && !streets.value.some((street) => String(street.id) === String(form.value.street_id))
+  ) {
+    form.value.street_id = '';
   }
 
   resolveZoneIdFromLegacyBlock();
@@ -463,6 +495,7 @@ async function loadItem() {
     form.value = {
       development_id: String(item.development_id ?? ''),
       zone_id: item.zone_id ? String(item.zone_id) : '',
+      street_id: item.street_id ? String(item.street_id) : '',
       block: item.block ?? '',
       number: item.number ?? '',
       area: item.area ?? '',
@@ -498,6 +531,7 @@ async function submit() {
     ...form.value,
     development_id: Number(form.value.development_id),
     zone_id: selectedZone ? selectedZone.id : null,
+    street_id: form.value.street_id ? Number(form.value.street_id) : null,
     block: selectedZone ? selectedZone.name : (form.value.block?.trim() || null),
     area: form.value.area === '' ? null : Number(form.value.area),
     area_computed: form.value.area_computed ?? null,

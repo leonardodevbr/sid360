@@ -68,7 +68,7 @@
               <ExclamationTriangleIcon class="h-4 w-4 text-red-600" />
               <p class="text-sm font-semibold text-slate-700">Parcelas atrasadas</p>
             </div>
-            <span class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+            <span class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="badgeColors.danger">
               {{ data?.overdue_installments?.length ?? 0 }}
             </span>
           </div>
@@ -100,7 +100,7 @@
               <CalendarDaysIcon class="h-4 w-4 text-amber-600" />
               <p class="text-sm font-semibold text-slate-700">Vencendo em 7 dias</p>
             </div>
-            <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+            <span class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="badgeColors.warning">
               {{ data?.upcoming_installments?.length ?? 0 }}
             </span>
           </div>
@@ -149,10 +149,10 @@
             </div>
             <div class="flex items-center gap-2 text-xs">
               <span class="text-slate-400">{{ dev.lots_count }} lotes</span>
-              <span v-if="dev.lots_sold_count" class="rounded-full bg-red-100 px-2 py-0.5 font-medium text-red-600">
+              <span v-if="dev.lots_sold_count" class="rounded-full px-2 py-0.5 font-medium" :class="badgeColors.danger">
                 {{ dev.lots_sold_count }} vendido{{ dev.lots_sold_count > 1 ? 's' : '' }}
               </span>
-              <span v-if="dev.lots_available_count" class="rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-700">
+              <span v-if="dev.lots_available_count" class="rounded-full px-2 py-0.5 font-medium" :class="badgeColors.success">
                 {{ dev.lots_available_count }} disponível{{ dev.lots_available_count > 1 ? 'is' : '' }}
               </span>
             </div>
@@ -168,6 +168,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useToast } from 'vue-toastification';
 import api from '@/services/api';
 import StatCard from '@/components/Common/StatCard.vue';
+import { badgeColors } from '@/utils/status';
 import { CalendarDaysIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline';
 
 const toast = useToast();

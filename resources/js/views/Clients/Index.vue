@@ -60,7 +60,8 @@
                 <span>{{ client.phone ?? '—' }}</span>
                 <span
                   v-if="client.whatsapp_status === 'confirmed'"
-                  class="inline-flex items-center rounded-full bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700"
+                  :class="confirmationBadgeClass"
+                  class="inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium"
                   title="WhatsApp confirmado"
                 >
                   WPP
@@ -116,7 +117,7 @@ import Button from '@/components/Common/Button.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
 import Modal from '@/components/Common/Modal.vue';
 import PaginationBar from '@/components/Common/PaginationBar.vue';
-import { PencilIcon, TrashIcon } from '@heroicons/vue/24/outline';
+import { confirmationBadgeClass } from '@/utils/status';
 
 const toast = useToast();
 const clients = ref([]);

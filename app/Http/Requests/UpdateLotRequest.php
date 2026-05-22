@@ -23,6 +23,7 @@ class UpdateLotRequest extends FormRequest
         return [
             'development_id' => ['sometimes', 'integer', 'exists:developments,id'],
             'zone_id' => ['nullable', 'integer', 'exists:development_zones,id'],
+            'street_id' => ['nullable', 'integer', 'exists:development_streets,id'],
             'number' => ['sometimes', 'required', 'string', 'max:50'],
             'block' => ['nullable', 'string', 'max:50'],
             'area' => ['nullable', 'numeric', 'min:0'],

@@ -218,7 +218,7 @@
                   @click="cancelDrawing"
                 >
                   <XMarkIcon class="h-3.5 w-3.5" />
-                  {{ drawingMode === 'zone' ? 'Cancelar edição' : 'Cancelar desenho' }}
+                  {{ drawingMode === 'zone' ? 'Cancelar edição' : drawingMode === 'street' ? 'Cancelar traçado' : 'Cancelar desenho' }}
                 </button>
                 <button
                   v-if="drawingMode"
@@ -250,6 +250,13 @@
                   class="self-center text-xs font-medium text-emerald-600"
                 >
                   Editando {{ drawingZone?.name }} — ajuste os vértices e clique em Salvar demarcação
+                  {{ perimeterPoints.length ? ` (${perimeterPoints.length} pontos)` : '' }}
+                </span>
+                <span
+                  v-else-if="drawingMode === 'street'"
+                  class="self-center text-xs font-medium text-slate-600"
+                >
+                  Traçando {{ drawingStreet?.name }} — clique no mapa para marcar o percurso da rua
                   {{ perimeterPoints.length ? ` (${perimeterPoints.length} pontos)` : '' }}
                 </span>
               </div>
@@ -335,7 +342,13 @@
             <div class="min-w-0 flex-1">
               <p class="text-sm font-semibold tracking-wide text-slate-800">{{ buildZoneTitleLabel(zone) }}</p>
               <p class="text-xs text-slate-400">
-                {{ buildZoneMetaLabel(zone, zoneLotsCount(zone)) }}
+                {{ zoneTypeLabel(zone.type) }}
+                <span v-if="zone.parent_zone_id">
+                  · dentro de <strong>{{ zones.find((item) => item.id === zone.parent_zone_id)?.name }}</strong>
+                </span>
+                · {{ zoneLotsCount(zone) }} lote(s)
+                <span v-if="zone.coordinates?.length >= 3" class="text-emerald-600"> · área definida</span>
+                <span v-else class="text-amber-500"> · sem área</span>
               </p>
             </div>
             <div class="flex shrink-0 gap-2">
@@ -378,6 +391,64 @@
         <p v-else class="text-xs text-slate-400">Nenhuma zona cadastrada ainda.</p>
       </div>
 
+      <div v-if="isEdit" class="card space-y-4 p-5">
+        <div class="flex items-center justify-between">
+          <p class="text-sm font-semibold text-slate-700">Ruas do loteamento</p>
+          <button
+            type="button"
+            class="flex items-center gap-1.5 rounded-lg bg-slate-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
+            @click="openStreetForm"
+          >
+            <PlusIcon class="h-3.5 w-3.5" />
+            Nova rua
+          </button>
+        </div>
+
+        <div v-if="streets.length" class="space-y-2">
+          <div
+            v-for="street in streets"
+            :key="street.id"
+            class="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2.5"
+          >
+            <div class="h-3 w-3 shrink-0 rounded-sm bg-slate-400" />
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium text-slate-800">{{ street.name }}</p>
+              <p class="text-xs text-slate-400">
+                Rua
+                <span v-if="street.coordinates?.length" class="text-emerald-600">
+                  · traçado definido ({{ street.coordinates.length }} pontos)
+                </span>
+                <span v-else class="text-amber-500"> · sem traçado</span>
+              </p>
+            </div>
+            <div class="flex shrink-0 gap-2">
+              <button
+                type="button"
+                class="rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50"
+                @click="startDrawStreet(street)"
+              >
+                {{ street.coordinates?.length ? 'Redesenhar' : 'Desenhar no mapa' }}
+              </button>
+              <button
+                type="button"
+                class="rounded px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
+                @click="editStreet(street)"
+              >
+                Renomear
+              </button>
+              <button
+                type="button"
+                class="rounded px-2 py-1 text-xs text-red-500 hover:bg-red-50"
+                @click="deleteStreet(street)"
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+        <p v-else class="text-xs text-slate-400">Nenhuma rua cadastrada ainda.</p>
+      </div>
+
       <div class="flex justify-end gap-3">
         <Button type="button" variant="outline" @click="$router.push({ name: 'developments.index' })">
           Cancelar
@@ -408,6 +479,17 @@
           placeholder="Selecione o tipo"
           :error="zoneFormErrors.type"
         />
+        <SelectInput
+          v-if="parentZoneOptions.length"
+          v-model="zoneForm.parent_zone_id"
+          label="Zona pai"
+          :options="parentZoneOptions"
+          placeholder="Nenhuma (zona independente)"
+          :searchable="false"
+        />
+        <p v-if="parentZoneOptions.length" class="text-xs text-slate-400">
+          Opcional — ex: Setor dentro de uma Quadra
+        </p>
         <div>
           <label class="mb-1 block text-xs font-medium text-slate-600">Cor no mapa</label>
           <div class="flex flex-wrap gap-2">
@@ -427,6 +509,21 @@
         <Button variant="outline" @click="closeZoneForm">Cancelar</Button>
         <Button variant="primary" :disabled="savingZone" @click="saveZone">
           {{ savingZone ? 'Salvando...' : 'Salvar zona' }}
+        </Button>
+      </div>
+    </Modal>
+
+    <Modal :is-open="showStreetForm" title="Rua do loteamento" @close="closeStreetForm">
+      <Input
+        v-model="streetForm.name"
+        label="Nome da rua"
+        required
+        placeholder="Ex: Rua Norte, Av. Principal"
+      />
+      <div class="mt-4 flex justify-end gap-2">
+        <Button variant="outline" @click="closeStreetForm">Cancelar</Button>
+        <Button variant="primary" :disabled="savingStreet" @click="saveStreet">
+          {{ savingStreet ? 'Salvando...' : 'Salvar' }}
         </Button>
       </div>
     </Modal>
@@ -608,12 +705,14 @@ const perimeterPoints = ref([]);
 let tempMarkers = [];
 let edgeLabelMarkers = [];
 let zoneLayers = {};
+let streetLayersMap = {};
 let locationMarker = null;
 let mapLayersSetup = null;
 let fullscreenResizeHandler = null;
 const mapPopupActions = new WeakMap();
 const drawingMode = ref(null);
 const drawingZone = ref(null);
+const drawingStreet = ref(null);
 const locatingUser = ref(false);
 const mapReady = ref(false);
 
@@ -675,7 +774,15 @@ const zoneInvalidHint = computed(() => {
 });
 
 const canSaveDrawing = computed(() => {
-  if (!drawingMode.value || perimeterPoints.value.length < 3) {
+  if (!drawingMode.value) {
+    return false;
+  }
+
+  if (drawingMode.value === 'street') {
+    return perimeterPoints.value.length >= 2;
+  }
+
+  if (perimeterPoints.value.length < 3) {
     return false;
   }
 
@@ -1083,6 +1190,7 @@ function bindVertexMarkerDrag(marker) {
     refreshTempPolyline(perimeterPoints.value.length >= 3);
     refreshVertexMarkerStyles();
     bringVertexMarkersToFront();
+    bringEdgeLabelMarkersToFront();
 
     if (drawingMode.value === 'zone' && !canPlaceZonePoint(marker.getLatLng())) {
       toast.warning('Vértice fora do perímetro do empreendimento.');
@@ -1200,11 +1308,17 @@ function onMapClick(e) {
 
   const markerColor = drawingMode.value === 'perimeter'
     ? '#1E5F8E'
-    : drawingZone.value?.color ?? '#10B981';
+    : drawingMode.value === 'street'
+      ? '#64748B'
+      : drawingZone.value?.color ?? '#10B981';
 
   addDrawingMarker([lat, lng], markerColor, perimeterPoints.value.length - 1);
 
-  if (perimeterPoints.value.length > 2 && isNearFirst(e.latlng)) {
+  if (
+    drawingMode.value !== 'street'
+    && perimeterPoints.value.length > 2
+    && isNearFirst(e.latlng)
+  ) {
     finishDrawing();
     return;
   }
@@ -1247,9 +1361,10 @@ function refreshEdgeLabels() {
     const marker = L.marker(edge.midpoint, {
       interactive: false,
       keyboard: false,
+      zIndexOffset: 1200,
       icon: L.divIcon({
         className: 'map-edge-label-icon',
-        html: `<span class="map-edge-label${edge.isClosingPreview ? ' map-edge-label--closing' : ''}${zoneInvalid ? ' map-edge-label--invalid' : ''}">${edge.lengthLabel}</span>`,
+        html: `<span class="map-edge-label${edge.isClosingPreview ? ' map-edge-label--closing' : ''}${edge.isShortEdge ? ' map-edge-label--short' : ''}${zoneInvalid ? ' map-edge-label--invalid' : ''}">${edge.lengthLabel}</span>`,
         iconSize: [0, 0],
       }),
     }).addTo(map);
@@ -1258,11 +1373,33 @@ function refreshEdgeLabels() {
   });
 }
 
+function bringEdgeLabelMarkersToFront() {
+  edgeLabelMarkers.forEach((marker) => marker.bringToFront?.());
+}
+
 function refreshTempPolyline(closed = false, options = {}) {
   const { livePreview = false } = options;
 
   if (!L || perimeterPoints.value.length < 2) return;
   if (map._tempLine) map.removeLayer(map._tempLine);
+
+  if (drawingMode.value === 'street') {
+    map._tempLine = L.polyline(perimeterPoints.value, {
+      color: '#64748B',
+      weight: 4,
+      opacity: 0.8,
+      interactive: false,
+    }).addTo(map);
+
+    if (livePreview) {
+      return;
+    }
+
+    refreshEdgeLabels();
+    refreshVertexMarkerStyles();
+    bringVertexMarkersToFront();
+    return;
+  }
 
   const lineColor = drawingMode.value === 'perimeter'
     ? '#1E5F8E'
@@ -1296,9 +1433,10 @@ function refreshTempPolyline(closed = false, options = {}) {
   refreshEdgeLabels();
   refreshVertexMarkerStyles();
   bringVertexMarkersToFront();
+  bringEdgeLabelMarkersToFront();
 }
 
-function finishDrawing() {
+async function finishDrawing() {
   if (drawingMode.value === 'perimeter' && perimeterPoints.value.length < 3) {
     toast.warning('O perímetro precisa de pelo menos 3 pontos.');
     return;
@@ -1306,6 +1444,11 @@ function finishDrawing() {
 
   if (drawingMode.value === 'zone' && perimeterPoints.value.length < 3) {
     toast.warning('A zona precisa de pelo menos 3 pontos.');
+    return;
+  }
+
+  if (drawingMode.value === 'street' && perimeterPoints.value.length < 2) {
+    toast.warning('A rua precisa de pelo menos 2 pontos.');
     return;
   }
 
@@ -1320,6 +1463,7 @@ function finishDrawing() {
 
   const mode = drawingMode.value;
   const savedZone = drawingZone.value;
+  const savedStreet = drawingStreet.value;
   const savedCoords = [...perimeterPoints.value];
 
   clearTempLayers();
@@ -1327,6 +1471,7 @@ function finishDrawing() {
   perimeterPoints.value = [];
   drawingMode.value = null;
   drawingZone.value = null;
+  drawingStreet.value = null;
   setMapOverlaysPointerEvents(true);
   restoreMapInteractionAfterDrawing();
 
@@ -1335,6 +1480,7 @@ function finishDrawing() {
     form.value.coordinates = savedCoords;
     drawPerimeterOnMap(form.value.coordinates);
     drawZonesOnMap();
+    await persistPerimeterCoordinates(savedCoords);
     return;
   }
 
@@ -1349,6 +1495,11 @@ function finishDrawing() {
 
     drawZonesOnMap();
     saveZoneCoordinates(savedZone, savedCoords);
+    return;
+  }
+
+  if (mode === 'street' && savedStreet) {
+    saveStreetCoordinates(savedStreet, savedCoords);
   }
 }
 
@@ -1427,7 +1578,7 @@ function drawZonesOnMap() {
 }
 
 function startDrawPerimeter() {
-  if (drawingMode.value === 'zone') {
+  if (drawingMode.value === 'zone' || drawingMode.value === 'street') {
     cancelDrawing();
   }
 
@@ -1453,7 +1604,7 @@ function startDrawPerimeter() {
 }
 
 function startDrawZone(zone) {
-  if (drawingMode.value === 'perimeter') {
+  if (drawingMode.value === 'perimeter' || drawingMode.value === 'street') {
     cancelDrawing();
   }
 
@@ -1507,6 +1658,7 @@ function cancelDrawing() {
   perimeterPoints.value = [];
   drawingMode.value = null;
   drawingZone.value = null;
+  drawingStreet.value = null;
   showZoneMapPicker.value = false;
   setMapOverlaysPointerEvents(true);
   restoreMapInteractionAfterDrawing();
@@ -1516,6 +1668,7 @@ function cancelDrawing() {
   }
 
   drawZonesOnMap();
+  drawStreetsOnMap();
 }
 
 function goToMyLocation() {
@@ -1558,6 +1711,24 @@ function goToMyLocation() {
 
 const clearedPerimeterSnapshot = ref(null);
 
+async function persistPerimeterCoordinates(coords, { successMessage = 'Perímetro salvo.' } = {}) {
+  if (!isEdit.value) {
+    toast.success('Demarcação aplicada. Clique em Salvar no formulário para gravar.');
+    return;
+  }
+
+  try {
+    await api.put(`/developments/${route.params.id}`, {
+      coordinates: coords,
+      map_center: form.value.map_center ?? null,
+      map_zoom: form.value.map_zoom ?? null,
+    });
+    toast.success(successMessage);
+  } catch {
+    toast.error('Erro ao salvar perímetro.');
+  }
+}
+
 async function confirmClearPerimeter() {
   const ok = await confirm(
     'Limpar perímetro',
@@ -1566,10 +1737,10 @@ async function confirmClearPerimeter() {
   );
   if (!ok) return;
 
-  applyClearPerimeter();
+  await applyClearPerimeter();
 }
 
-function applyClearPerimeter() {
+async function applyClearPerimeter() {
   const coords = form.value.coordinates;
   if (Array.isArray(coords) && coords.length >= 3) {
     clearedPerimeterSnapshot.value = coords.map((point) => [Number(point[0]), Number(point[1])]);
@@ -1580,16 +1751,20 @@ function applyClearPerimeter() {
     map?.removeLayer(perimeterLayer);
     perimeterLayer = null;
   }
+
+  if (isEdit.value) {
+    await persistPerimeterCoordinates(null, { successMessage: 'Perímetro removido.' });
+  }
 }
 
-function undoClearPerimeter() {
+async function undoClearPerimeter() {
   const snapshot = clearedPerimeterSnapshot.value;
   if (!Array.isArray(snapshot) || snapshot.length < 3) return;
 
   form.value.coordinates = snapshot.map((point) => [Number(point[0]), Number(point[1])]);
   clearedPerimeterSnapshot.value = null;
   drawPerimeterOnMap(form.value.coordinates);
-  toast.info('Perímetro restaurado.');
+  await persistPerimeterCoordinates(form.value.coordinates, { successMessage: 'Perímetro restaurado.' });
 }
 
 async function saveZoneCoordinates(zone, coords) {
@@ -1599,6 +1774,7 @@ async function saveZoneCoordinates(zone, coords) {
       type: zone.type,
       color: zone.color,
       order: zone.order,
+      parent_zone_id: zone.parent_zone_id ?? null,
       coordinates: coords,
     });
     toast.success('Área da zona salva.');
@@ -1627,6 +1803,7 @@ async function confirmClearZone(zone) {
       type: zone.type,
       color: zone.color,
       order: zone.order,
+      parent_zone_id: zone.parent_zone_id ?? null,
       coordinates: null,
     });
     toast.success('Demarcação da zona removida.');
@@ -1638,13 +1815,17 @@ async function confirmClearZone(zone) {
 }
 
 const zones = ref([]);
+const streets = ref([]);
 const visibleZoneNameTypes = ref([]);
 const showZoneNamePicker = ref(false);
 const zoneNamePickerDraft = ref([]);
 const showZoneForm = ref(false);
+const showStreetForm = ref(false);
 const showZoneMapPicker = ref(false);
 const savingZone = ref(false);
+const savingStreet = ref(false);
 const editingZone = ref(null);
+const editingStreet = ref(null);
 
 const zoneColors = [
   '#3B82F6',
@@ -1677,8 +1858,22 @@ const zoneTypeOptions = [
   { value: 'outro', label: 'Outro' },
 ];
 
-const zoneForm = reactive({ name: '', type: 'quadra', color: '#3B82F6' });
+const zoneForm = reactive({ name: '', type: 'quadra', color: '#3B82F6', parent_zone_id: '' });
 const zoneFormErrors = reactive({ name: '', type: '' });
+const streetForm = ref({ name: '' });
+
+const parentZoneOptions = computed(() =>
+  zones.value
+    .filter((zone) =>
+      ['quadra', 'conjunto'].includes(zone.type)
+      && !zone.parent_zone_id
+      && zone.id !== editingZone.value?.id,
+    )
+    .map((zone) => ({
+      value: String(zone.id),
+      label: `${buildZoneTitleLabel(zone)} (${zoneTypeLabel(zone.type)})`,
+    })),
+);
 
 function zoneTypeLabel(type) {
   return zoneTypeLabelHelper(type);
@@ -1699,6 +1894,154 @@ async function loadZones() {
   }
 }
 
+async function loadStreets() {
+  if (!route.params.id) return;
+
+  try {
+    const { data } = await api.get(`/developments/${route.params.id}/streets`);
+    streets.value = Array.isArray(data) ? data : data.data ?? [];
+  } catch {
+    streets.value = [];
+  }
+}
+
+function drawStreetsOnMap() {
+  if (!L || !map) return;
+
+  Object.values(streetLayersMap).forEach((layer) => map.removeLayer(layer));
+  streetLayersMap = {};
+
+  streets.value.forEach((street) => {
+    if (!street.coordinates?.length || street.coordinates.length < 2) return;
+
+    const layer = L.polyline(street.coordinates, {
+      color: '#64748B',
+      weight: 4,
+      opacity: 0.8,
+      interactive: false,
+      className: 'map-lot-path',
+    })
+      .bindTooltip(street.name, { sticky: true })
+      .addTo(map);
+
+    streetLayersMap[street.id] = layer;
+  });
+}
+
+function openStreetForm() {
+  editingStreet.value = null;
+  streetForm.value = { name: '' };
+  showStreetForm.value = true;
+}
+
+function editStreet(street) {
+  editingStreet.value = street;
+  streetForm.value = { name: street.name };
+  showStreetForm.value = true;
+}
+
+function closeStreetForm() {
+  showStreetForm.value = false;
+  editingStreet.value = null;
+  streetForm.value = { name: '' };
+}
+
+async function saveStreet() {
+  if (!streetForm.value.name.trim()) {
+    toast.warning('Informe o nome da rua.');
+    return;
+  }
+
+  savingStreet.value = true;
+
+  try {
+    if (editingStreet.value) {
+      await api.put(
+        `/developments/${route.params.id}/streets/${editingStreet.value.id}`,
+        streetForm.value,
+      );
+      toast.success('Rua atualizada.');
+    } else {
+      await api.post(`/developments/${route.params.id}/streets`, streetForm.value);
+      toast.success('Rua criada.');
+    }
+
+    closeStreetForm();
+    await loadStreets();
+    drawStreetsOnMap();
+  } catch {
+    toast.error('Erro ao salvar rua.');
+  } finally {
+    savingStreet.value = false;
+  }
+}
+
+async function deleteStreet(street) {
+  const ok = await confirm(
+    'Excluir rua',
+    `Excluir "${street.name}"?`,
+    'Sim, excluir',
+  );
+  if (!ok) return;
+
+  try {
+    await api.delete(`/developments/${route.params.id}/streets/${street.id}`);
+    toast.success('Rua excluída.');
+    await loadStreets();
+
+    if (streetLayersMap[street.id]) {
+      map?.removeLayer(streetLayersMap[street.id]);
+      delete streetLayersMap[street.id];
+    }
+  } catch {
+    toast.error('Erro ao excluir rua.');
+  }
+}
+
+function startDrawStreet(street) {
+  if (drawingMode.value === 'perimeter' || drawingMode.value === 'zone') {
+    cancelDrawing();
+  }
+
+  clearTempLayers();
+  prepareMapForVertexEditing();
+  setMapOverlaysPointerEvents(false);
+  drawingMode.value = 'street';
+  drawingStreet.value = street;
+  drawingZone.value = null;
+  showZoneMapPicker.value = false;
+
+  if (street.coordinates?.length >= 2) {
+    if (streetLayersMap[street.id]) {
+      map?.removeLayer(streetLayersMap[street.id]);
+      delete streetLayersMap[street.id];
+    }
+    preloadDrawingPoints(street.coordinates, '#64748B');
+    toast.info(`Traçado de "${street.name}" carregado. Arraste os pontos ou adicione novos no mapa.`);
+  } else {
+    perimeterPoints.value = [];
+  }
+
+  map?.getContainer()?.style.setProperty('cursor', 'crosshair');
+}
+
+async function saveStreetCoordinates(street, coords) {
+  try {
+    await api.put(`/developments/${route.params.id}/streets/${street.id}`, {
+      name: street.name,
+      order: street.order,
+      coordinates: coords,
+    });
+    toast.success('Traçado da rua salvo.');
+    await loadStreets();
+    drawStreetsOnMap();
+  } catch {
+    toast.error('Erro ao salvar traçado da rua.');
+    await loadStreets();
+    drawStreetsOnMap();
+  }
+}
+
 function clearZoneFormErrors() {
   zoneFormErrors.name = '';
   zoneFormErrors.type = '';
@@ -1708,6 +2051,7 @@ function resetZoneForm() {
   zoneForm.name = '';
   zoneForm.type = 'quadra';
   zoneForm.color = '#3B82F6';
+  zoneForm.parent_zone_id = '';
   clearZoneFormErrors();
 }
 
@@ -1722,6 +2066,7 @@ function editZone(zone) {
   zoneForm.name = zone.name ?? '';
   zoneForm.type = zone.type ?? 'quadra';
   zoneForm.color = zone.color ?? '#3B82F6';
+  zoneForm.parent_zone_id = zone.parent_zone_id ? String(zone.parent_zone_id) : '';
   clearZoneFormErrors();
   showZoneForm.value = true;
 }
@@ -1762,6 +2107,7 @@ function buildZonePayload() {
     name: zoneForm.name.trim(),
     type: zoneForm.type || 'quadra',
     color: zoneForm.color || '#3B82F6',
+    parent_zone_id: zoneForm.parent_zone_id ? Number(zoneForm.parent_zone_id) : null,
   };
 }
 
@@ -1934,9 +2280,11 @@ async function submit() {
 onMounted(async () => {
   await loadItem();
   await loadZones();
+  await loadStreets();
   await nextTick();
   await initMap();
   if (zones.value.length) drawZonesOnMap();
+  if (streets.value.length) drawStreetsOnMap();
 });
 
 watch(isMapFullscreen, async (active) => {

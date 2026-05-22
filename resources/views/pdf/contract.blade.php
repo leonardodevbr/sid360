@@ -257,7 +257,17 @@
   <strong>TERRENO (LOTE)</strong>, localizado no Loteamento
   <strong>{{ strtoupper($sale->lot->development->name) }}</strong>,
   situado no Município de Cafarnaum, Estado da Bahia,
-  identificado como Quadra <strong>{{ $sale->lot->block ?? '–' }}</strong>,
+  @if($sale->lot->street)
+    com frente para a <strong>{{ $sale->lot->street->name }}</strong>,
+  @endif
+  @if($sale->lot->zone?->parent)
+    <strong>{{ $sale->lot->zone->parent->name }}</strong>,
+  @endif
+  @if($sale->lot->zone)
+    <strong>{{ $sale->lot->zone->name }}</strong>,
+  @elseif($sale->lot->block)
+    Quadra <strong>{{ $sale->lot->block }}</strong>,
+  @endif
   Lote <strong>{{ $sale->lot->number }}</strong>
   @if($sale->lot->area)
     , com área total de

@@ -25,6 +25,7 @@ class DevelopmentZone extends Model
      */
     protected $fillable = [
         'development_id',
+        'parent_zone_id',
         'name',
         'type',
         'color',
@@ -48,6 +49,22 @@ class DevelopmentZone extends Model
     public function development(): BelongsTo
     {
         return $this->belongsTo(Development::class);
+    }
+
+    /**
+     * @return BelongsTo<DevelopmentZone, $this>
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(DevelopmentZone::class, 'parent_zone_id');
+    }
+
+    /**
+     * @return HasMany<DevelopmentZone, $this>
+     */
+    public function children(): HasMany
+    {
+        return $this->hasMany(DevelopmentZone::class, 'parent_zone_id')->orderBy('order');
     }
 
     /**

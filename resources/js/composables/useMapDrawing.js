@@ -247,6 +247,7 @@ export function useMapDrawing(options) {
       refreshTempPolyline(drawingPoints.value.length >= 3);
       refreshVertexMarkerStyles();
       bringVertexMarkersToFront();
+      bringEdgeLabelMarkersToFront();
 
       if (isLotMode.value && !isPointInsideOrOnPolygon(marker.getLatLng(), getBoundary())) {
         toast.warning('Vértice fora da área permitida.');
@@ -360,15 +361,20 @@ export function useMapDrawing(options) {
       const marker = L.marker(edge.midpoint, {
         interactive: false,
         keyboard: false,
+        zIndexOffset: 1200,
         icon: L.divIcon({
           className: 'map-edge-label-icon',
-          html: `<span class="map-edge-label${edge.isClosingPreview ? ' map-edge-label--closing' : ''}${invalid ? ' map-edge-label--invalid' : ''}">${edge.lengthLabel}</span>`,
+          html: `<span class="map-edge-label${edge.isClosingPreview ? ' map-edge-label--closing' : ''}${edge.isShortEdge ? ' map-edge-label--short' : ''}${invalid ? ' map-edge-label--invalid' : ''}">${edge.lengthLabel}</span>`,
           iconSize: [0, 0],
         }),
       }).addTo(map);
 
       edgeLabelMarkers.push(marker);
     });
+  }
+
+  function bringEdgeLabelMarkersToFront() {
+    edgeLabelMarkers.forEach((marker) => marker.bringToFront?.());
   }
 
   function refreshEdgeLabels() {
@@ -430,6 +436,7 @@ export function useMapDrawing(options) {
     refreshEdgeLabels();
     refreshVertexMarkerStyles();
     bringVertexMarkersToFront();
+    bringEdgeLabelMarkersToFront();
   }
 
   function clearTempLayers() {

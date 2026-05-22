@@ -58,7 +58,7 @@ class SaleController extends Controller
         $this->authorize('sales.view');
 
         $sale = Sale::query()
-            ->with(['client', 'lot.development', 'installments', 'buyers'])
+            ->with(['client', 'lot.development', 'lot.street', 'lot.zone.parent', 'installments', 'buyers'])
             ->findOrFail((int) $id);
 
         return response()->json(new SaleResource($sale));
@@ -89,7 +89,7 @@ class SaleController extends Controller
         $this->authorize('sales.view');
 
         $sale = Sale::query()
-            ->with(['client', 'lot.development', 'buyers'])
+            ->with(['client', 'lot.development', 'lot.street', 'lot.zone.parent', 'buyers'])
             ->findOrFail((int) $id);
 
         $pdf = Pdf::loadView('pdf.contract', ['sale' => $sale])

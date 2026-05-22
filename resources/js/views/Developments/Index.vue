@@ -57,7 +57,7 @@
               <td class="px-4 py-4 text-sm font-medium text-slate-900 sm:px-6">{{ item.name }}</td>
               <td class="hidden px-4 py-4 text-sm text-slate-600 sm:table-cell sm:px-6">{{ item.location || '—' }}</td>
               <td class="px-4 py-4 sm:px-6">
-                <span :class="statusClass(item.status)" class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium">
+                <span :class="developmentStatusClass(item.status)" class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium">
                   {{ developmentStatusLabels[item.status] || item.status }}
                 </span>
               </td>
@@ -115,6 +115,7 @@ import api from '@/services/api';
 import { useAuthStore } from '@/stores/auth';
 import { useAlert } from '@/composables/useAlert';
 import { developmentStatusLabels, developmentStatusOptions } from '@/utils/labels';
+import { developmentStatusClass } from '@/utils/status';
 import { getApiErrorMessage } from '@/utils/apiError';
 import Button from '@/components/Common/Button.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
@@ -132,15 +133,6 @@ const statusFilter = ref('');
 const perPage = ref(15);
 const pagination = ref(null);
 let searchTimeout = null;
-
-function statusClass(status) {
-  const map = {
-    active: 'bg-sid-cream-dark text-secondary-600',
-    inactive: 'bg-slate-100 text-slate-700',
-    under_construction: 'bg-amber-100 text-amber-800',
-  };
-  return map[status] || 'bg-slate-100 text-slate-700';
-}
 
 async function loadItems(page = 1) {
   loading.value = true;

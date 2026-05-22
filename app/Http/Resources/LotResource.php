@@ -24,7 +24,17 @@ class LotResource extends JsonResource
                 'name' => $this->zone->name,
                 'type' => $this->zone->type,
                 'color' => $this->zone->color,
+                'parent' => $this->zone->parent ? [
+                    'id' => $this->zone->parent->id,
+                    'name' => $this->zone->parent->name,
+                ] : null,
             ]),
+            'street_id' => $this->street_id,
+            'street' => $this->whenLoaded('street', fn () => [
+                'id' => $this->street->id,
+                'name' => $this->street->name,
+            ]),
+            'full_address' => $this->fullAddress(),
             'number' => $this->number,
             'block' => $this->block,
             'area' => $this->area !== null ? (float) $this->area : null,
