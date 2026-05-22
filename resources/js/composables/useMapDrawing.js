@@ -67,6 +67,7 @@ export function useMapDrawing(options) {
   const visibleZoneNameTypes = ref([]);
   const startedFromExistingPolygon = ref(false);
   let firstVertexCloseTimer = null;
+  let mapFooterResizeObserver = null;
   const cursorPreview = createCursorPreviewController();
 
   function clearFirstVertexCloseTimer() {
@@ -153,6 +154,33 @@ export function useMapDrawing(options) {
   function refreshMapLayout() {
     syncMapContainerHeight();
     refreshMapDisplay(map, mapLayersSetup ?? {});
+
+    if (map && drawingMode.value && !(map._vertexDragActiveCount > 0)) {
+      map.dragging.enable();
+    }
+  }
+
+  function scheduleMapLayoutRefresh() {
+    if (!map) return;
+
+    window.requestAnimationFrame(() => {
+      refreshMapLayout();
+      window.setTimeout(() => refreshMapLayout(), 150);
+    });
+  }
+
+  function bindMapFooterResizeObserver() {
+    mapFooterResizeObserver?.disconnect();
+    mapFooterResizeObserver = null;
+
+    if (typeof ResizeObserver === 'undefined' || !mapFooterRef.value) {
+      return;
+    }
+
+    mapFooterResizeObserver = new ResizeObserver(() => {
+      scheduleMapLayoutRefresh();
+    });
+    mapFooterResizeObserver.observe(mapFooterRef.value);
   }
 
   const { isFullscreen: isMapFullscreen, toggleFullscreen: toggleMapFullscreen } = useMapFullscreen(
@@ -312,14 +340,12 @@ export function useMapDrawing(options) {
     };
 
     const onStart = (startEvent) => {
-      if (!drawingMode.value) return;
+      if (!drawingMode.value || !canDragVertexMarkers()) {
+        return;
+      }
 
       L.DomEvent.stopPropagation(startEvent);
       L.DomEvent.preventDefault(startEvent);
-
-      if (!canDragVertexMarkers()) {
-        return;
-      }
 
       marker._wasDragged = false;
 
@@ -414,10 +440,6 @@ export function useMapDrawing(options) {
       removeVertexAtIndex(marker._vertexIndex);
     });
 
-    marker.on('mousedown', (event) => {
-      L.DomEvent.stopPropagation(event);
-    });
-
     tempMarkers.push(marker);
   }
 
@@ -468,13 +490,16 @@ export function useMapDrawing(options) {
     edgeLabelMarkers = [];
   }
 
-  function refreshEdgeLabelsForCoords(coords, { invalid = false, onlyWhileDrawing = false } = {}) {
+  function refreshEdgeLabelsForCoords(
+    coords,
+    { invalid = false, onlyWhileDrawing = false, closed = null } = {},
+  ) {
     if (onlyWhileDrawing && !drawingMode.value) return;
     if (!L || !map || !Array.isArray(coords) || coords.length < 2) return;
 
-    const isPolygonDrawing = coords.length >= 3;
+    const isClosedPolygon = closed ?? (startedFromExistingPolygon.value && coords.length >= 3);
     const edges = getPolygonEdgesMeters(coords, {
-      closed: isPolygonDrawing,
+      closed: isClosedPolygon,
       includeClosingPreview: false,
     });
 
@@ -852,8 +877,8 @@ export function useMapDrawing(options) {
     }
 
     refreshTempPolyline(false);
-    refreshVertexMarkerStyles();
     syncDrawingCursorPreview();
+    scheduleMapLayoutRefresh();
 
     const boundary = getBoundary();
     if (boundary && !isPointInsideOrOnPolygon([lat, lng], boundary)) {
@@ -887,6 +912,7 @@ export function useMapDrawing(options) {
 
     map?.getContainer()?.style.setProperty('cursor', 'crosshair');
     syncDrawingCursorPreview();
+    scheduleMapLayoutRefresh();
   }
 
   function cancelDrawing() {
@@ -973,6 +999,8 @@ export function useMapDrawing(options) {
       clearEdgeLabelMarkers();
     }
 
+    syncDrawingCursorPreview();
+    scheduleMapLayoutRefresh();
     toast.info('Ponto removido.');
   }
 
@@ -997,6 +1025,9 @@ export function useMapDrawing(options) {
     } else {
       clearEdgeLabelMarkers();
     }
+
+    syncDrawingCursorPreview();
+    scheduleMapLayoutRefresh();
   }
 
   function clearSavedFeature() {
@@ -1140,6 +1171,7 @@ export function useMapDrawing(options) {
 
     refreshContextLayers({ fit: true });
     map.invalidateSize();
+    bindMapFooterResizeObserver();
     mapReady.value = true;
   }
 
@@ -1148,6 +1180,9 @@ export function useMapDrawing(options) {
       window.removeEventListener('resize', fullscreenResizeHandler);
       fullscreenResizeHandler = null;
     }
+
+    mapFooterResizeObserver?.disconnect();
+    mapFooterResizeObserver = null;
 
     map?.remove();
     map = null;
@@ -1223,6 +1258,12 @@ export function useMapDrawing(options) {
     } else if (active) {
       fullscreenResizeHandler = () => refreshMapLayout();
       window.addEventListener('resize', fullscreenResizeHandler);
+    }
+  });
+
+  watch(canSaveDrawing, () => {
+    if (drawingMode.value) {
+      scheduleMapLayoutRefresh();
     }
   });
 
