@@ -66,6 +66,10 @@ const props = defineProps({
     type: [String, Number],
     default: null,
   },
+  featureLabel: {
+    type: String,
+    default: null,
+  },
   savedCoordinates: {
     type: Array,
     default: null,
@@ -108,6 +112,7 @@ const contextStreetsRef = computed(() => props.contextStreets);
 const contextZonesRef = computed(() => props.contextZones);
 const contextLotsRef = computed(() => props.contextLots);
 const savedCoordinatesRef = computed(() => props.savedCoordinates);
+const featureLabelRef = computed(() => props.featureLabel);
 const boundaryPolygonRef = computed(() => props.boundaryPolygon);
 const mapCenterRef = computed(() => props.mapCenter);
 const mapZoomRef = computed(() => props.mapZoom);
@@ -155,6 +160,7 @@ const {
   mapCenter: mapCenterRef,
   mapZoom: mapZoomRef,
   savedCoordinates: savedCoordinatesRef,
+  featureLabel: featureLabelRef,
   fitContextOnLoad: props.fitContextOnLoad,
   onDemarcationSaved: (coords) => {
     emit('save-demarcation', coords);

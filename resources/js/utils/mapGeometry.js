@@ -152,7 +152,7 @@ export function formatMeters(lengthMeters) {
   return `${Math.round(lengthMeters).toLocaleString('pt-BR')} m`;
 }
 
-const SHORT_EDGE_LABEL_OFFSET_THRESHOLD_METERS = 55;
+const SHORT_EDGE_LABEL_OFFSET_THRESHOLD_METERS = 15;
 
 function offsetPointPerpendicular(start, end, offsetMeters, side = 1) {
   const [lat1, lng1] = normalizePoint(start);
@@ -218,7 +218,7 @@ function createEdge(start, end, from, to, isClosingPreview) {
 
   let labelPosition = midpoint;
   if (lengthMeters < SHORT_EDGE_LABEL_OFFSET_THRESHOLD_METERS) {
-    const offsetMeters = Math.max(10, Math.min(20, lengthMeters * 0.45));
+    const offsetMeters = Math.max(3, Math.min(6, lengthMeters * 0.3));
     labelPosition = offsetPointPerpendicular(start, end, offsetMeters, from % 2 === 0 ? 1 : -1);
   }
 

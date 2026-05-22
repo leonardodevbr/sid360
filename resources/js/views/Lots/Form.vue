@@ -136,6 +136,7 @@
           :map-zoom="developmentMapZoom"
           :demarcation-saving="savingDemarcation"
           :editing-lot-id="isEdit ? route.params.id : null"
+          :feature-label="activeLotMapLabel"
           :saved-coordinates="editingLotSavedCoordinates"
           @update:coordinates="updateFormCoordinates"
           @update:area-computed="form.area_computed = $event"
@@ -194,6 +195,7 @@ import { lotStatusFormOptions } from '@/utils/labels';
 import { buildZoneTitleLabel, isLotSelectableZone } from '@/utils/zone';
 import { getPolygonCentroid, normalizePolygonCoordinates } from '@/utils/mapGeometry';
 import { getMappedStreets } from '@/utils/mapStreets';
+import { buildLotMapLabel } from '@/utils/mapLots';
 import Input from '@/components/Common/Input.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
 import Button from '@/components/Common/Button.vue';
@@ -295,16 +297,30 @@ const editingLotSavedCoordinates = computed(() => {
   return normalizePolygonCoordinates(currentLot?.coordinates);
 });
 
+function coordinatesEqual(a, b) {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 function updateFormCoordinates(coords) {
   const normalized = normalizePolygonCoordinates(coords);
 
   if (normalized?.length >= 3) {
+    if (coordinatesEqual(normalized, form.value.coordinates)) {
+      return;
+    }
+
     form.value.coordinates = normalized;
     loadedLotCoordinates.value = normalized;
     return;
   }
 
   if (coords === null) {
+    if (form.value.coordinates === null && loadedLotCoordinates.value === null) {
+      return;
+    }
+
     form.value.coordinates = null;
     loadedLotCoordinates.value = null;
   }
@@ -386,6 +402,20 @@ function getSelectedZone() {
     (zone) => String(zone.id) === String(form.value.zone_id),
   ) ?? null;
 }
+
+const activeLotMapLabel = computed(() => {
+  const number = String(form.value.number ?? '').trim();
+  if (!number) {
+    return null;
+  }
+
+  const selectedZone = getSelectedZone();
+
+  return buildLotMapLabel({
+    number,
+    block: selectedZone?.name ?? form.value.block?.trim() ?? null,
+  });
+});
 
 const lotBoundaryPolygon = computed(() => {
   const selectedZone = getSelectedZone();
@@ -732,7 +762,9 @@ async function submit() {
       });
       await checkPending();
       toast.success('Lote salvo offline. Será sincronizado quando houver conexão.');
-      goBack();
+      if (!isEdit.value) {
+        goBack();
+      }
     } catch {
       toast.error('Erro ao salvar lote offline.');
     }
@@ -747,8 +779,8 @@ async function submit() {
     } else {
       await api.post('/lots', payload);
       toast.success('Lote cadastrado.');
+      goBack();
     }
-    goBack();
   } catch (err) {
     toast.error(err?.response?.data?.message ?? 'Erro ao salvar lote.');
   } finally {

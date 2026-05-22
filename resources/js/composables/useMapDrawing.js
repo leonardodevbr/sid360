@@ -46,6 +46,7 @@ export function useMapDrawing(options) {
     onDemarcationSaved,
     savedCoordinates,
     onCoordinatesChange,
+    featureLabel,
   } = options;
 
   const mapContainer = ref(null);
@@ -65,6 +66,7 @@ export function useMapDrawing(options) {
   let tempMarkers = [];
   let edgeLabelMarkers = [];
   let locationMarker = null;
+  let isFinishing = false;
 
   const drawingMode = ref(null);
   const drawingPoints = ref([]);
@@ -79,7 +81,6 @@ export function useMapDrawing(options) {
   let mapFooterResizeObserver = null;
   let mapLayoutRefreshTimer = null;
   let lastMapContainerSizeKey = '';
-  let closePolygonFromVertexPending = false;
   const cursorPreview = createCursorPreviewController();
   const gpsPreview = createGpsPreviewController();
   let gpsPreviewErrorNotified = false;
@@ -93,6 +94,15 @@ export function useMapDrawing(options) {
 
   function scheduleCloseOnFirstVertex() {
     clearFirstVertexCloseTimer();
+    isFinishing = true;
+
+    if (map?._tempLine) {
+      map.removeLayer(map._tempLine);
+      delete map._tempLine;
+    }
+
+    cursorPreview.clear();
+
     firstVertexCloseTimer = setTimeout(() => {
       firstVertexCloseTimer = null;
       finishDrawing({ closedExplicitly: true });
@@ -107,10 +117,14 @@ export function useMapDrawing(options) {
   );
   const isDrawing = computed(() => Boolean(drawingMode.value));
 
-  const peekSavedCoordinates = computed(() =>
-    normalizePolygonCoordinates(coordinates?.value)
-    ?? normalizePolygonCoordinates(savedCoordinates?.value),
-  );
+  const peekSavedCoordinates = computed(() => {
+    if (drawingMode.value && drawingPoints.value.length >= 3) {
+      return drawingPoints.value.map((point) => [Number(point[0]), Number(point[1])]);
+    }
+
+    return normalizePolygonCoordinates(coordinates?.value)
+      ?? normalizePolygonCoordinates(savedCoordinates?.value);
+  });
 
   const hasSavedDemarcation = computed(
     () => (peekSavedCoordinates.value?.length ?? 0) >= 3,
@@ -371,23 +385,18 @@ export function useMapDrawing(options) {
       return false;
     }
 
-    if (closePolygonFromVertexPending) {
-      return true;
+    clearFirstVertexCloseTimer();
+    isFinishing = true;
+
+    if (map?._tempLine) {
+      map.removeLayer(map._tempLine);
+      delete map._tempLine;
     }
 
-    closePolygonFromVertexPending = true;
-    clearFirstVertexCloseTimer();
+    cursorPreview.clear();
+    cursorPreview.unbind();
 
-    window.requestAnimationFrame(() => {
-      closePolygonFromVertexPending = false;
-
-      if (!drawingMode.value || drawingPoints.value.length < 3) {
-        return;
-      }
-
-      closePolygonDrawing();
-    });
-
+    finishDrawing({ closedExplicitly: true });
     return true;
   }
 
@@ -632,6 +641,12 @@ export function useMapDrawing(options) {
       return;
     }
 
+    if (startedFromExistingPolygon.value) {
+      cursorPreview.unbind();
+      syncGpsDrawingPreview();
+      return;
+    }
+
     cursorPreview.bind(map, L, {
       isActive: () => Boolean(drawingMode.value) && drawingPoints.value.length >= 1,
       getLastPoint: () => {
@@ -713,10 +728,12 @@ export function useMapDrawing(options) {
       return;
     }
 
-    refreshEdgeLabelsForCoords(coords);
+    refreshEdgeLabelsForCoords(coords, { closed: coords.length >= 3 });
   }
 
   function refreshTempPolyline(closed = false, options = {}) {
+    if (isFinishing) return;
+
     const { livePreview = false } = options;
 
     if (!L || drawingPoints.value.length < 2) return;
@@ -741,13 +758,15 @@ export function useMapDrawing(options) {
         fillColor: strokeColor,
         fillOpacity: 0.12,
       }).addTo(map);
+      bindFeatureLabel(map._tempLine);
     } else {
       map._tempLine = L.polyline(drawingPoints.value, layerOptions).addTo(map);
     }
 
+    refreshEdgeLabels();
+
     if (livePreview) return;
 
-    refreshEdgeLabels();
     refreshVertexMarkerStyles();
     bringVertexMarkersToFront();
     bringEdgeLabelMarkersToFront();
@@ -786,6 +805,27 @@ export function useMapDrawing(options) {
     configureMapRotation(map);
   }
 
+  function bindFeatureLabel(layer) {
+    if (!layer) {
+      return;
+    }
+
+    layer.unbindTooltip();
+
+    const label = featureLabel?.value?.trim();
+    if (!label) {
+      return;
+    }
+
+    layer.bindTooltip(label, {
+      permanent: true,
+      direction: 'center',
+      className: 'map-lot-feature-label',
+      opacity: 1,
+    });
+    layer.openTooltip();
+  }
+
   function drawSavedFeatureLayer() {
     if (!L || !map || drawingMode.value) return;
 
@@ -810,6 +850,7 @@ export function useMapDrawing(options) {
     }).addTo(map);
 
     configureMapPathLayer(savedFeatureLayer);
+    bindFeatureLabel(savedFeatureLayer);
     savedFeatureLayer.bringToFront?.();
     refreshSavedEdgeLabels();
   }
@@ -993,13 +1034,15 @@ export function useMapDrawing(options) {
       return saved;
     }
 
-    if ((coordinates.value?.length ?? 0) < 3) {
-      coordinates.value = saved;
+    const current = normalizePolygonCoordinates(coordinates.value);
+    if ((current?.length ?? 0) >= 3) {
+      return current;
     }
 
-    onCoordinatesChange?.(normalizePolygonCoordinates(coordinates.value) ?? saved);
+    coordinates.value = saved;
+    onCoordinatesChange?.(saved);
 
-    return normalizePolygonCoordinates(coordinates.value) ?? saved;
+    return saved;
   }
 
   function hasSavedFeatureCoordinates() {
@@ -1154,7 +1197,6 @@ export function useMapDrawing(options) {
 
   function cancelDrawing() {
     clearFirstVertexCloseTimer();
-    closePolygonFromVertexPending = false;
     gpsPreview.stop();
     cursorPreview.unbind();
     clearTempLayers();
@@ -1169,13 +1211,17 @@ export function useMapDrawing(options) {
   }
 
   function finishDrawing({ closedExplicitly = false } = {}) {
+    isFinishing = true;
+
     if (drawingPoints.value.length < 3) {
+      isFinishing = false;
       toast.warning('O lote precisa de pelo menos 3 pontos.');
       return;
     }
 
     const boundary = getBoundary();
     if (boundary && !arePointsInsideOrOnPolygon(drawingPoints.value, boundary)) {
+      isFinishing = false;
       toast.error('Todos os pontos do lote devem ficar dentro da quadra selecionada.');
       return;
     }
@@ -1191,6 +1237,11 @@ export function useMapDrawing(options) {
     setMapOverlaysPointerEvents(true);
     restoreMapInteractionAfterDrawing();
 
+    if (map?._tempLine) {
+      map.removeLayer(map._tempLine);
+      delete map._tempLine;
+    }
+
     if (coordinates) {
       coordinates.value = savedCoords;
     }
@@ -1200,6 +1251,13 @@ export function useMapDrawing(options) {
     gpsPreview.stop();
     cursorPreview.unbind();
     drawSavedFeatureLayer();
+
+    if (map?._tempLine && !drawingMode.value) {
+      map.removeLayer(map._tempLine);
+      delete map._tempLine;
+    }
+
+    isFinishing = false;
     scheduleMapLayoutRefresh();
 
     if (onDemarcationSaved) {
@@ -1457,6 +1515,26 @@ export function useMapDrawing(options) {
     didFitToSavedFeature = false;
     mapReady.value = false;
   }
+
+  watch(
+    () => featureLabel?.value,
+    () => {
+      if (!map || !L) {
+        return;
+      }
+
+      if (drawingMode.value) {
+        if (map._tempLine && startedFromExistingPolygon.value) {
+          bindFeatureLabel(map._tempLine);
+        }
+        return;
+      }
+
+      if (savedFeatureLayer) {
+        bindFeatureLabel(savedFeatureLayer);
+      }
+    },
+  );
 
   watch(
     () => [
