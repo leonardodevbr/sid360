@@ -335,6 +335,12 @@ export function useMapDrawing(options) {
       }
     });
 
+    marker.on('dblclick', (event) => {
+      L.DomEvent.stopPropagation(event);
+      L.DomEvent.preventDefault(event);
+      removeVertexAtIndex(marker._vertexIndex);
+    });
+
     marker.on('mousedown', (event) => {
       L.DomEvent.stopPropagation(event);
     });
@@ -694,6 +700,41 @@ export function useMapDrawing(options) {
     toast.success('Demarcação do lote salva.');
   }
 
+  function removeVertexAtIndex(index) {
+    if (!drawingMode.value || index < 0 || index >= drawingPoints.value.length) {
+      return;
+    }
+
+    const minPoints = drawingMode.value === 'street' ? 2 : 1;
+    if (drawingPoints.value.length <= minPoints) {
+      toast.warning('Não é possível remover este ponto.');
+      return;
+    }
+
+    drawingPoints.value.splice(index, 1);
+
+    tempMarkers.forEach((marker) => map?.removeLayer(marker));
+    tempMarkers = [];
+
+    if (map?._tempLine) {
+      map.removeLayer(map._tempLine);
+      delete map._tempLine;
+    }
+
+    const baseColor = getDrawingBaseColor();
+    drawingPoints.value.forEach((coord, pointIndex) => {
+      addDrawingMarker(coord, baseColor, pointIndex);
+    });
+
+    if (drawingPoints.value.length >= 2) {
+      refreshTempPolyline(drawingPoints.value.length >= 3);
+    } else {
+      clearEdgeLabelMarkers();
+    }
+
+    toast.info('Ponto removido.');
+  }
+
   function undoLastPoint() {
     if (!drawingPoints.value.length) return;
 
@@ -932,6 +973,7 @@ export function useMapDrawing(options) {
     cancelDrawing,
     finishDrawing,
     undoLastPoint,
+    removeVertexAtIndex,
     clearSavedFeature,
     captureGpsPoint,
     goToMyLocation,

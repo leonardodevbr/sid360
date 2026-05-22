@@ -243,13 +243,13 @@
                   v-if="drawingMode === 'perimeter'"
                   class="self-center text-xs font-medium text-blue-600"
                 >
-                  Clique no mapa para adicionar pontos. Arraste as bolinhas para ajustar. Salve quando tiver pelo menos 3 pontos.
+                  Clique no mapa para adicionar pontos. Arraste as bolinhas para ajustar. Duplo clique na bolinha remove o ponto. Salve quando tiver pelo menos 3 pontos.
                 </span>
                 <span
                   v-else-if="drawingMode === 'zone'"
                   class="self-center text-xs font-medium text-emerald-600"
                 >
-                  Editando {{ drawingZone?.name }} — ajuste os vértices e clique em Salvar demarcação
+                  Editando {{ drawingZone?.name }} — arraste os vértices, duplo clique remove um ponto e clique em Salvar demarcação
                   {{ perimeterPoints.length ? ` (${perimeterPoints.length} pontos)` : '' }}
                 </span>
                 <span
@@ -1265,6 +1265,12 @@ function addDrawingMarker(coord, color, index) {
     }
   });
 
+  marker.on('dblclick', (e) => {
+    L.DomEvent.stopPropagation(e);
+    L.DomEvent.preventDefault(e);
+    removeVertexAtIndex(marker._vertexIndex);
+  });
+
   marker.on('mousedown', (e) => {
     L.DomEvent.stopPropagation(e);
   });
@@ -1278,6 +1284,41 @@ function preloadDrawingPoints(coords, color) {
 
   perimeterPoints.value.forEach((coord, index) => addDrawingMarker(coord, color, index));
   refreshTempPolyline(perimeterPoints.value.length >= 3);
+}
+
+function removeVertexAtIndex(index) {
+  if (!drawingMode.value || index < 0 || index >= perimeterPoints.value.length) {
+    return;
+  }
+
+  const minPoints = drawingMode.value === 'street' ? 2 : 1;
+  if (perimeterPoints.value.length <= minPoints) {
+    toast.warning('Não é possível remover este ponto.');
+    return;
+  }
+
+  perimeterPoints.value.splice(index, 1);
+
+  tempMarkers.forEach((marker) => map?.removeLayer(marker));
+  tempMarkers = [];
+
+  if (map?._tempLine) {
+    map.removeLayer(map._tempLine);
+    delete map._tempLine;
+  }
+
+  const color = getDrawingBaseColor();
+  perimeterPoints.value.forEach((coord, pointIndex) => {
+    addDrawingMarker(coord, color, pointIndex);
+  });
+
+  if (perimeterPoints.value.length >= 2) {
+    refreshTempPolyline(perimeterPoints.value.length >= 3);
+  } else {
+    clearEdgeLabelMarkers();
+  }
+
+  toast.info('Ponto removido.');
 }
 
 function undoLastPoint() {

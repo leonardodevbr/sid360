@@ -315,7 +315,7 @@ onMounted(async () => {
             v-if="isDrawing"
             class="self-center text-xs font-medium text-blue-600"
           >
-            Clique no mapa para adicionar pontos. Arraste as bolinhas para ajustar. Salve quando tiver pelo menos 3 pontos.
+            Clique no mapa para adicionar pontos. Arraste as bolinhas para ajustar. Duplo clique na bolinha remove o ponto. Salve quando tiver pelo menos 3 pontos.
           </span>
         </div>
 
