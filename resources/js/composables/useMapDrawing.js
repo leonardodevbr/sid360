@@ -16,6 +16,7 @@ import {
   getInvalidPointsInsidePolygon,
   getPolygonEdgesMeters,
   isPointInsideOrOnPolygon,
+  normalizePolygonCoordinates,
 } from '@/utils/mapGeometry';
 import { buildZoneTitleLabel } from '@/utils/zone';
 import { getStreetColor, hasValidStreetPolygon } from '@/utils/mapStreets';
@@ -554,7 +555,7 @@ export function useMapDrawing(options) {
       savedFeatureLayer = null;
     }
 
-    const coords = coordinates?.value;
+    const coords = getSavedFeatureCoordinates();
     if (!Array.isArray(coords) || coords.length < 2) {
       refreshSavedEdgeLabels();
       return;
@@ -689,18 +690,44 @@ export function useMapDrawing(options) {
   }
 
   let didInitialFit = false;
+  let didFitToSavedFeature = false;
+
+  function getSavedFeatureCoordinates() {
+    return normalizePolygonCoordinates(coordinates?.value);
+  }
 
   function hasSavedFeatureCoordinates() {
-    const coords = coordinates?.value;
+    const coords = getSavedFeatureCoordinates();
     return Array.isArray(coords) && coords.length >= 3;
   }
 
   function fitMapToPolygonCoords(coords, padding = [30, 30]) {
-    if (!map || !L || !Array.isArray(coords) || coords.length < 3) {
+    const normalized = normalizePolygonCoordinates(coords);
+    if (!map || !L || !normalized || normalized.length < 3) {
       return false;
     }
 
-    map.fitBounds(L.polygon(coords).getBounds(), { padding });
+    map.fitBounds(L.polygon(normalized).getBounds(), { padding });
+    return true;
+  }
+
+  function fitMapToSavedFeature({ force = false } = {}) {
+    if (!map || !L || drawingMode.value || (!force && didFitToSavedFeature)) {
+      return false;
+    }
+
+    const savedCoords = getSavedFeatureCoordinates();
+    if (!savedCoords || savedCoords.length < 3) {
+      return false;
+    }
+
+    const padding = mode === 'lot' ? [24, 24] : [30, 30];
+    if (!fitMapToPolygonCoords(savedCoords, padding)) {
+      return false;
+    }
+
+    didFitToSavedFeature = true;
+    didInitialFit = true;
     return true;
   }
 
@@ -710,9 +737,7 @@ export function useMapDrawing(options) {
     }
 
     if (hasSavedFeatureCoordinates()) {
-      if (fitMapToPolygonCoords(coordinates.value)) {
-        didInitialFit = true;
-      }
+      fitMapToSavedFeature();
       return;
     }
 
@@ -854,7 +879,11 @@ export function useMapDrawing(options) {
     }
 
     drawSavedFeatureLayer();
-    toast.success('Demarcação do lote salva.');
+    toast.success(
+      mode === 'lot'
+        ? 'Demarcação registrada no formulário. Clique em Salvar para persistir o lote.'
+        : 'Demarcação salva.',
+    );
   }
 
   function removeVertexAtIndex(index) {
@@ -1073,6 +1102,7 @@ export function useMapDrawing(options) {
     map = null;
     L = null;
     didInitialFit = false;
+    didFitToSavedFeature = false;
     mapReady.value = false;
   }
 
@@ -1107,9 +1137,20 @@ export function useMapDrawing(options) {
 
   watch(
     () => coordinates?.value,
-    () => {
+    (nextCoords, previousCoords) => {
       if (!map || !L || drawingMode.value) return;
+
       drawSavedFeatureLayer();
+
+      const nextSaved = normalizePolygonCoordinates(nextCoords);
+      const previousSaved = normalizePolygonCoordinates(previousCoords);
+      const gainedSavedFeature =
+        (nextSaved?.length ?? 0) >= 3
+        && (previousSaved?.length ?? 0) < 3;
+
+      if (gainedSavedFeature || (!didFitToSavedFeature && (nextSaved?.length ?? 0) >= 3)) {
+        fitMapToSavedFeature({ force: gainedSavedFeature });
+      }
     },
     { deep: true },
   );

@@ -114,8 +114,8 @@
         />
       </div>
 
-      <div class="card space-y-4 p-5">
-        <div class="flex items-center justify-between">
+      <div class="card space-y-4 overflow-hidden p-4 sm:p-5">
+        <div class="flex items-center justify-between gap-2">
           <p class="text-sm font-semibold text-slate-700">Demarcação no mapa</p>
           <span v-if="form.coordinates?.length" class="text-xs font-medium text-emerald-600">
             {{ form.coordinates.length }} pontos demarcados
@@ -123,8 +123,8 @@
         </div>
 
         <MapDrawingCanvas
-          v-if="form.development_id && mapContextReady"
-          :key="form.development_id"
+          v-if="form.development_id && mapContextReady && lotDataReady"
+          :key="mapInstanceKey"
           mode="lot"
           :coordinates="form.coordinates"
           :context-perimeter="developmentPerimeter"
@@ -193,7 +193,7 @@ import { useToast } from 'vue-toastification';
 import api from '@/services/api';
 import { lotStatusFormOptions } from '@/utils/labels';
 import { buildZoneTitleLabel, isLotSelectableZone } from '@/utils/zone';
-import { getPolygonCentroid } from '@/utils/mapGeometry';
+import { getPolygonCentroid, normalizePolygonCoordinates } from '@/utils/mapGeometry';
 import { getMappedStreets } from '@/utils/mapStreets';
 import Input from '@/components/Common/Input.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
@@ -236,7 +236,13 @@ const developmentPerimeter = ref(null);
 const developmentMapCenter = ref(null);
 const developmentMapZoom = ref(null);
 const mapContextReady = ref(false);
+const lotDataReady = ref(false);
 const gpsAccuracy = ref(null);
+
+const mapInstanceKey = computed(() => {
+  const lotId = isEdit.value ? String(route.params.id ?? 'edit') : 'new';
+  return `${form.value.development_id}-${lotId}`;
+});
 
 const developmentOptions = computed(() =>
   developments.value.map((d) => ({ value: String(d.id), label: d.name })),
@@ -505,7 +511,10 @@ function goBack() {
 }
 
 async function loadItem() {
-  if (!isEdit.value) return;
+  if (!isEdit.value) {
+    lotDataReady.value = true;
+    return;
+  }
 
   loading.value = true;
   try {
@@ -522,7 +531,7 @@ async function loadItem() {
       total_value: item.total_value ?? 0,
       down_payment_percent: item.down_payment_percent != null ? String(item.down_payment_percent) : '',
       status: item.status ?? 'available',
-      coordinates: item.coordinates ?? null,
+      coordinates: normalizePolygonCoordinates(item.coordinates),
       area_computed: item.area_computed ?? null,
     };
 
@@ -532,6 +541,7 @@ async function loadItem() {
     goBack();
   } finally {
     loading.value = false;
+    lotDataReady.value = true;
   }
 }
 

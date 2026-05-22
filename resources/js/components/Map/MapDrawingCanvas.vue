@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import Swal from 'sweetalert2';
 import { useMapDrawing } from '@/composables/useMapDrawing';
+import { normalizePolygonCoordinates } from '@/utils/mapGeometry';
 import { ZONE_TYPE_OPTIONS } from '@/utils/zone';
 import Button from '@/components/Common/Button.vue';
 import Modal from '@/components/Common/Modal.vue';
@@ -66,8 +67,9 @@ const coordinatesModel = ref(props.coordinates);
 watch(
   () => props.coordinates,
   (value) => {
-    coordinatesModel.value = value;
+    coordinatesModel.value = normalizePolygonCoordinates(value);
   },
+  { immediate: true },
 );
 
 watch(
@@ -198,13 +200,13 @@ onMounted(async () => {
 <template>
   <div
     ref="mapSectionRef"
-    class="map-fullscreen-section space-y-4"
+    class="map-fullscreen-section map-drawing-section space-y-3 sm:space-y-4"
     :class="{ 'map-fullscreen-section--overlay': isMapFullscreen }"
   >
-    <div class="map-canvas-wrap relative">
+    <div class="map-canvas-wrap relative min-w-0">
       <div
         ref="mapContainer"
-        class="map-fullscreen-canvas h-[560px] w-full overflow-hidden rounded-lg border border-slate-300 sm:h-[600px]"
+        class="map-fullscreen-canvas map-drawing-canvas h-[min(42vh,380px)] min-h-[240px] w-full overflow-hidden rounded-lg border border-slate-300 sm:h-[560px] md:h-[600px]"
       />
 
       <div
@@ -246,12 +248,12 @@ onMounted(async () => {
       class="map-fullscreen-footer"
       :class="{ 'map-fullscreen-footer--dedicated': isMapFullscreen }"
     >
-      <div class="map-fullscreen-toolbar flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
-        <div class="map-toolbar-group map-toolbar-group--primary flex min-w-0 flex-1 flex-wrap items-center gap-2">
+      <div class="map-fullscreen-toolbar map-drawing-toolbar flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-2 sm:gap-y-2">
+        <div class="map-toolbar-group map-toolbar-group--primary flex min-w-0 w-full flex-wrap items-center gap-2">
           <button
             v-if="!isDrawing"
             type="button"
-            class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50 sm:px-3 sm:text-xs"
             @click="startDrawLot"
           >
             <MapIcon class="h-3.5 w-3.5" />
@@ -261,7 +263,7 @@ onMounted(async () => {
           <button
             v-if="coordinatesModel?.length && !isDrawing"
             type="button"
-            class="flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+            class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-red-600 hover:bg-red-50 sm:px-3 sm:text-xs"
             @click="confirmClearFeature"
           >
             Limpar demarcação
@@ -270,7 +272,7 @@ onMounted(async () => {
           <button
             v-if="isDrawing"
             type="button"
-            class="flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50"
+            class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-amber-600 hover:bg-amber-50 sm:px-3 sm:text-xs"
             @click="undoLastPoint"
           >
             <ArrowUturnLeftIcon class="h-3.5 w-3.5" />
@@ -280,7 +282,7 @@ onMounted(async () => {
           <button
             v-if="isDrawing"
             type="button"
-            class="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100"
+            class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] font-medium text-amber-700 hover:bg-amber-100 sm:px-3 sm:text-xs"
             @click="cancelDrawing"
           >
             <XMarkIcon class="h-3.5 w-3.5" />
@@ -290,7 +292,7 @@ onMounted(async () => {
           <button
             v-if="isDrawing && canSaveDrawing"
             type="button"
-            class="map-toolbar-btn map-toolbar-btn--save flex items-center gap-1.5 rounded-lg px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+            class="map-toolbar-btn map-toolbar-btn--save map-toolbar-action-btn flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] disabled:cursor-not-allowed disabled:opacity-50 sm:px-3 sm:text-xs"
             @click="finishDrawing()"
           >
             Salvar demarcação
@@ -298,7 +300,7 @@ onMounted(async () => {
 
           <button
             type="button"
-            class="flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+            class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 sm:px-3 sm:text-xs"
             :disabled="capturingGps"
             @click="captureGpsPoint"
           >
@@ -309,7 +311,7 @@ onMounted(async () => {
           <button
             v-if="!isDrawing"
             type="button"
-            class="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 sm:px-3 sm:text-xs"
             :disabled="locatingUser"
             @click="goToMyLocation"
           >
@@ -319,17 +321,17 @@ onMounted(async () => {
 
           <span
             v-if="isDrawing"
-            class="self-center text-xs font-medium text-blue-600"
+            class="w-full self-center text-[11px] font-medium leading-snug text-blue-600 sm:text-xs"
           >
             Clique no mapa para adicionar pontos. Duplo clique na bolinha remove um ponto. Com 3+ pontos, use Salvar demarcação ou clique no primeiro vértice
           </span>
         </div>
 
-        <div class="map-toolbar-group map-toolbar-group--map flex shrink-0 flex-wrap items-center justify-end gap-2">
+        <div class="map-toolbar-group map-toolbar-group--map grid w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:w-auto sm:shrink-0 sm:flex-wrap sm:items-center sm:justify-end">
           <button
             v-if="!isDrawing && hasMappedZones"
             type="button"
-            class="map-toolbar-btn map-toolbar-btn--map flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
+            class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn col-span-2 flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:col-span-1 sm:justify-start sm:px-3 sm:text-xs"
             :class="visibleZoneNameTypes.length
               ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
               : ''"
@@ -341,22 +343,24 @@ onMounted(async () => {
           <button
             v-if="!isDrawing"
             type="button"
-            class="map-toolbar-btn map-toolbar-btn--map flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
+            class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:justify-start sm:px-3 sm:text-xs"
             @click="rotateMapBy(-15)"
           >
-            Girar pra esquerda
+            <span class="sm:hidden">Girar esq.</span>
+            <span class="hidden sm:inline">Girar pra esquerda</span>
           </button>
           <button
             v-if="!isDrawing"
             type="button"
-            class="map-toolbar-btn map-toolbar-btn--map flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
+            class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:justify-start sm:px-3 sm:text-xs"
             @click="rotateMapBy(15)"
           >
-            Girar pra direita
+            <span class="sm:hidden">Girar dir.</span>
+            <span class="hidden sm:inline">Girar pra direita</span>
           </button>
           <button
             type="button"
-            class="map-toolbar-btn map-toolbar-btn--map flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium"
+            class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn col-span-2 flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:col-span-1 sm:justify-start sm:px-3 sm:text-xs"
             @click="toggleMapFullscreen"
           >
             <ArrowsPointingOutIcon v-if="!isMapFullscreen" class="h-3.5 w-3.5" />

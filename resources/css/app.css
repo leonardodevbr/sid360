@@ -417,6 +417,40 @@
   background: #ecfdf5 !important;
 }
 
+.map-drawing-section {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.map-drawing-toolbar {
+  width: 100%;
+  max-width: 100%;
+}
+
+.map-toolbar-action-btn {
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+@media (max-width: 639px) {
+  .map-drawing-section .map-drawing-canvas:not(.map-fullscreen-section--overlay .map-drawing-canvas) {
+    height: min(42vh, 380px);
+    min-height: 240px;
+  }
+
+  .map-drawing-toolbar .map-toolbar-group--primary .map-toolbar-action-btn {
+    flex: 1 1 calc(50% - 0.25rem);
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .map-drawing-toolbar .map-toolbar-group--primary .map-toolbar-action-btn:only-child,
+  .map-drawing-toolbar .map-toolbar-group--primary > span {
+    flex-basis: 100%;
+  }
+}
+
 .leaflet-container .leaflet-popup-content-wrapper {
   border-radius: 0.625rem;
   border: 1px solid #e8e4d8;

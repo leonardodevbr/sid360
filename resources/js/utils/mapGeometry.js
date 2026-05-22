@@ -249,6 +249,42 @@ export function computeGeodesicArea(coords) {
   return Math.round(Math.abs((area * earthRadius * earthRadius) / 2));
 }
 
+export function normalizePolygonCoordinates(coords) {
+  if (!Array.isArray(coords)) {
+    return null;
+  }
+
+  const normalized = coords
+    .map((point) => {
+      if (Array.isArray(point) && point.length >= 2) {
+        const lat = Number(point[0]);
+        const lng = Number(point[1]);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+          return null;
+        }
+
+        return [lat, lng];
+      }
+
+      if (point && typeof point === 'object') {
+        const lat = Number(point.lat);
+        const lng = Number(point.lng);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+          return null;
+        }
+
+        return [lat, lng];
+      }
+
+      return null;
+    })
+    .filter(Boolean);
+
+  return normalized.length ? normalized : null;
+}
+
 export function getInvalidPointsInsidePolygon(points, polygon, boundaryToleranceMeters = 12) {
   if (!Array.isArray(points) || !Array.isArray(polygon) || polygon.length < 3) {
     return [];
