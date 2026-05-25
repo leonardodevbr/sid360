@@ -11,6 +11,8 @@ import {
   ArrowsPointingInIcon,
   ArrowsPointingOutIcon,
   ArrowUturnLeftIcon,
+  LockClosedIcon,
+  LockOpenIcon,
   MapIcon,
   MapPinIcon,
   TagIcon,
@@ -134,6 +136,7 @@ const {
   locatingUser,
   capturingGps,
   gpsAccuracy,
+  mapPanLocked,
   initMap,
   startDrawLot,
   cancelDrawing,
@@ -142,6 +145,7 @@ const {
   clearSavedFeature,
   captureGpsPoint,
   goToMyLocation,
+  toggleMapPanLock,
   rotateMapBy,
   zoomMapIn,
   zoomMapOut,
@@ -274,6 +278,22 @@ onMounted(async () => {
             −
           </button>
         </div>
+        <div
+          v-if="isDrawing"
+          class="map-floating-controls-group"
+        >
+          <button
+            type="button"
+            class="map-floating-controls-btn"
+            :class="{ 'map-floating-controls-btn--active': mapPanLocked }"
+            :title="mapPanLocked ? 'Destravar movimento do mapa' : 'Travar movimento do mapa'"
+            :aria-label="mapPanLocked ? 'Destravar movimento do mapa' : 'Travar movimento do mapa'"
+            @click="toggleMapPanLock"
+          >
+            <LockClosedIcon v-if="mapPanLocked" class="h-4 w-4" />
+            <LockOpenIcon v-else class="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       <div
@@ -290,6 +310,7 @@ onMounted(async () => {
     >
       Para máxima precisão no GPS: ative <strong>Alta precisão</strong> nas configurações do celular,
       use em área aberta e aguarde o sinal estabilizar. Depois de capturar, <strong>arraste cada ponto</strong> no mapa para a posição correta.
+      Com o mapa <strong>travado</strong> (cadeado), o arraste move só o ponto — destrave para mover a visualização.
     </p>
 
     <div
@@ -317,6 +338,20 @@ onMounted(async () => {
               @click="confirmClearFeature"
             >
               Limpar demarcação
+            </button>
+
+            <button
+              v-if="isDrawing"
+              type="button"
+              class="map-toolbar-action-btn flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:px-3 sm:text-xs"
+              :class="mapPanLocked
+                ? 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'"
+              @click="toggleMapPanLock"
+            >
+              <LockClosedIcon v-if="mapPanLocked" class="h-3.5 w-3.5" />
+              <LockOpenIcon v-else class="h-3.5 w-3.5" />
+              {{ mapPanLocked ? 'Mapa travado' : 'Travar mapa' }}
             </button>
 
             <button

@@ -80,6 +80,7 @@ export function useMapDrawing(options) {
   const locatingUser = ref(false);
   const capturingGps = ref(false);
   const gpsAccuracy = ref(null);
+  const mapPanLocked = ref(false);
   const visibleZoneNameTypes = ref([]);
   const startedFromExistingPolygon = ref(false);
   const gpsWalkPreviewEnabled = ref(false);
@@ -198,12 +199,34 @@ export function useMapDrawing(options) {
     showMapScrollZoomHint(map);
   }
 
-  function ensureMapDraggingEnabled() {
-    if (!map || map._vertexDragActiveCount > 0) {
+  function applyMapPanLockState() {
+    if (!map) {
       return;
     }
 
-    map.dragging.enable();
+    const container = map.getContainer();
+
+    if ((map._vertexDragActiveCount ?? 0) > 0) {
+      map.dragging.disable();
+      return;
+    }
+
+    if (mapPanLocked.value) {
+      map.dragging.disable();
+      container?.classList.add('map-pan-locked');
+    } else {
+      map.dragging.enable();
+      container?.classList.remove('map-pan-locked');
+    }
+  }
+
+  function ensureMapDraggingEnabled() {
+    applyMapPanLockState();
+  }
+
+  function toggleMapPanLock() {
+    mapPanLocked.value = !mapPanLocked.value;
+    applyMapPanLockState();
   }
 
   function invalidateMapContainerSize() {
@@ -369,7 +392,7 @@ export function useMapDrawing(options) {
 
     map._vertexDragActiveCount = Math.max(0, (map._vertexDragActiveCount ?? 1) - 1);
     if (map._vertexDragActiveCount === 0) {
-      map.dragging.enable();
+      applyMapPanLockState();
       map.scrollWheelZoom?.disable?.();
     }
   }
@@ -848,7 +871,8 @@ export function useMapDrawing(options) {
     if (!map) return;
 
     map._vertexDragActiveCount = 0;
-    map.dragging.enable();
+    mapPanLocked.value = false;
+    applyMapPanLockState();
     configureMapRotation(map);
   }
 
@@ -1261,7 +1285,12 @@ export function useMapDrawing(options) {
 
     map?.getContainer()?.style.setProperty('cursor', 'crosshair');
     syncDrawingCursorPreview();
-    ensureMapDraggingEnabled();
+
+    if (isCoarsePointerDevice()) {
+      mapPanLocked.value = true;
+    }
+
+    applyMapPanLockState();
   }
 
   function cancelDrawing() {
@@ -1747,6 +1776,7 @@ export function useMapDrawing(options) {
     locatingUser,
     capturingGps,
     gpsAccuracy,
+    mapPanLocked,
     initMap,
     destroyMap,
     refreshMapLayout,
@@ -1758,6 +1788,7 @@ export function useMapDrawing(options) {
     clearSavedFeature,
     captureGpsPoint,
     goToMyLocation,
+    toggleMapPanLock,
     rotateMapBy,
     zoomMapIn,
     zoomMapOut,

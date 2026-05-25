@@ -200,6 +200,16 @@
   height: 1rem;
 }
 
+.map-floating-controls-btn--active {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.leaflet-container.map-pan-locked,
+.leaflet-container.map-pan-locked .leaflet-grab {
+  cursor: default !important;
+}
+
 .map-zone-invalid-hint {
   position: absolute;
   left: 50%;
