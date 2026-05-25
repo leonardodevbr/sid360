@@ -628,6 +628,10 @@
   box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.55), 0 1px 3px rgba(15, 23, 42, 0.25);
 }
 
+.map-vertex-handle--close-target:not(.map-vertex-handle--draw-only) {
+  cursor: grab;
+}
+
 .leaflet-dragging .map-vertex-handle {
   cursor: grabbing;
 }

@@ -329,7 +329,15 @@ export function useMapDrawing(options) {
   }
 
   function canDragVertexMarkers() {
-    return startedFromExistingPolygon.value;
+    if (!drawingMode.value) {
+      return false;
+    }
+
+    if (startedFromExistingPolygon.value) {
+      return true;
+    }
+
+    return isLotMode.value && drawingMode.value === 'lot';
   }
 
   function isFirstVertexClosable(marker) {
@@ -407,10 +415,6 @@ export function useMapDrawing(options) {
   }
 
   function bindVertexMarkerDrag(marker) {
-    if (!canDragVertexMarkers()) {
-      return;
-    }
-
     const onMove = (moveEvent) => {
       L.DomEvent.preventDefault(moveEvent);
       marker._wasDragged = true;
@@ -546,7 +550,7 @@ export function useMapDrawing(options) {
     });
 
     marker.on('touchend', (event) => {
-      if (canDragVertexMarkers() || !isFirstVertexClosable(marker)) {
+      if (!isFirstVertexClosable(marker) || marker._wasDragged) {
         return;
       }
 
@@ -1473,9 +1477,9 @@ export function useMapDrawing(options) {
         : `Ponto capturado! Precisão: ±${Math.round(result.accuracy)}m — ${precisionLabel}`;
 
       if (result.accuracy > 30) {
-        toast.warning(`${baseMessage}. Para melhorar, use área aberta e alta precisão no celular.`);
+        toast.warning(`${baseMessage}. Arraste o ponto no mapa para ajustar.`);
       } else {
-        toast.success(baseMessage);
+        toast.success(`${baseMessage} Arraste o ponto no mapa para ajustar, se necessário.`);
       }
     } catch (error) {
       toast.error(error?.message ?? 'Erro ao capturar GPS.');

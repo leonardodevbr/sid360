@@ -289,7 +289,7 @@ onMounted(async () => {
       class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-900"
     >
       Para máxima precisão no GPS: ative <strong>Alta precisão</strong> nas configurações do celular,
-      use em área aberta, evite paredes/metal e aguarde o sinal estabilizar (±50 m ou menos) antes de capturar cada ponto.
+      use em área aberta e aguarde o sinal estabilizar. Depois de capturar, <strong>arraste cada ponto</strong> no mapa para a posição correta.
     </p>
 
     <div
