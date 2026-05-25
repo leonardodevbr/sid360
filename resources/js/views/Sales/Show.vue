@@ -428,7 +428,6 @@ import InstallmentWhatsappCell from '@/components/Sales/InstallmentWhatsappCell.
 import InstallmentEfiActions from '@/components/Sales/InstallmentEfiActions.vue';
 import InstallmentChargeModal from '@/components/Sales/InstallmentChargeModal.vue';
 import { installmentDisplayStatus } from '@/utils/whatsapp';
-import { prepareNewTab } from '@/utils/browser';
 import { formatWhatsappHtml } from '@/utils/whatsappFormat';
 import {
   ArrowLeftIcon,
@@ -700,20 +699,23 @@ async function handleChargeUpdated(updatedInstallment) {
 
 async function generateCarne() {
   generatingCarne.value = true;
-  const previewTab = prepareNewTab();
 
   try {
     const { data } = await api.post(`/sales/${route.params.id}/efi/carne`);
     carneData.value = data;
 
-    if (!previewTab.open(data.pdf_carnet)) {
-      toast.warning('Não foi possível abrir o carnê bancário em nova aba. Use o link na venda.');
+    const opened = data.pdf_carnet
+      ? window.open(data.pdf_carnet, '_blank', 'noopener,noreferrer') !== null
+      : false;
+
+    if (!opened) {
+      toast.warning('Carnê bancário gerado. Use o link "Baixar carnê bancário" se a aba não abriu.');
+    } else {
+      toast.success(`Carnê bancário gerado — ${data.charges} parcelas.`);
     }
 
-    toast.success(`Carnê bancário gerado — ${data.charges} parcelas.`);
     await loadSale();
   } catch (err) {
-    previewTab.close();
     toast.error(err?.response?.data?.error ?? 'Erro ao gerar carnê bancário.');
   } finally {
     generatingCarne.value = false;
