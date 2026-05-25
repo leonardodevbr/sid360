@@ -3,7 +3,7 @@
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h2 class="text-lg font-semibold text-slate-800">Lotes</h2>
-        <p class="text-xs text-slate-500">Listagem de lotes por empreendimento</p>
+        <p class="text-xs text-slate-500">Listagem de lotes disponíveis</p>
       </div>
       <Button v-if="authStore.can('lots.create')" type="button" variant="primary" @click="goToCreate">
         Novo lote
@@ -17,7 +17,7 @@
             v-model="developmentId"
             label="Empreendimento"
             :options="developmentOptions"
-            placeholder="Selecione..."
+            placeholder="Todos"
             :searchable="true"
             @update:model-value="loadItems(1)"
           />
@@ -45,12 +45,12 @@
       </div>
 
       <div v-if="loading" class="py-10 text-center text-slate-500">Carregando...</div>
-      <div v-else-if="!developmentId" class="py-10 text-center text-slate-500">Selecione um empreendimento</div>
       <div v-else-if="!items.length" class="py-10 text-center text-slate-500">Nenhum lote encontrado</div>
       <div v-else class="-mx-4 overflow-x-auto sm:-mx-6">
         <table class="min-w-full divide-y divide-slate-200">
           <thead class="bg-slate-50">
             <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium uppercase text-slate-500 sm:px-6">Empreendimento</th>
               <th class="px-4 py-3 text-left text-xs font-medium uppercase text-slate-500 sm:px-6">Zona</th>
               <th class="px-4 py-3 text-left text-xs font-medium uppercase text-slate-500 sm:px-6">Número</th>
               <th class="hidden px-4 py-3 text-left text-xs font-medium uppercase text-slate-500 sm:table-cell sm:px-6">Área (m²)</th>
@@ -61,6 +61,9 @@
           </thead>
           <tbody class="divide-y divide-slate-200 bg-white">
             <tr v-for="item in items" :key="item.id">
+              <td class="max-w-[10rem] truncate px-4 py-4 text-sm text-slate-900 sm:max-w-none sm:px-6" :title="lotDevelopmentLabel(item)">
+                {{ lotDevelopmentLabel(item) }}
+              </td>
               <td class="px-4 py-4 text-sm text-slate-900 sm:px-6">{{ lotZoneLabel(item) }}</td>
               <td class="px-4 py-4 text-sm font-medium text-slate-900 sm:px-6">{{ item.number }}</td>
               <td class="hidden px-4 py-4 text-sm text-slate-600 sm:table-cell sm:px-6">{{ formatNumber(item.area) }}</td>
@@ -98,7 +101,7 @@
       </div>
 
       <PaginationBar
-        v-if="!loading && developmentId && pagination"
+        v-if="!loading && pagination"
         :pagination="pagination"
         @page-change="(page) => loadItems(page)"
         @per-page-change="onPerPageChange"
@@ -134,7 +137,7 @@ const items = ref([]);
 const developments = ref([]);
 const loading = ref(false);
 const searchQuery = ref('');
-const statusFilter = ref('');
+const statusFilter = ref('available');
 const developmentId = ref(route.query.development_id ? String(route.query.development_id) : '');
 const perPage = ref(15);
 const pagination = ref(null);
@@ -147,6 +150,10 @@ const developmentOptions = computed(() =>
 function formatNumber(value) {
   if (value == null || value === '') return '—';
   return Number(value).toLocaleString('pt-BR');
+}
+
+function lotDevelopmentLabel(lot) {
+  return lot.development?.name ?? '—';
 }
 
 function lotZoneLabel(lot) {
@@ -178,14 +185,10 @@ async function loadDevelopments() {
 }
 
 async function loadItems(page = 1) {
-  if (!developmentId.value) {
-    items.value = [];
-    pagination.value = null;
-    return;
-  }
   loading.value = true;
   try {
-    const params = { page, per_page: perPage.value, development_id: developmentId.value };
+    const params = { page, per_page: perPage.value };
+    if (developmentId.value) params.development_id = developmentId.value;
     if (searchQuery.value) params.search = searchQuery.value;
     if (statusFilter.value) params.status = statusFilter.value;
     const { data } = await api.get('/lots', { params });
@@ -221,14 +224,17 @@ async function confirmDelete(item) {
 }
 
 watch(developmentId, (id) => {
+  const query = { ...route.query };
   if (id) {
-    router.replace({ query: { ...route.query, development_id: id } });
-    loadItems(1);
+    query.development_id = id;
+  } else {
+    delete query.development_id;
   }
+  router.replace({ query });
 });
 
 onMounted(async () => {
   await loadDevelopments();
-  if (developmentId.value) loadItems();
+  loadItems();
 });
 </script>
