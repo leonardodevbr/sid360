@@ -155,11 +155,12 @@ class WhatsappService
         return $textSent;
     }
 
-    public function sendDocumentBase64(
+    public function sendDocument(
         string $phone,
-        string $base64File,
         string $filename,
         ?string $caption = null,
+        ?string $fileUrl = null,
+        ?string $base64File = null,
         string $mimeType = 'application/pdf',
     ): bool {
         $numero = $this->formatPhoneNumber($phone);
@@ -168,24 +169,57 @@ class WhatsappService
             return false;
         }
 
+        $fileUrl = $fileUrl !== null ? trim($fileUrl) : null;
+
+        if ($fileUrl !== null && $fileUrl !== '') {
+            if ($this->postSendFile($numero, $filename, $caption, ['path' => $fileUrl])) {
+                return true;
+            }
+
+            Log::warning('WhatsappService::sendDocument URL failed, trying base64 fallback', [
+                'phone' => $numero,
+                'url' => $fileUrl,
+            ]);
+        }
+
+        $base64 = $base64File;
+
+        if ($base64 === null || trim($base64) === '') {
+            $base64 = $fileUrl !== null ? $this->fetchUrlAsBase64($fileUrl) : null;
+        }
+
+        if ($base64 === null || trim($base64) === '') {
+            return false;
+        }
+
+        return $this->postSendFile(
+            $numero,
+            $filename,
+            $caption,
+            ['base64' => $this->normalizeBase64AsDataUri($base64, $mimeType)],
+        );
+    }
+
+    /**
+     * @param  array<string, string>  $filePayload
+     */
+    private function postSendFile(
+        string $numero,
+        string $filename,
+        ?string $caption,
+        array $filePayload,
+    ): bool {
         $config = $this->wppconnectConfig();
 
         if ($config === null) {
             return false;
         }
 
-        $base64 = $this->normalizeBase64Payload($base64File, $mimeType);
-
-        if ($base64 === '') {
-            return false;
-        }
-
-        $payload = [
+        $payload = array_merge([
             'phone' => $numero,
-            'base64' => $base64,
             'filename' => $filename,
             'isGroup' => false,
-        ];
+        ], $filePayload);
 
         if ($caption !== null && $caption !== '') {
             $payload['caption'] = $caption;
@@ -197,10 +231,11 @@ class WhatsappService
                 ->post("{$config['base_url']}/api/{$config['session']}/send-file", $payload);
 
             if (! $response->successful()) {
-                Log::warning('WhatsappService::sendDocumentBase64 failed', [
+                Log::warning('WhatsappService::postSendFile failed', [
                     'status' => $response->status(),
                     'phone' => $numero,
                     'body' => $response->body(),
+                    'payload_keys' => array_keys($filePayload),
                 ]);
 
                 return false;
@@ -208,7 +243,7 @@ class WhatsappService
 
             return true;
         } catch (\Exception $e) {
-            Log::error('WhatsappService::sendDocumentBase64 exception', [
+            Log::error('WhatsappService::postSendFile exception', [
                 'message' => $e->getMessage(),
                 'phone' => $numero,
             ]);
@@ -224,9 +259,10 @@ class WhatsappService
     public function sendBoletoAndRecord(
         string $phone,
         string $message,
-        ?string $pdfBase64,
         string $filename,
         string $type,
+        ?string $pdfUrl = null,
+        ?string $pdfBase64 = null,
         int|string|null $installmentId = null,
         int|string|null $saleId = null,
         int|string|null $clientId = null,
@@ -236,9 +272,17 @@ class WhatsappService
         $textSent = $this->send($phone, $message);
 
         $fileSent = null;
+        $hasPdf = ($pdfUrl !== null && trim($pdfUrl) !== '')
+            || ($pdfBase64 !== null && trim($pdfBase64) !== '');
 
-        if ($pdfBase64 !== null && trim($pdfBase64) !== '') {
-            $fileSent = $this->sendDocumentBase64($phone, $pdfBase64, $filename, $fileCaption);
+        if ($hasPdf) {
+            $fileSent = $this->sendDocument(
+                phone: $phone,
+                filename: $filename,
+                caption: $fileCaption,
+                fileUrl: $pdfUrl,
+                base64File: $pdfBase64,
+            );
         }
 
         InstallmentInteraction::create([
@@ -253,7 +297,7 @@ class WhatsappService
                 'sent' => $textSent,
                 'text_sent' => $textSent,
                 'file_sent' => $fileSent,
-                'has_pdf' => $pdfBase64 !== null && trim($pdfBase64) !== '',
+                'has_pdf' => $hasPdf,
             ]),
         ]);
 
@@ -263,7 +307,7 @@ class WhatsappService
         ];
     }
 
-    public function fetchUrlAsBase64DataUri(string $url, string $mimeType = 'application/pdf'): ?string
+    public function fetchUrlAsBase64(string $url): ?string
     {
         $url = trim($url);
 
@@ -275,7 +319,7 @@ class WhatsappService
             $response = Http::timeout(30)->get($url);
 
             if (! $response->successful()) {
-                Log::warning('WhatsappService::fetchUrlAsBase64DataUri failed', [
+                Log::warning('WhatsappService::fetchUrlAsBase64 failed', [
                     'status' => $response->status(),
                     'url' => $url,
                 ]);
@@ -285,13 +329,17 @@ class WhatsappService
 
             $body = $response->body();
 
-            if ($body === '') {
+            if ($body === '' || ! str_starts_with($body, '%PDF')) {
+                Log::warning('WhatsappService::fetchUrlAsBase64 invalid pdf', [
+                    'url' => $url,
+                ]);
+
                 return null;
             }
 
-            return 'data:'.$mimeType.';base64,'.base64_encode($body);
+            return base64_encode($body);
         } catch (\Exception $e) {
-            Log::error('WhatsappService::fetchUrlAsBase64DataUri exception', [
+            Log::error('WhatsappService::fetchUrlAsBase64 exception', [
                 'message' => $e->getMessage(),
                 'url' => $url,
             ]);
@@ -578,7 +626,26 @@ class WhatsappService
 
     private function normalizeBase64Payload(string $base64, string $mimeType): string
     {
-        $base64 = trim($base64);
+        $base64 = preg_replace('/\s+/', '', trim($base64)) ?? '';
+
+        if ($base64 === '') {
+            return '';
+        }
+
+        if (str_starts_with($base64, 'data:')) {
+            $pos = strpos($base64, ',');
+
+            if ($pos !== false) {
+                $base64 = substr($base64, $pos + 1);
+            }
+        }
+
+        return $base64;
+    }
+
+    private function normalizeBase64AsDataUri(string $base64, string $mimeType): string
+    {
+        $base64 = preg_replace('/\s+/', '', trim($base64)) ?? '';
 
         if ($base64 === '') {
             return '';

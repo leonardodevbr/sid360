@@ -179,15 +179,6 @@ class EfiPaymentController extends Controller
             ], 422);
         }
 
-        $pdfBase64 = $this->whatsapp->fetchUrlAsBase64DataUri($pdfUrl);
-
-        if ($pdfBase64 === null) {
-            return response()->json([
-                'error' => 'Não foi possível baixar o PDF do boleto.',
-                'fallback' => true,
-            ], 503);
-        }
-
         $sale = $installment->sale;
         $contractNo = str_pad((string) $sale->id, 4, '0', STR_PAD_LEFT)
             .'/'.($sale->sale_date?->format('Y') ?? now()->format('Y'));
@@ -214,9 +205,9 @@ class EfiPaymentController extends Controller
         $result = $this->whatsapp->sendBoletoAndRecord(
             phone: $phone,
             message: $message,
-            pdfBase64: $pdfBase64,
             filename: $filename,
             type: InstallmentInteraction::TYPE_BOLETO,
+            pdfUrl: $pdfUrl,
             installmentId: $installment->id,
             saleId: $installment->sale_id,
             clientId: $client->id,
@@ -480,9 +471,13 @@ class EfiPaymentController extends Controller
         }
 
         if (str_starts_with($qrcode, 'data:')) {
-            return $qrcode;
+            $pos = strpos($qrcode, ',');
+
+            if ($pos !== false) {
+                return substr($qrcode, $pos + 1);
+            }
         }
 
-        return 'data:image/png;base64,'.$qrcode;
+        return $qrcode;
     }
 }

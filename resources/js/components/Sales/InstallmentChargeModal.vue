@@ -8,7 +8,6 @@ import Flatpickr from '@/components/Common/Flatpickr.vue';
 import Button from '@/components/Common/Button.vue';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { buildPixPaymentMessage, buildBoletoPaymentMessage, buildWhatsAppUrl } from '@/utils/whatsapp';
-import { prepareNewTab } from '@/utils/browser';
 
 const props = defineProps({
   isOpen: {
@@ -110,6 +109,14 @@ function defaultDueDate(installment) {
   return `${year}-${month}-${day}`;
 }
 
+function pixQrCodeSrc(qrcode) {
+  if (!qrcode) {
+    return '';
+  }
+
+  return qrcode.startsWith('data:') ? qrcode : `data:image/png;base64,${qrcode}`;
+}
+
 async function loadChargePreview() {
   if (!localInstallment.value || isPaid.value || isCarne.value) {
     chargeBreakdown.value = null;
@@ -194,7 +201,7 @@ function applyInstallmentUpdate(data) {
     };
   }
 
-  emit('updated');
+  emit('updated', localInstallment.value);
 }
 
 async function issueCharge({ reissue = false } = {}) {
@@ -224,7 +231,6 @@ async function issueCharge({ reissue = false } = {}) {
   }
 
   issuing.value = true;
-  const previewTab = isBoleto.value ? prepareNewTab() : null;
 
   try {
     const payload = {
@@ -254,14 +260,17 @@ async function issueCharge({ reissue = false } = {}) {
     if (isPix.value) {
       toast.success(reissue ? 'PIX reemitido!' : 'PIX gerado!');
     } else {
-      if (previewTab && !previewTab.open(data.pdf)) {
+      const opened = data.pdf
+        ? window.open(data.pdf, '_blank', 'noopener,noreferrer') !== null
+        : false;
+
+      if (!opened) {
         toast.warning('Boleto gerado. Use "Baixar PDF" se a aba não abriu.');
       } else {
         toast.success(reissue ? 'Boleto reemitido!' : 'Boleto gerado!');
       }
     }
   } catch (err) {
-    previewTab?.close();
     toast.error(err?.response?.data?.error ?? `Erro ao ${reissue ? 'reemitir' : 'gerar'} cobrança.`);
   } finally {
     issuing.value = false;
@@ -454,7 +463,7 @@ function openWhatsAppFallback() {
         <template v-if="hasIssued">
           <div v-if="isPix && localInstallment.efi_pix_qrcode" class="text-center">
             <img
-              :src="localInstallment.efi_pix_qrcode"
+              :src="pixQrCodeSrc(localInstallment.efi_pix_qrcode)"
               alt="QR Code PIX"
               class="mx-auto h-40 w-40"
             >

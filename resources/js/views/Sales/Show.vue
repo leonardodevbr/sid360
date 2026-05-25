@@ -668,6 +668,36 @@ function openBoletoChargeModal(installment) {
   chargeModal.value = { installment, type: 'boleto' };
 }
 
+function patchInstallmentInSale(updatedInstallment) {
+  if (!updatedInstallment?.id || !sale.value?.installments) {
+    return;
+  }
+
+  sale.value = {
+    ...sale.value,
+    installments: sale.value.installments.map((inst) => (
+      inst.id === updatedInstallment.id
+        ? { ...inst, ...updatedInstallment }
+        : inst
+    )),
+  };
+}
+
+async function handleChargeUpdated(updatedInstallment) {
+  if (updatedInstallment) {
+    patchInstallmentInSale(updatedInstallment);
+
+    if (chargeModal.value?.installment?.id === updatedInstallment.id) {
+      chargeModal.value = {
+        ...chargeModal.value,
+        installment: updatedInstallment,
+      };
+    }
+  }
+
+  await loadInteractions();
+}
+
 async function generateCarne() {
   generatingCarne.value = true;
   const previewTab = prepareNewTab();
