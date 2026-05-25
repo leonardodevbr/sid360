@@ -152,7 +152,9 @@
               ? 'bg-emerald-50 text-emerald-700'
               : gpsAccuracy < 30
                 ? 'bg-amber-50 text-amber-700'
-                : 'bg-red-50 text-red-700'
+                : gpsAccuracy <= 50
+                  ? 'bg-orange-50 text-orange-700'
+                  : 'bg-red-50 text-red-700'
           "
         >
           Precisão GPS: ±{{ Math.round(gpsAccuracy) }}m
@@ -161,7 +163,9 @@
               ? '— Excelente'
               : gpsAccuracy < 30
                 ? '— Boa'
-                : '— Ruim, aguarde melhorar'
+                : gpsAccuracy <= 50
+                  ? '— Aceitável'
+                  : '— Aguardando sinal melhor'
           }}
         </div>
 

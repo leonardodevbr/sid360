@@ -23,6 +23,11 @@ import { getLotMapStyle, buildLotMapLabel } from '@/utils/mapLots';
 import { getStreetColor, hasValidStreetPolygon } from '@/utils/mapStreets';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import { createGpsPreviewController, isCoarsePointerDevice } from '@/utils/mapGpsPreview';
+import {
+  captureHighAccuracyPosition,
+  formatAccuracyHint,
+  MAX_ACCEPTABLE_ACCURACY_M,
+} from '@/utils/geolocation';
 
 const LOT_DRAWING_COLOR = '#1E5F8E';
 const LOT_SAVED_FEATURE_COLOR = '#c9a84c';
@@ -66,6 +71,7 @@ export function useMapDrawing(options) {
   let tempMarkers = [];
   let edgeLabelMarkers = [];
   let locationMarker = null;
+  let locationAccuracyCircle = null;
   let isFinishing = false;
 
   const drawingMode = ref(null);
@@ -576,7 +582,7 @@ export function useMapDrawing(options) {
     );
   }
 
-  function updateLiveGpsMarker(latLng) {
+  function updateLiveGpsMarker(latLng, accuracyM = null) {
     if (!map || !L || !latLng) {
       return;
     }
@@ -585,16 +591,48 @@ export function useMapDrawing(options) {
 
     if (locationMarker) {
       locationMarker.setLatLng(coords);
-      return;
+    } else {
+      locationMarker = L.circleMarker(coords, {
+        radius: 8,
+        color: '#2563EB',
+        fillColor: '#3B82F6',
+        fillOpacity: 0.85,
+        weight: 2,
+      }).addTo(map);
     }
 
-    locationMarker = L.circleMarker(coords, {
-      radius: 8,
-      color: '#2563EB',
-      fillColor: '#3B82F6',
-      fillOpacity: 0.85,
-      weight: 2,
-    }).addTo(map);
+    if (locationAccuracyCircle) {
+      map.removeLayer(locationAccuracyCircle);
+      locationAccuracyCircle = null;
+    }
+
+    if (typeof accuracyM === 'number' && accuracyM > 0) {
+      const color = accuracyM <= 10
+        ? '#059669'
+        : accuracyM <= 30
+          ? '#D97706'
+          : '#DC2626';
+
+      locationAccuracyCircle = L.circle(coords, {
+        radius: accuracyM,
+        color,
+        fillColor: color,
+        fillOpacity: 0.12,
+        weight: 1,
+      }).addTo(map);
+    }
+  }
+
+  function clearLiveGpsMarker() {
+    if (locationMarker && map) {
+      map.removeLayer(locationMarker);
+      locationMarker = null;
+    }
+
+    if (locationAccuracyCircle && map) {
+      map.removeLayer(locationAccuracyCircle);
+      locationAccuracyCircle = null;
+    }
   }
 
   function shouldUseGpsLivePreview() {
@@ -613,15 +651,20 @@ export function useMapDrawing(options) {
       active: shouldUseGpsLivePreview(),
       onPosition: (position) => {
         gpsPreviewErrorNotified = false;
-        gpsAccuracy.value = position.coords.accuracy;
+        const accuracy = position.coords.accuracy;
+        gpsAccuracy.value = accuracy;
 
         const latLng = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         };
 
+        if (accuracy > MAX_ACCEPTABLE_ACCURACY_M) {
+          return;
+        }
+
         cursorPreview.update(latLng);
-        updateLiveGpsMarker(latLng);
+        updateLiveGpsMarker(latLng, accuracy);
       },
       onError: (error) => {
         if (gpsPreviewErrorNotified) {
@@ -1387,7 +1430,7 @@ export function useMapDrawing(options) {
     clearEdgeLabelMarkers();
   }
 
-  function captureGpsPoint() {
+  async function captureGpsPoint() {
     if (!navigator.geolocation) {
       toast.error('GPS não disponível neste dispositivo.');
       return;
@@ -1400,35 +1443,48 @@ export function useMapDrawing(options) {
     capturingGps.value = true;
     gpsAccuracy.value = null;
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        gpsAccuracy.value = position.coords.accuracy;
-        const coords = [position.coords.latitude, position.coords.longitude];
-        gpsWalkPreviewEnabled.value = true;
+    try {
+      const result = await captureHighAccuracyPosition({
+        onProgress: (accuracy) => {
+          gpsAccuracy.value = accuracy;
+        },
+      });
 
-        if (drawingPoints.value.length && isNearFirst(L.latLng(coords[0], coords[1]))) {
-          closePolygonDrawing();
-        } else {
-          drawingPoints.value.push(coords);
-          addDrawingMarker(coords, getDrawingBaseColor(), drawingPoints.value.length - 1);
-          refreshTempPolyline(false);
-          syncDrawingCursorPreview();
-          ensureMapDraggingEnabled();
-        }
+      gpsAccuracy.value = result.accuracy;
+      gpsWalkPreviewEnabled.value = true;
+      const coords = [result.lat, result.lng];
 
-        map?.setView(coords, Math.max(map.getZoom(), 18));
-        toast.success(`Ponto capturado! Precisão: ±${Math.round(position.coords.accuracy)}m`);
-        capturingGps.value = false;
-      },
-      (error) => {
-        toast.error(`Erro ao capturar GPS: ${error.message}`);
-        capturingGps.value = false;
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-    );
+      if (drawingPoints.value.length && isNearFirst(L.latLng(coords[0], coords[1]))) {
+        closePolygonDrawing();
+      } else {
+        drawingPoints.value.push(coords);
+        addDrawingMarker(coords, getDrawingBaseColor(), drawingPoints.value.length - 1);
+        refreshTempPolyline(false);
+        syncDrawingCursorPreview();
+        ensureMapDraggingEnabled();
+      }
+
+      map?.setView(coords, Math.max(map.getZoom(), 18));
+      updateLiveGpsMarker({ lat: coords[0], lng: coords[1] }, result.accuracy);
+
+      const precisionLabel = formatAccuracyHint(result.accuracy);
+      const baseMessage = result.averaged
+        ? `Ponto capturado (média estável)! Precisão: ±${Math.round(result.accuracy)}m — ${precisionLabel}`
+        : `Ponto capturado! Precisão: ±${Math.round(result.accuracy)}m — ${precisionLabel}`;
+
+      if (result.accuracy > 30) {
+        toast.warning(`${baseMessage}. Para melhorar, use área aberta e alta precisão no celular.`);
+      } else {
+        toast.success(baseMessage);
+      }
+    } catch (error) {
+      toast.error(error?.message ?? 'Erro ao capturar GPS.');
+    } finally {
+      capturingGps.value = false;
+    }
   }
 
-  function goToMyLocation() {
+  async function goToMyLocation() {
     if (!navigator.geolocation) {
       toast.error('GPS não disponível neste dispositivo.');
       return;
@@ -1436,34 +1492,28 @@ export function useMapDrawing(options) {
 
     locatingUser.value = true;
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const coords = [position.coords.latitude, position.coords.longitude];
+    try {
+      const result = await captureHighAccuracyPosition({
+        timeoutMs: 12000,
+        onProgress: (accuracy) => {
+          gpsAccuracy.value = accuracy;
+        },
+      });
 
-        if (map && L) {
-          map.setView(coords, Math.max(map.getZoom(), 17));
+      const coords = [result.lat, result.lng];
 
-          if (locationMarker) {
-            map.removeLayer(locationMarker);
-          }
+      if (map && L) {
+        map.setView(coords, Math.max(map.getZoom(), 17));
+        clearLiveGpsMarker();
+        updateLiveGpsMarker({ lat: coords[0], lng: coords[1] }, result.accuracy);
+      }
 
-          locationMarker = L.circleMarker(coords, {
-            radius: 8,
-            color: '#2563EB',
-            fillColor: '#3B82F6',
-            fillOpacity: 0.85,
-            weight: 2,
-          }).addTo(map);
-        }
-
-        locatingUser.value = false;
-      },
-      (error) => {
-        toast.error(`Erro ao obter localização: ${error.message}`);
-        locatingUser.value = false;
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-    );
+      gpsAccuracy.value = result.accuracy;
+    } catch (error) {
+      toast.error(error?.message ?? 'Erro ao obter localização.');
+    } finally {
+      locatingUser.value = false;
+    }
   }
 
   function rotateMapBy(degrees) {

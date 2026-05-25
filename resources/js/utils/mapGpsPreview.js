@@ -1,3 +1,5 @@
+import { HIGH_ACCURACY_GEO_OPTIONS, MAX_ACCEPTABLE_ACCURACY_M } from '@/utils/geolocation';
+
 export function isCoarsePointerDevice() {
   if (typeof window === 'undefined') {
     return false;
@@ -34,16 +36,13 @@ export function createGpsPreviewController() {
     watchId = navigator.geolocation.watchPosition(
       onPosition,
       onError ?? (() => {}),
-      {
-        enableHighAccuracy: true,
-        maximumAge: 1000,
-        timeout: 20000,
-      },
+      HIGH_ACCURACY_GEO_OPTIONS,
     );
   }
 
   return {
     sync,
     stop,
+    maxAcceptableAccuracy: MAX_ACCEPTABLE_ACCURACY_M,
   };
 }

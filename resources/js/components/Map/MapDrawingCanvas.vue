@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import Swal from 'sweetalert2';
 import { useMapDrawing } from '@/composables/useMapDrawing';
 import { normalizePolygonCoordinates } from '@/utils/mapGeometry';
+import { isCoarsePointerDevice } from '@/utils/mapGpsPreview';
 import { ZONE_TYPE_OPTIONS } from '@/utils/zone';
 import Button from '@/components/Common/Button.vue';
 import Modal from '@/components/Common/Modal.vue';
@@ -283,6 +284,14 @@ onMounted(async () => {
       </div>
     </div>
 
+    <p
+      v-if="isDrawing && isCoarsePointerDevice()"
+      class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-900"
+    >
+      Para máxima precisão no GPS: ative <strong>Alta precisão</strong> nas configurações do celular,
+      use em área aberta, evite paredes/metal e aguarde o sinal estabilizar (±50 m ou menos) antes de capturar cada ponto.
+    </p>
+
     <div
       ref="mapFooterRef"
       class="map-fullscreen-footer"
@@ -347,7 +356,7 @@ onMounted(async () => {
               @click="captureGpsPoint"
             >
               <MapPinIcon class="h-3.5 w-3.5" />
-              {{ capturingGps ? 'Capturando GPS...' : 'Capturar ponto GPS' }}
+              {{ capturingGps ? 'Refinando GPS...' : 'Capturar ponto GPS' }}
             </button>
 
             <button
