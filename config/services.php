@@ -38,8 +38,11 @@ return [
     'efi' => [
         'client_id' => env('EFI_CLIENT_ID'),
         'client_secret' => env('EFI_CLIENT_SECRET'),
-        'sandbox' => env('EFI_SANDBOX', true),
+        'sandbox' => filter_var(env('EFI_SANDBOX', true), FILTER_VALIDATE_BOOLEAN),
+        'pix_key' => env('EFI_PIX_KEY'),
         'certificate' => env('EFI_CERTIFICATE_PATH', ''),
+        'certificate_password' => env('EFI_CERTIFICATE_PASSWORD', ''),
+        'pix_expiry' => (int) env('EFI_PIX_EXPIRY', 3600),
     ],
 
     'wppconnect' => [
@@ -47,6 +50,8 @@ return [
         'session' => env('WPPCONNECT_SESSION', 'Sid360'),
         'token' => env('WPPCONNECT_TOKEN', ''),
         'webhook_key' => env('WHATSAPP_WEBHOOK_KEY', ''),
+        'timeout' => (int) env('WPPCONNECT_TIMEOUT', 30),
+        'media_timeout' => (int) env('WPPCONNECT_MEDIA_TIMEOUT', 90),
     ],
 
 ];

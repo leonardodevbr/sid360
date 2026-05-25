@@ -57,7 +57,7 @@ export async function downloadCarne(saleId) {
   const url = window.URL.createObjectURL(new Blob([data], { type: 'application/pdf' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = `carne-venda-${saleId}.pdf`;
+  link.download = `promissoria-venda-${saleId}.pdf`;
   link.click();
   window.URL.revokeObjectURL(url);
 }

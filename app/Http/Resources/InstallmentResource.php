@@ -26,6 +26,13 @@ class InstallmentResource extends JsonResource
             'whatsapp_reminder_sent_at' => $this->whatsapp_reminder_sent_at?->toIso8601String(),
             'whatsapp_overdue_sent_at' => $this->whatsapp_overdue_sent_at?->toIso8601String(),
             'whatsapp_last_notification_at' => $this->lastWhatsappNotificationAt()?->toIso8601String(),
+            'efi_charge_id' => $this->efi_charge_id,
+            'efi_txid' => $this->efi_txid,
+            'efi_barcode' => $this->efi_barcode,
+            'efi_pdf_url' => $this->efi_pdf_url,
+            'efi_pix_copia_cola' => $this->efi_pix_copia_cola,
+            'efi_pix_qrcode' => $this->efi_pix_qrcode,
+            'efi_payment_type' => $this->efi_payment_type,
         ];
     }
 }

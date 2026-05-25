@@ -192,7 +192,7 @@
               <div style="font-size:13pt;font-weight:900;color:#fff;letter-spacing:1pt;margin-bottom:2mm;">SID<span style="color:#fff;">360</span></div>
             @endif
             <div style="font-size:6.5pt;font-weight:bold;text-transform:uppercase;letter-spacing:1pt;color:rgba(255,255,255,0.85);text-align:center;line-height:1.35;">
-              Carnê de<br>Pagamento
+              Promissória
             </div>
           </td>
           {{-- Coluna direita --}}
@@ -331,7 +331,7 @@
             @if($isPreview)
             <div style="height:{{ $stripH }}pt;padding:2mm 2.5mm 2mm;overflow:hidden;" class="strip-flex-column">
               <div>
-              <div style="font-size:7pt;font-weight:bold;color:{{ $capaBlueLabel }};margin-bottom:2mm;">Como utilizar este carnê</div>
+              <div style="font-size:7pt;font-weight:bold;color:{{ $capaBlueLabel }};margin-bottom:2mm;">Como utilizar esta promissória</div>
               <div style="font-size:6pt;line-height:1.35;color:#444;margin-bottom:2mm;">
                 1. Detache cada parcela na linha tracejada indicada.<br>
                 2. Realize o pagamento até a data de vencimento de cada parcela.<br>
@@ -356,7 +356,7 @@
             <table width="100%" height="{{ $stripH }}" cellspacing="0" cellpadding="0" style="height:{{ $stripHeight }};table-layout:fixed;">
               <tr>
                 <td valign="top" style="padding:2mm 2.5mm 0;">
-                  <div style="font-size:7pt;font-weight:bold;color:{{ $capaBlueLabel }};margin-bottom:2mm;">Como utilizar este carnê</div>
+                  <div style="font-size:7pt;font-weight:bold;color:{{ $capaBlueLabel }};margin-bottom:2mm;">Como utilizar esta promissória</div>
                   <div style="font-size:6pt;line-height:1.35;color:#444;margin-bottom:2mm;">
                     1. Detache cada parcela na linha tracejada indicada.<br>
                     2. Realize o pagamento até a data de vencimento de cada parcela.<br>
@@ -397,7 +397,7 @@
         Dúvidas: <strong>(74) 9 8823-0151</strong> · <strong>sid360.com.br</strong>
       </div>
       <div style="font-size:6pt;color:#888;text-align:center;line-height:1.45;margin-top:3mm;">
-        Este carnê é válido como comprovante de pagamento somente com autenticação do beneficiário.<br>
+        Esta promissória é válida como comprovante de pagamento somente com autenticação do beneficiário.<br>
         Contrato Nº {{ $contractNo }} · Sid360 Imóveis · Cafarnaum-BA
       </div>
       @if($brandLogoSrc)

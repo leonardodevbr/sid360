@@ -199,6 +199,7 @@ export default {
         const items = (Array.isArray(list) ? list : []).map((s) => ({
           key: s.key,
           type: s.type || 'string',
+          masked: !!s.masked,
         }));
         if (items.length) result[group] = items;
       }

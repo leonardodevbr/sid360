@@ -71,3 +71,66 @@ export function buildManualOverdueMessage({
     valor: formatCurrency(installment.value),
   });
 }
+
+export function buildPixPaymentMessage({
+  clientName,
+  contractNo,
+  installment,
+  pixCopyPaste,
+  formatDate,
+  formatCurrency,
+}) {
+  const parcela = installment.type === 'down_payment'
+    ? 'Entrada'
+    : `Parcela ${installment.number}`;
+
+  return [
+    `Olá, *${clientName}*!`,
+    '',
+    `Segue o PIX da *${parcela}* do contrato *${contractNo}*:`,
+    '',
+    `Vencimento: *${formatDate(installment.due_date)}*`,
+    `Valor: *${formatCurrency(installment.value)}*`,
+    '',
+    '*Código PIX (Copia e Cola):*',
+    pixCopyPaste,
+    '',
+    'Qualquer dúvida, estou à disposição.',
+    '_Sid360 Imóveis_',
+  ].join('\n');
+}
+
+export function buildBoletoPaymentMessage({
+  clientName,
+  contractNo,
+  installment,
+  formatDate,
+  formatCurrency,
+  barcode,
+  pdfUrl,
+}) {
+  const parcela = installment.type === 'down_payment'
+    ? 'Entrada'
+    : `Parcela ${installment.number}`;
+
+  const lines = [
+    `Olá, *${clientName}*!`,
+    '',
+    `Segue o boleto da *${parcela}* do contrato *${contractNo}*:`,
+    '',
+    `Vencimento: *${formatDate(installment.due_date)}*`,
+    `Valor: *${formatCurrency(installment.value)}*`,
+  ];
+
+  if (barcode) {
+    lines.push('', '*Linha digitável:*', barcode);
+  }
+
+  if (pdfUrl) {
+    lines.push('', '*Link do boleto:*', pdfUrl);
+  }
+
+  lines.push('', 'Qualquer dúvida, estou à disposição.', '_Sid360 Imóveis_');
+
+  return lines.join('\n');
+}

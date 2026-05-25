@@ -35,6 +35,13 @@ class Installment extends Model
         'status',
         'whatsapp_reminder_sent_at',
         'whatsapp_overdue_sent_at',
+        'efi_charge_id',
+        'efi_txid',
+        'efi_barcode',
+        'efi_pdf_url',
+        'efi_pix_copia_cola',
+        'efi_pix_qrcode',
+        'efi_payment_type',
     ];
 
     /**

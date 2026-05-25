@@ -2,11 +2,16 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\EfiPaymentController;
 use App\Http\Controllers\PushSubscriptionController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
 Broadcast::routes(['middleware' => ['auth:sanctum']]);
+
+Route::post('/efi/webhook/pix', [EfiPaymentController::class, 'pixWebhook']);
+Route::post('/efi/webhook/cobrancas', [EfiPaymentController::class, 'cobrancasWebhook']);
+Route::get('/efi/webhook/pix', fn () => response()->json(['ok' => true]));
 
 require __DIR__.'/api/auth.php';
 require __DIR__.'/api/users.php';

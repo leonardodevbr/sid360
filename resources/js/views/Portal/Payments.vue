@@ -146,6 +146,15 @@ function openWhatsApp(inst, kind) {
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
+async function copyPix(code) {
+  if (!code) {
+    return;
+  }
+
+  await navigator.clipboard.writeText(code);
+  toast.success('Código PIX copiado!');
+}
+
 onMounted(async () => {
   if (getStoredPortalClient()) {
     clientName.value = getStoredPortalClient().name;
@@ -372,28 +381,42 @@ onMounted(async () => {
                     </span>
                   </td>
                   <td class="px-4 py-3">
-                    <div v-if="inst.status !== 'paid'" class="flex flex-wrap justify-end gap-1">
-                      <button
-                        type="button"
-                        class="rounded px-2 py-1 text-xs font-medium text-sid-accent hover:bg-primary-50"
-                        @click="openWhatsApp(inst, 'pix')"
-                      >
-                        PIX
-                      </button>
-                      <button
-                        type="button"
-                        class="rounded px-2 py-1 text-xs font-medium text-sid-accent hover:bg-primary-50"
-                        @click="openWhatsApp(inst, 'boleto')"
-                      >
-                        Boleto
-                      </button>
-                      <button
-                        type="button"
-                        class="rounded px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
-                        @click="openWhatsApp(inst, 'via')"
-                      >
-                        2ª via
-                      </button>
+                    <div v-if="inst.status !== 'paid'" class="space-y-2">
+                      <div class="flex flex-wrap justify-end gap-1">
+                        <a
+                          v-if="inst.efi_pdf_url"
+                          :href="inst.efi_pdf_url"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="rounded-lg bg-slate-800 px-3 py-2 text-center text-xs font-medium text-white hover:bg-slate-900"
+                        >
+                          Ver boleto
+                        </a>
+                        <button
+                          v-if="inst.efi_pix_copia_cola"
+                          type="button"
+                          class="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700"
+                          @click="copyPix(inst.efi_pix_copia_cola)"
+                        >
+                          Copiar PIX
+                        </button>
+                        <template v-if="!inst.efi_pdf_url && !inst.efi_pix_copia_cola">
+                          <button
+                            type="button"
+                            class="rounded px-2 py-1 text-xs font-medium text-sid-accent hover:bg-primary-50"
+                            @click="openWhatsApp(inst, 'pix')"
+                          >
+                            Solicitar PIX
+                          </button>
+                          <button
+                            type="button"
+                            class="rounded px-2 py-1 text-xs font-medium text-sid-accent hover:bg-primary-50"
+                            @click="openWhatsApp(inst, 'boleto')"
+                          >
+                            Solicitar Boleto
+                          </button>
+                        </template>
+                      </div>
                     </div>
                     <p v-else class="text-right text-xs text-slate-400">
                       Pago em {{ formatDate(inst.paid_at) }}
@@ -406,8 +429,8 @@ onMounted(async () => {
         </div>
 
         <div class="rounded-lg border border-[#e8dcc8] bg-[#faf5ee] px-4 py-3 text-xs text-[#7a4535]">
-          Pagamento automático via PIX estará disponível em breve. Por enquanto, use os botões acima
-          para solicitar PIX, boleto ou segunda via pelo WhatsApp da corretora.
+          Quando disponível, use os botões para copiar o PIX ou abrir o boleto diretamente.
+          Se a parcela ainda não tiver cobrança gerada, solicite pelo WhatsApp da corretora.
         </div>
       </template>
     </template>

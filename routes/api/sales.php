@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\EfiPaymentController;
 use App\Http\Controllers\InstallmentController;
 use App\Http\Controllers\SaleController;
 use App\Http\Resources\InstallmentInteractionResource;
@@ -53,4 +54,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
         return InstallmentInteractionResource::collection($interactions);
     });
     Route::post('/installments/{id}/pay', [InstallmentController::class, 'pay']);
+    Route::post('/sales/{id}/efi/carne', [EfiPaymentController::class, 'generateCarne']);
+    Route::get('/installments/{id}/efi/charge-preview', [EfiPaymentController::class, 'chargePreview']);
+    Route::post('/installments/{id}/efi/pix', [EfiPaymentController::class, 'generatePix']);
+    Route::post('/installments/{id}/efi/pix/whatsapp', [EfiPaymentController::class, 'sendPixWhatsApp']);
+    Route::post('/installments/{id}/efi/boleto', [EfiPaymentController::class, 'generateBoleto']);
+    Route::post('/installments/{id}/efi/boleto/whatsapp', [EfiPaymentController::class, 'sendBoletoWhatsApp']);
 });

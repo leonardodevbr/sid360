@@ -53,6 +53,13 @@ class GetPortalDashboardAction
                         'status' => $status,
                         'sale_id' => $sale->id,
                         'contract_no' => $this->contractNumber($sale),
+                        'efi_charge_id' => $installment->efi_charge_id,
+                        'efi_txid' => $installment->efi_txid,
+                        'efi_barcode' => $installment->efi_barcode,
+                        'efi_pdf_url' => $installment->efi_pdf_url,
+                        'efi_pix_copia_cola' => $installment->efi_pix_copia_cola,
+                        'efi_pix_qrcode' => $installment->efi_pix_qrcode,
+                        'efi_payment_type' => $installment->efi_payment_type,
                     ];
                 })->values();
 

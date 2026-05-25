@@ -43,7 +43,7 @@ const devRoutes = import.meta.env.DEV
         meta: {
           requiresAuth: true,
           permission: 'sales.view',
-          title: 'Preview carnê',
+          title: 'Preview Promissória',
         },
       },
     ]

@@ -39,6 +39,8 @@ class InstallmentInteractionResource extends JsonResource
             'overdue' => 'Aviso de atraso enviado',
             'welcome' => 'Boas-vindas enviada',
             'boleto_link' => 'Link de pagamento enviado',
+            'boleto' => 'Boleto enviado',
+            'pix' => 'PIX enviado',
             'negotiate_forward' => 'Encaminhado para negociação',
             'reply_acknowledge' => 'Cliente: vai regularizar',
             'reply_boleto' => 'Cliente: solicitou boleto/PIX',

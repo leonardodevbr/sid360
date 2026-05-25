@@ -17,7 +17,7 @@ onMounted(async () => {
     document.close();
   } catch {
     failed.value = true;
-    toast.error('Erro ao carregar preview do carnê.');
+    toast.error('Erro ao carregar preview da promissória.');
   }
 });
 
@@ -28,7 +28,7 @@ function goBack() {
 
 <template>
   <div v-if="failed" class="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#f5f0e8] p-6 text-center">
-    <p class="text-sm text-slate-600">Não foi possível carregar o preview do carnê.</p>
+    <p class="text-sm text-slate-600">Não foi possível carregar o preview da promissória.</p>
     <button
       type="button"
       class="rounded-lg bg-action px-4 py-2 text-sm font-semibold text-white hover:bg-action-hover"

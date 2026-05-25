@@ -122,7 +122,7 @@ class SaleController extends Controller
         $pdf = Pdf::loadView('pdf.carne', ['sale' => $sale])
             ->setPaper('a4', 'portrait');
 
-        return $pdf->download("carne-venda-{$sale->id}.pdf");
+        return $pdf->download("promissoria-venda-{$sale->id}.pdf");
     }
 
     public function carnePreviewHtml(string|int $id): Response
@@ -163,7 +163,7 @@ class SaleController extends Controller
             ->findOrFail((int) $id);
 
         if ($sale->installments_count < 1 || $sale->financingInstallments->isEmpty()) {
-            abort(404, 'Esta venda não possui parcelas para carnê.');
+            abort(404, 'Esta venda não possui parcelas para promissória.');
         }
 
         $sale->setRelation('installments', $sale->financingInstallments);

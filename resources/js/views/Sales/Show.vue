@@ -56,10 +56,11 @@
             type="button"
             variant="outline"
             :loading="downloadingCarne"
+            title="Promissória para impressão"
             @click="handleDownloadCarne"
           >
             <DocumentTextIcon class="mr-2 h-4 w-4" />
-            Imprimir Carnê
+            Imprimir Promissória
           </Button>
           <Button
             v-if="showCarnePreview && financingInstallments.length"
@@ -70,6 +71,26 @@
             <EyeIcon class="mr-2 h-4 w-4" />
             Preview HTML
           </Button>
+          <button
+            v-if="financingInstallments.length && !sale.efi_carnet_id"
+            type="button"
+            :disabled="generatingCarne"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+            @click="generateCarne"
+          >
+            <BanknotesIcon class="h-4 w-4" />
+            {{ generatingCarne ? 'Gerando...' : 'Gerar carnê bancário' }}
+          </button>
+          <a
+            v-else-if="sale.efi_carnet_pdf"
+            :href="sale.efi_carnet_pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
+          >
+            <DocumentArrowDownIcon class="h-4 w-4" />
+            Baixar carnê bancário
+          </a>
         </div>
 
         <div class="mt-5 border-t border-slate-100 pt-5">
@@ -237,14 +258,12 @@
                 <InstallmentWhatsappCell :installment="inst" :sale="sale" />
               </td>
               <td class="px-4 py-3 text-right">
-                <button
-                  v-if="inst.status !== 'paid'"
-                  type="button"
-                  class="rounded px-2 py-1 text-xs font-medium text-action hover:text-action-hover hover:underline"
-                  @click="payInstallment(inst)"
-                >
-                  Marcar pago
-                </button>
+                <InstallmentEfiActions
+                  :installment="inst"
+                  @pay="payInstallment"
+                  @open-pix="openPixChargeModal"
+                  @open-boleto="openBoletoChargeModal"
+                />
               </td>
             </tr>
           </tbody>
@@ -302,14 +321,12 @@
                 <InstallmentWhatsappCell :installment="inst" :sale="sale" />
               </td>
               <td class="px-4 py-3 text-right">
-                <button
-                  v-if="inst.status !== 'paid'"
-                  type="button"
-                  class="rounded px-2 py-1 text-xs font-medium text-action hover:text-action-hover hover:underline"
-                  @click="payInstallment(inst)"
-                >
-                  Marcar pago
-                </button>
+                <InstallmentEfiActions
+                  :installment="inst"
+                  @pay="payInstallment"
+                  @open-pix="openPixChargeModal"
+                  @open-boleto="openBoletoChargeModal"
+                />
               </td>
             </tr>
           </tbody>
@@ -368,6 +385,18 @@
         </div>
       </div>
     </template>
+
+    <InstallmentChargeModal
+      :is-open="Boolean(chargeModal)"
+      :installment="chargeModal?.installment ?? null"
+      :charge-type="chargeModal?.type ?? 'pix'"
+      :client-phone="sale?.client?.phone ?? ''"
+      :client-name="sale?.client?.name ?? ''"
+      :contract-no="saleContractNo()"
+      :carnet-pdf-url="sale?.efi_carnet_pdf ?? ''"
+      @close="chargeModal = null"
+      @updated="handleChargeUpdated"
+    />
   </div>
 </template>
 
@@ -396,11 +425,15 @@ import {
 } from '@/utils/status';
 import Button from '@/components/Common/Button.vue';
 import InstallmentWhatsappCell from '@/components/Sales/InstallmentWhatsappCell.vue';
+import InstallmentEfiActions from '@/components/Sales/InstallmentEfiActions.vue';
+import InstallmentChargeModal from '@/components/Sales/InstallmentChargeModal.vue';
 import { installmentDisplayStatus } from '@/utils/whatsapp';
+import { prepareNewTab } from '@/utils/browser';
 import { formatWhatsappHtml } from '@/utils/whatsappFormat';
 import {
   ArrowLeftIcon,
   ArrowUpTrayIcon,
+  BanknotesIcon,
   ChevronDownIcon,
   DocumentArrowDownIcon,
   DocumentCheckIcon,
@@ -446,6 +479,9 @@ const uploadingSigned = ref(false);
 const fileInputRef = ref(null);
 const selectedFile = ref(null);
 const selectedFileName = ref('');
+const generatingCarne = ref(false);
+const chargeModal = ref(null);
+const carneData = ref(null);
 
 const showRegistrationSuccess = computed(() => route.query.registered === '1');
 
@@ -518,7 +554,7 @@ async function handleDownloadCarne() {
   try {
     await downloadCarne(sale.value.id);
   } catch {
-    toast.error('Erro ao baixar carnê.');
+    toast.error('Erro ao baixar promissória.');
   } finally {
     downloadingCarne.value = false;
   }
@@ -622,6 +658,42 @@ async function payInstallment(inst) {
   } catch {
     toast.error('Erro ao marcar parcela como paga.');
   }
+}
+
+function openPixChargeModal(installment) {
+  chargeModal.value = { installment, type: 'pix' };
+}
+
+function openBoletoChargeModal(installment) {
+  chargeModal.value = { installment, type: 'boleto' };
+}
+
+async function generateCarne() {
+  generatingCarne.value = true;
+  const previewTab = prepareNewTab();
+
+  try {
+    const { data } = await api.post(`/sales/${route.params.id}/efi/carne`);
+    carneData.value = data;
+
+    if (!previewTab.open(data.pdf_carnet)) {
+      toast.warning('Não foi possível abrir o carnê bancário em nova aba. Use o link na venda.');
+    }
+
+    toast.success(`Carnê bancário gerado — ${data.charges} parcelas.`);
+    await loadSale();
+  } catch (err) {
+    previewTab.close();
+    toast.error(err?.response?.data?.error ?? 'Erro ao gerar carnê bancário.');
+  } finally {
+    generatingCarne.value = false;
+  }
+}
+
+function saleContractNo() {
+  const saleDate = sale.value?.sale_date ?? '';
+  const year = saleDate ? saleDate.slice(0, 4) : new Date().getFullYear();
+  return `${String(sale.value?.id ?? '').padStart(4, '0')}/${year}`;
 }
 
 onMounted(() => {

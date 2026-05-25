@@ -39,6 +39,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->validateCsrfTokens(except: [
             'api/whatsapp/webhook',
+            'api/efi/webhook/pix',
+            'api/efi/webhook/cobrancas',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
