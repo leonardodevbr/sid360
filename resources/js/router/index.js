@@ -12,12 +12,14 @@ import DevelopmentsIndex from '@/views/Developments/Index.vue';
 import DevelopmentForm from '@/views/Developments/Form.vue';
 import LotsIndex from '@/views/Lots/Index.vue';
 import LotForm from '@/views/Lots/Form.vue';
+import LeadsIndex from '@/views/Leads/Index.vue';
 import UsersIndex from '@/views/Users/Index.vue';
 import UserForm from '@/views/Users/UserForm.vue';
 import SettingsIndex from '@/views/Settings/Index.vue';
 import ProfileIndex from '@/views/Profile/Index.vue';
 import PortalLayout from '@/layouts/PortalLayout.vue';
 import PortalPayments from '@/views/Portal/Payments.vue';
+import { siteRoutes } from '@/site/router';
 
 const portalRoutes = [
   {
@@ -90,6 +92,7 @@ const routes = [
     meta: { guestOnly: true },
   },
   ...portalRoutes,
+  ...siteRoutes,
   ...devRoutes,
   {
     path: '/app',
@@ -169,6 +172,12 @@ const routes = [
         meta: { title: 'Nova venda', permission: 'sales.create' },
       },
       {
+        path: 'leads',
+        name: 'leads.index',
+        component: LeadsIndex,
+        meta: { title: 'Leads', permission: 'sales.view' },
+      },
+      {
         path: 'sales/:id',
         name: 'sales.show',
         component: () => import('@/views/Sales/Show.vue'),
@@ -232,6 +241,11 @@ router.beforeEach((to, from, next) => {
   }
 
   if (to.path.startsWith('/pagamentos')) {
+    next();
+    return;
+  }
+
+  if (to.meta.publicSite) {
     next();
     return;
   }

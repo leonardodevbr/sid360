@@ -47,6 +47,17 @@ class LotResource extends JsonResource
             'effective_down_payment_percent' => $this->effectiveDownPaymentPercent(),
             'uses_development_payment_terms' => $this->down_payment_percent === null,
             'status' => $this->status,
+            'cover_photo' => $this->coverPhoto()?->url,
+            'photos_count' => $this->media()->where('type', 'photo')->count(),
+            'media' => $this->whenLoaded('media', fn () =>
+                $this->media->map(fn ($mediaItem) => [
+                    'id' => $mediaItem->id,
+                    'url' => $mediaItem->url,
+                    'type' => $mediaItem->type,
+                    'caption' => $mediaItem->caption,
+                    'is_cover' => $mediaItem->is_cover,
+                    'order' => $mediaItem->order,
+                ])),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

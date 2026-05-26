@@ -772,7 +772,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import api from '@/services/api';
 import { useAlert } from '@/composables/useAlert';
@@ -796,6 +796,7 @@ import {
 const DRAFT_KEY = 'sid360_sale_draft';
 
 const router = useRouter();
+const route = useRoute();
 const toast = useToast();
 const { confirm: confirmAlert } = useAlert();
 
@@ -1576,6 +1577,61 @@ async function registrarVenda() {
   }
 }
 
+async function applyLeadPrefill() {
+  const prefillRaw = route.query.prefill;
+  if (!prefillRaw || typeof prefillRaw !== 'string') {
+    return;
+  }
+
+  try {
+    const prefill = JSON.parse(prefillRaw);
+
+    if (prefill.lot_id) {
+      const { data: lotResponse } = await api.get(`/lots/${prefill.lot_id}`);
+      const lotData = lotResponse.data ?? lotResponse;
+
+      if (lotData.development_id) {
+        form.value.development_id = String(lotData.development_id);
+        await onDevelopmentChange();
+        form.value.lot_id = String(prefill.lot_id);
+      }
+    }
+
+    if (prefill.installments) {
+      form.value.installments_count = String(prefill.installments);
+    }
+
+    if (prefill.name || prefill.cpf || prefill.phone) {
+      if (prefill.cpf) {
+        const { data: clientsResponse } = await api.get('/clients', {
+          params: { search: String(prefill.cpf).replace(/\D/g, '') },
+        });
+        const clients = clientsResponse.data ?? clientsResponse ?? [];
+        if (clients.length) {
+          selecionarCliente(clients[0]);
+        } else {
+          mostrarFormCliente.value = true;
+          novoCliente.value.name = prefill.name ?? '';
+          novoCliente.value.cpf = prefill.cpf ?? '';
+          novoCliente.value.phone = prefill.phone ?? '';
+          novoCliente.value.email = prefill.email ?? '';
+        }
+      } else {
+        mostrarFormCliente.value = true;
+        novoCliente.value.name = prefill.name ?? '';
+        novoCliente.value.phone = prefill.phone ?? '';
+        novoCliente.value.email = prefill.email ?? '';
+      }
+    }
+
+    toast.info('Dados do lead carregados no formulário.');
+  } catch {
+    toast.error('Não foi possível carregar os dados do lead.');
+  } finally {
+    router.replace({ name: 'sales.create' });
+  }
+}
+
 onMounted(async () => {
   try {
     const { data } = await api.get('/developments', {
@@ -1585,6 +1641,12 @@ onMounted(async () => {
   } catch {
     developments.value = [];
   }
+
+  if (route.query.prefill) {
+    await applyLeadPrefill();
+    return;
+  }
+
   await checkAndRestoreDraft();
 });
 

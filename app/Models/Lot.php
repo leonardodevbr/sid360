@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Traits\HasMedia;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Lot extends Model
 {
+    use HasMedia;
+
     public const STATUS_AVAILABLE = 'available';
 
     public const STATUS_RESERVED = 'reserved';

@@ -490,6 +490,11 @@
         <p v-else class="text-xs text-slate-400">Nenhuma rua cadastrada ainda.</p>
       </div>
 
+      <div v-if="isEdit" class="card space-y-3 p-5">
+        <p class="text-sm font-semibold text-slate-700">Fotos do empreendimento</p>
+        <MediaGallery :endpoint="`/developments/${route.params.id}/media`" />
+      </div>
+
       <div class="flex justify-end gap-3">
         <Button type="button" variant="outline" @click="$router.push({ name: 'developments.index' })">
           Cancelar
@@ -731,6 +736,7 @@ import SelectInput from '@/components/Common/SelectInput.vue';
 import Button from '@/components/Common/Button.vue';
 import Modal from '@/components/Common/Modal.vue';
 import CurrencyInput from '@/components/Common/CurrencyInput.vue';
+import MediaGallery from '@/components/Common/MediaGallery.vue';
 import { ArrowLeftIcon, ArrowUturnLeftIcon, ArrowsPointingInIcon, ArrowsPointingOutIcon, MapIcon, MapPinIcon, PlusIcon, RectangleGroupIcon, TagIcon, XMarkIcon } from '@heroicons/vue/24/outline';
 
 const route = useRoute();

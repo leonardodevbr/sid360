@@ -20,6 +20,22 @@
         <StatCard label="Clientes" :value="data?.total_clients ?? 0" color="amber" />
       </div>
 
+      <router-link
+        v-if="data?.pending_leads > 0"
+        :to="{ name: 'leads.index', query: { status: 'pending' } }"
+        class="card flex items-center gap-4 border-l-4 border-amber-400 p-4 transition-colors hover:bg-amber-50"
+      >
+        <InboxStackIcon class="h-8 w-8 shrink-0 text-amber-600" />
+        <div>
+          <p class="text-sm font-semibold text-slate-700">
+            Leads pendentes
+          </p>
+          <p class="text-2xl font-bold text-amber-600">
+            {{ data.pending_leads }}
+          </p>
+        </div>
+      </router-link>
+
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div class="card p-4">
           <p class="mb-1 text-xs text-slate-500">Receita total gerada</p>
@@ -169,7 +185,7 @@ import { useToast } from 'vue-toastification';
 import api from '@/services/api';
 import StatCard from '@/components/Common/StatCard.vue';
 import { badgeColors } from '@/utils/status';
-import { CalendarDaysIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline';
+import { CalendarDaysIcon, ExclamationTriangleIcon, InboxStackIcon } from '@heroicons/vue/24/outline';
 
 const toast = useToast();
 const data = ref(null);

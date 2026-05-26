@@ -20,11 +20,14 @@ require __DIR__.'/api/settings.php';
 require __DIR__.'/api/upload.php';
 require __DIR__.'/api/developments.php';
 require __DIR__.'/api/lots.php';
+require __DIR__.'/api/media.php';
 require __DIR__.'/api/dashboard.php';
 require __DIR__.'/api/clients.php';
 require __DIR__.'/api/sales.php';
 require __DIR__.'/api/whatsapp.php';
 require __DIR__.'/api/portal.php';
+require __DIR__.'/api/public.php';
+require __DIR__.'/api/leads.php';
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/push/subscribe', [PushSubscriptionController::class, 'store']);

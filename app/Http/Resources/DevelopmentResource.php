@@ -28,6 +28,8 @@ class DevelopmentResource extends JsonResource
             'map_center' => $this->map_center,
             'map_zoom' => $this->map_zoom ?? 17,
             'map_color' => $this->map_color,
+            'cover_photo' => $this->coverPhoto()?->url,
+            'photos_count' => $this->media()->where('type', 'photo')->count(),
             'zones' => $this->whenLoaded('zones', fn () => $this->zones->map(fn ($zone) => [
                 'id' => $zone->id,
                 'development_id' => $zone->development_id,

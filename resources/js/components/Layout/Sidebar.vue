@@ -1,7 +1,8 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import api from '@/services/api';
 import AppLogo from '@/components/Common/AppLogo.vue';
 import {
   HomeIcon,
@@ -11,6 +12,7 @@ import {
   UserGroupIcon,
   CurrencyDollarIcon,
   Cog6ToothIcon,
+  InboxStackIcon,
 } from '@heroicons/vue/24/outline';
 
 defineProps({
@@ -24,6 +26,22 @@ const emit = defineEmits(['close']);
 
 const route = useRoute();
 const authStore = useAuthStore();
+const pendingLeadsCount = ref(0);
+
+async function loadPendingLeads() {
+  if (!authStore.can('sales.view')) {
+    return;
+  }
+
+  try {
+    const { data } = await api.get('/leads', { params: { status: 'pending', per_page: 1 } });
+    pendingLeadsCount.value = data.meta?.pending ?? 0;
+  } catch {
+    pendingLeadsCount.value = 0;
+  }
+}
+
+onMounted(() => loadPendingLeads());
 
 function itemVisible(item) {
   if (authStore.isSuperAdmin) {
@@ -42,6 +60,8 @@ function itemVisible(item) {
 }
 
 const menuGroups = computed(() => {
+  const pendingCount = pendingLeadsCount.value;
+
   const allGroups = [
     {
       title: 'Principal',
@@ -60,6 +80,7 @@ const menuGroups = computed(() => {
       title: 'Comercial',
       items: [
         { name: 'Clientes', to: { name: 'clients.index' }, icon: UserGroupIcon, permission: 'clients.view' },
+        { name: 'Leads', to: { name: 'leads.index' }, icon: InboxStackIcon, permission: 'sales.view', badge: pendingCount },
         { name: 'Vendas', to: { name: 'sales.index' }, icon: CurrencyDollarIcon, permission: 'sales.view' },
       ],
     },
@@ -136,6 +157,12 @@ function handleClick() {
               :class="['h-5 w-5 shrink-0', isActive(item) ? 'text-sid-accent' : 'text-slate-500 group-hover:text-sid-secondary']"
             />
             <span class="truncate">{{ item.name }}</span>
+            <span
+              v-if="item.badge > 0"
+              class="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700"
+            >
+              {{ item.badge }}
+            </span>
           </router-link>
         </div>
       </div>

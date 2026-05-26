@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\Client;
 use App\Models\Development;
 use App\Models\Installment;
+use App\Models\Lead;
 use App\Models\Lot;
 use App\Models\Sale;
 use Carbon\Carbon;
@@ -122,6 +123,7 @@ class DashboardController extends Controller
             ]),
             'total_clients' => $totalClients,
             'clients_whatsapp' => $clientsWhatsapp,
+            'pending_leads' => Lead::query()->where('status', Lead::STATUS_PENDING)->count(),
             'recent_developments' => Development::query()
                 ->withCount([
                     'lots',

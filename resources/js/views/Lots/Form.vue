@@ -178,6 +178,11 @@
         </p>
       </div>
 
+      <div v-if="isEdit" class="card space-y-3 p-5">
+        <p class="text-sm font-semibold text-slate-700">Fotos do lote</p>
+        <MediaGallery :endpoint="`/lots/${route.params.id}/media`" />
+      </div>
+
       <div class="flex justify-end gap-3">
         <Button type="button" variant="outline" @click="goBack">Cancelar</Button>
         <Button type="submit" variant="primary" :disabled="saving">
@@ -205,6 +210,7 @@ import SelectInput from '@/components/Common/SelectInput.vue';
 import Button from '@/components/Common/Button.vue';
 import CurrencyInput from '@/components/Common/CurrencyInput.vue';
 import MapDrawingCanvas from '@/components/Map/MapDrawingCanvas.vue';
+import MediaGallery from '@/components/Common/MediaGallery.vue';
 import {
   ArrowLeftIcon,
   ArrowPathIcon,

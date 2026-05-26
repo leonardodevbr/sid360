@@ -169,6 +169,9 @@ const KEY_LABELS = {
   whatsapp_manual_overdue_message: 'Mensagem — contato manual (atraso)',
   whatsapp_reply_window_hours: 'Janela de resposta (horas)',
   whatsapp_sid_phone: 'WhatsApp do corretor (notificações)',
+  gcs_key_file_path: 'GCS — Caminho do arquivo de credenciais (.json)',
+  gcs_project_id: 'GCS — Project ID',
+  gcs_bucket: 'GCS — Bucket',
 };
 
 const GROUP_LABELS = {
@@ -176,6 +179,7 @@ const GROUP_LABELS = {
   auth: 'Login / Autenticação',
   municipality: 'Município',
   whatsapp: 'WhatsApp — Notificações',
+  storage: 'Armazenamento (GCS)',
 };
 
 const LOGIN_METHOD_OPTIONS = [
