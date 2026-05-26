@@ -23,7 +23,6 @@
             :value="addressData.zip_code"
             type="text"
             inputmode="numeric"
-            pattern="[0-9]*"
             autocomplete="postal-code"
             @blur="fetchAddress"
             @input="(e) => formatCep(e)"

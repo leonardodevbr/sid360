@@ -10,7 +10,7 @@
       </div>
     </div>
 
-    <form v-if="!loading" class="card space-y-4 p-4 sm:p-6" @submit.prevent="submit">
+    <form v-if="!loading" class="card space-y-4 p-4 sm:p-6" novalidate @submit.prevent="submit">
       <ClientFormFields
         :form="form"
         :errors="errors"

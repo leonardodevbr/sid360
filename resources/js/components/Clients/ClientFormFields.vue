@@ -92,7 +92,6 @@
             :value="otpCode"
             type="text"
             inputmode="numeric"
-            pattern="[0-9]*"
             maxlength="4"
             placeholder="0000"
             class="w-20 rounded-lg border border-slate-200 px-3 py-1.5 text-center text-base font-bold tracking-widest focus:border-sid-accent focus:outline-none focus:ring-2 focus:ring-sid-accent/30"
@@ -165,7 +164,6 @@
         label="Número"
         placeholder="123"
         inputmode="numeric"
-        pattern="[0-9]*"
       />
       <Input v-model="form.neighborhood" label="Bairro" placeholder="Centro" />
     </div>

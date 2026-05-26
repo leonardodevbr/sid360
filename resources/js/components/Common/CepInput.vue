@@ -31,19 +31,26 @@ const validationMessage = computed(() => {
 
 const displayMessage = computed(() => props.error || props.hint || validationMessage.value);
 
-const hasError = computed(() => Boolean(props.error || validationMessage.value));
+const hasError = computed(() => Boolean(props.error || (validationMessage.value && !props.hint)));
+
+function emitCompleteIfReady(value) {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  if (digits.length === 8) {
+    emit('complete', digits);
+  }
+}
 
 function onInput(event) {
   touched.value = true;
-  model.value = formatCep(event.target.value);
-  event.target.value = model.value;
-  if (cepDigits.value.length === 8) {
-    emit('complete', cepDigits.value);
-  }
+  const formatted = formatCep(event.target.value);
+  model.value = formatted;
+  event.target.value = formatted;
+  emitCompleteIfReady(formatted);
 }
 
 function onBlur() {
   touched.value = true;
+  emitCompleteIfReady(model.value);
 }
 </script>
 
@@ -58,7 +65,6 @@ function onBlur() {
         :name="inputName || undefined"
         type="text"
         inputmode="numeric"
-        pattern="[0-9]*"
         autocomplete="postal-code"
         :value="model"
         :placeholder="placeholder"

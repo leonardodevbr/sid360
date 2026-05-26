@@ -366,7 +366,6 @@
               :value="novoCliente.address_number"
               type="text"
               inputmode="numeric"
-              pattern="[0-9]*"
               name="sid-fld-g2n1"
               v-bind="noAutofillInputAttrs"
               placeholder="123"

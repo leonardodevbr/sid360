@@ -38,6 +38,7 @@ export function useClientForm() {
   const otpVerifying = ref(false);
   const otpCountdown = ref(0);
   let otpTimer = null;
+  let lastFetchedZip = '';
 
   const skipPhoneWatch = ref(false);
 
@@ -57,6 +58,8 @@ export function useClientForm() {
     });
     if (client.cpf) base.cpf = formatCpf(client.cpf);
     if (client.phone) base.phone = formatPhone(client.phone);
+    if (client.zip_code) base.zip_code = formatCep(client.zip_code);
+    lastFetchedZip = base.zip_code.replace(/\D/g, '');
     form.value = base;
 
     if (client.whatsapp_status === 'confirmed') {
@@ -257,6 +260,7 @@ export function useClientForm() {
 
   function resetForm() {
     form.value = defaultClientForm();
+    lastFetchedZip = '';
     clearErrors();
     erroCep.value = '';
     whatsappStatus.value = null;
@@ -272,6 +276,17 @@ export function useClientForm() {
       otpVerified.value = false;
       resetOtp();
       clearFieldError('phone');
+    },
+  );
+
+  watch(
+    () => form.value.zip_code,
+    (value) => {
+      const digits = String(value ?? '').replace(/\D/g, '');
+      if (digits.length < 8) {
+        lastFetchedZip = '';
+        erroCep.value = '';
+      }
     },
   );
 
