@@ -79,6 +79,14 @@
               Área calculada pelo polígono: <strong>{{ computedArea }} m²</strong>
             </p>
           </div>
+          <Input
+            v-model="form.size_label"
+            label="Medidas do lote"
+            placeholder="Ex: 20×30"
+          />
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <CurrencyInput v-model="form.total_value" label="Valor total" />
         </div>
 
@@ -234,6 +242,7 @@ const form = ref({
   block: '',
   number: '',
   area: '',
+  size_label: '',
   total_value: 0,
   down_payment_percent: '',
   status: 'available',
@@ -685,6 +694,7 @@ async function loadItem() {
       block: item.block ?? '',
       number: item.number ?? '',
       area: item.area ?? '',
+      size_label: item.size_label ?? '',
       total_value: item.total_value ?? 0,
       down_payment_percent: item.down_payment_percent != null ? String(item.down_payment_percent) : '',
       status: item.status ?? 'available',
@@ -721,6 +731,7 @@ function buildLotPayload() {
     block: selectedZone ? selectedZone.name : (form.value.block?.trim() || null),
     area: form.value.area === '' ? null : Number(form.value.area),
     area_computed: form.value.area_computed ?? null,
+    size_label: form.value.size_label?.trim() || null,
     total_value: form.value.total_value > 0 ? Number(form.value.total_value) : null,
     down_payment_percent: useDevelopmentPaymentTerms.value
       ? null

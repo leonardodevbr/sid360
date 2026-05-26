@@ -45,7 +45,10 @@ class PublicController extends Controller
                 'lots as lots_available_count' => fn ($query) => $query->where('status', Lot::STATUS_AVAILABLE),
                 'lots as lots_sold_count' => fn ($query) => $query->where('status', Lot::STATUS_SOLD),
             ])
+            ->withMin('lots', 'total_value')
+            ->withMax('lots', 'total_value')
             ->with(['media' => fn ($query) => $query->where('is_cover', true)->limit(1)])
+            ->orderByDesc('is_featured')
             ->orderBy('name')
             ->get()
             ->map(fn (Development $development): array => $this->developmentResource($development));
@@ -63,7 +66,7 @@ class PublicController extends Controller
             'lots as lots_available_count' => fn ($query) => $query->where('status', Lot::STATUS_AVAILABLE),
         ]);
 
-        $lots = Lot::query()
+        $lotModels = Lot::query()
             ->where('development_id', $development->id)
             ->with([
                 'media' => fn ($query) => $query->where('is_cover', true)->limit(1),
@@ -71,12 +74,14 @@ class PublicController extends Controller
                 'street',
             ])
             ->orderBy('number')
-            ->get()
-            ->map(fn (Lot $lot): array => $this->lotResource($lot));
+            ->get();
+
+        $lots = $lotModels->map(fn (Lot $lot): array => $this->lotResource($lot));
 
         return response()->json([
             'development' => $this->developmentResource($development),
             'lots' => $lots,
+            'lot_groups' => $this->buildLotGroups($lotModels),
         ]);
     }
 
@@ -235,16 +240,23 @@ class PublicController extends Controller
      */
     private function developmentResource(Development $development): array
     {
+        $heroVideo = $development->heroVideo();
+
         return [
             'id' => $development->id,
             'name' => $development->name,
             'slug' => $development->id . '-' . Str::slug($development->name),
             'description' => $development->description,
             'location' => $development->location,
+            'is_featured' => (bool) $development->is_featured,
             'cover_photo' => $development->media->first()?->url,
+            'hero_video_url' => $heroVideo?->url,
+            'hero_video_mime' => $heroVideo?->mime_type,
             'lots_count' => $development->lots_count ?? 0,
             'lots_available_count' => $development->lots_available_count ?? 0,
             'lots_sold_count' => $development->lots_sold_count ?? 0,
+            'min_lot_value' => $development->lots_min_total_value !== null ? (int) $development->lots_min_total_value : null,
+            'max_lot_value' => $development->lots_max_total_value !== null ? (int) $development->lots_max_total_value : null,
             'coordinates' => $development->coordinates,
             'map_center' => $development->map_center,
             'map_zoom' => $development->map_zoom,
@@ -275,6 +287,7 @@ class PublicController extends Controller
             'block' => $lot->block,
             'area' => $lot->area !== null ? (float) $lot->area : null,
             'area_computed' => $lot->area_computed !== null ? (float) $lot->area_computed : null,
+            'size_label' => $lot->size_label,
             'total_value' => (int) ($lot->total_value ?? 0),
             'status' => $lot->status,
             'coordinates' => $lot->coordinates,
@@ -310,5 +323,94 @@ class PublicController extends Controller
         }
 
         return $base;
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, Lot>  $lots
+     * @return list<array<string, mixed>>
+     */
+    private function buildLotGroups($lots): array
+    {
+        return $lots
+            ->groupBy(fn (Lot $lot): string => $this->lotGroupKey($lot))
+            ->map(function ($groupLots, string $key): array {
+                /** @var \Illuminate\Support\Collection<int, Lot> $groupLots */
+                $first = $groupLots->first();
+                if ($first === null) {
+                    return [];
+                }
+
+                $available = $groupLots->where('status', Lot::STATUS_AVAILABLE);
+                $values = $groupLots
+                    ->pluck('total_value')
+                    ->filter(fn ($value): bool => $value !== null && (int) $value > 0)
+                    ->map(fn ($value): int => (int) $value);
+
+                $coverLot = $groupLots->first(
+                    fn (Lot $lot): bool => $lot->coverPhoto() !== null || $lot->relationLoaded('media') && $lot->media->isNotEmpty(),
+                );
+
+                return [
+                    'key' => $key,
+                    'label' => $this->lotGroupLabel($first),
+                    'area' => $this->lotEffectiveArea($first),
+                    'available_count' => $available->count(),
+                    'reserved_count' => $groupLots->where('status', Lot::STATUS_RESERVED)->count(),
+                    'sold_count' => $groupLots->where('status', Lot::STATUS_SOLD)->count(),
+                    'total_count' => $groupLots->count(),
+                    'min_value' => $values->min() ?? 0,
+                    'max_value' => $values->max() ?? 0,
+                    'cover_photo' => $coverLot?->coverPhoto()?->url ?? $coverLot?->media->first()?->url,
+                    'representative_lot_id' => $available->first()?->id ?? $first->id,
+                    'lot_ids' => $groupLots->pluck('id')->values()->all(),
+                ];
+            })
+            ->filter(fn (array $group): bool => $group !== [])
+            ->sortBy('label', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values()
+            ->all();
+    }
+
+    private function lotGroupKey(Lot $lot): string
+    {
+        $label = trim((string) ($lot->size_label ?? ''));
+        if ($label !== '') {
+            return 'label:' . strtolower(preg_replace('/\s+/', '', $label) ?? $label);
+        }
+
+        $area = $this->lotEffectiveArea($lot);
+        if ($area !== null) {
+            return 'area:' . number_format($area, 2, '.', '');
+        }
+
+        return 'zone:' . ($lot->zone_id ?? 'none');
+    }
+
+    private function lotEffectiveArea(Lot $lot): ?float
+    {
+        if ($lot->area !== null) {
+            return (float) $lot->area;
+        }
+
+        if ($lot->area_computed !== null) {
+            return (float) $lot->area_computed;
+        }
+
+        return null;
+    }
+
+    private function lotGroupLabel(Lot $lot): string
+    {
+        $label = trim((string) ($lot->size_label ?? ''));
+        if ($label !== '') {
+            return str_replace(['x', 'X'], '×', $label);
+        }
+
+        $area = $this->lotEffectiveArea($lot);
+        if ($area !== null) {
+            return number_format($area, 0, ',', '.') . ' m²';
+        }
+
+        return $lot->zone?->name ?? 'Outros';
     }
 }

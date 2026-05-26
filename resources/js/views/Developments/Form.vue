@@ -42,13 +42,24 @@
             step="0.01"
             placeholder="20"
           />
-          <SelectInput
+            <SelectInput
             v-model="form.status"
             label="Status"
             :options="developmentStatusFormOptions"
             :searchable="false"
           />
         </div>
+        <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <input
+            v-model="form.is_featured"
+            type="checkbox"
+            class="h-4 w-4 rounded accent-amber-600"
+          >
+          <div>
+            <p class="text-sm font-semibold text-amber-900">Empreendimento em destaque</p>
+            <p class="text-xs text-amber-700">Exibe um badge "Em destaque" no card do site público.</p>
+          </div>
+        </label>
         <div>
           <label class="mb-1 block text-xs font-medium text-slate-600">
             Padrão de numeração dos lotes
@@ -491,7 +502,12 @@
       </div>
 
       <div v-if="isEdit" class="card space-y-3 p-5">
-        <p class="text-sm font-semibold text-slate-700">Fotos do empreendimento</p>
+        <p class="text-sm font-semibold text-slate-700">
+          Fotos e vídeos do empreendimento
+        </p>
+        <p class="text-xs text-slate-500 leading-relaxed">
+          Envie imagens (capa para listagens) e vídeos em MP4 ou MOV. O <strong>primeiro vídeo</strong> da galeria (por ordem) aparece no topo da página pública do loteamento, em loop, sem som e com reprodução automática, no mesmo estilo do vídeo da página inicial do site.
+        </p>
         <MediaGallery :endpoint="`/developments/${route.params.id}/media`" />
       </div>
 
@@ -756,6 +772,7 @@ const form = ref({
   description: '',
   location: '',
   status: 'active',
+  is_featured: false,
   down_payment_percent: '20',
   lot_number_pattern: '{zona}-L{numero2}',
   coordinates: null,
@@ -2728,6 +2745,7 @@ async function loadItem() {
       description: item.description ?? '',
       location: item.location ?? '',
       status: item.status ?? 'active',
+      is_featured: Boolean(item.is_featured),
       down_payment_percent: String(item.down_payment_percent ?? 20),
       lot_number_pattern: item.lot_number_pattern ?? '{zona}-L{numero2}',
       coordinates: item.coordinates ?? null,

@@ -20,6 +20,7 @@ class Development extends Model
         'description',
         'location',
         'status',
+        'is_featured',
         'down_payment_percent',
         'coordinates',
         'lot_number_pattern',
@@ -37,6 +38,7 @@ class Development extends Model
             'down_payment_percent' => 'decimal:2',
             'coordinates' => 'array',
             'map_center' => 'array',
+            'is_featured' => 'boolean',
         ];
     }
 

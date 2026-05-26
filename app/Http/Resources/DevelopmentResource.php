@@ -14,6 +14,8 @@ class DevelopmentResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $hero = $this->heroVideo();
+
         return [
             'id' => $this->id,
             'name' => $this->name,
@@ -28,7 +30,10 @@ class DevelopmentResource extends JsonResource
             'map_center' => $this->map_center,
             'map_zoom' => $this->map_zoom ?? 17,
             'map_color' => $this->map_color,
+            'is_featured' => (bool) $this->is_featured,
             'cover_photo' => $this->coverPhoto()?->url,
+            'hero_video_url' => $hero?->url,
+            'hero_video_mime' => $hero?->mime_type,
             'photos_count' => $this->media()->where('type', 'photo')->count(),
             'zones' => $this->whenLoaded('zones', fn () => $this->zones->map(fn ($zone) => [
                 'id' => $zone->id,

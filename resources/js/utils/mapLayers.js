@@ -167,12 +167,13 @@ function createGoogleSatelliteLayer(L) {
 /**
  * @param {import('leaflet').Map} map
  * @param {typeof import('leaflet')} leaflet
- * @param {{ maxZoom?: number, streetMaxZoom?: number, position?: 'topleft' | 'topright' | 'bottomleft' | 'bottomright', collapsed?: boolean }} [options]
+ * @param {{ maxZoom?: number, streetMaxZoom?: number, position?: 'topleft' | 'topright' | 'bottomleft' | 'bottomright', collapsed?: boolean, defaultBaseLayer?: 'satellite' | 'street' }} [options] defaultBaseLayer: satellite when Google key works (product default)
  */
 export async function setupMapBaseLayers(map, leaflet, options = {}) {
   const L = leaflet.default ?? leaflet;
   const streetMaxZoom = options.streetMaxZoom ?? OPEN_STREET_MAP_MAX_ZOOM;
   const mapMaxZoom = options.maxZoom ?? 21;
+  const defaultBaseLayer = options.defaultBaseLayer ?? 'satellite';
 
   if (typeof map.setMaxZoom === 'function') {
     map.setMaxZoom(mapMaxZoom);
@@ -192,8 +193,16 @@ export async function setupMapBaseLayers(map, leaflet, options = {}) {
 
   const hasGoogleSatellite = await ensureGoogleMutant(leaflet);
 
+  let satelliteLayer = null;
+
   if (hasGoogleSatellite) {
-    baseLayers.Satélite = createGoogleSatelliteLayer(L);
+    satelliteLayer = createGoogleSatelliteLayer(L);
+    baseLayers.Satélite = satelliteLayer;
+  }
+
+  if (hasGoogleSatellite && satelliteLayer && defaultBaseLayer === 'satellite') {
+    map.removeLayer(streetLayer);
+    satelliteLayer.addTo(map);
   }
 
   const layerControl = L.control.layers(baseLayers, null, {
@@ -203,13 +212,15 @@ export async function setupMapBaseLayers(map, leaflet, options = {}) {
 
   layerControl.addTo(map);
 
-  configureModifierScrollZoom(map);
+  const scrollZoomCleanup = configureModifierScrollZoom(map);
 
   return {
     streetLayer,
     baseLayers,
     layerControl,
     usesGoogleSatellite: hasGoogleSatellite,
+    satelliteLayer,
+    scrollZoomCleanup,
   };
 }
 

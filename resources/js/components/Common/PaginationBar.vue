@@ -11,13 +11,14 @@
       </span>
       <label class="flex items-center gap-2 text-sm text-slate-600">
         <span>Itens por página:</span>
-        <select
-          :value="currentPerPage"
-          class="rounded border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent"
-          @change="onPerPageChange"
-        >
-          <option v-for="n in perPageOptions" :key="n" :value="n">{{ n }}</option>
-        </select>
+        <SelectInput
+          :model-value="currentPerPage"
+          :options="perPageSelectOptions"
+          :searchable="false"
+          :can-clear="false"
+          class="w-24"
+          @update:model-value="onPerPageChange"
+        />
       </label>
     </div>
     <div class="flex items-center gap-2">
@@ -45,7 +46,8 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed } from 'vue';
+import SelectInput from '@/components/Common/SelectInput.vue';
 
 const props = defineProps({
   pagination: {
@@ -56,25 +58,29 @@ const props = defineProps({
     type: Array,
     default: () => [15, 30, 50],
   },
-})
+});
 
-const emit = defineEmits(['page-change', 'per-page-change'])
+const emit = defineEmits(['page-change', 'per-page-change']);
 
-const totalCount = computed(() => props.pagination?.total ?? 0)
-const currentPage = computed(() => props.pagination?.current_page ?? 1)
-const lastPage = computed(() => props.pagination?.last_page ?? 1)
-const currentPerPage = computed(() => props.pagination?.per_page ?? 15)
+const totalCount = computed(() => props.pagination?.total ?? 0);
+const currentPage = computed(() => props.pagination?.current_page ?? 1);
+const lastPage = computed(() => props.pagination?.last_page ?? 1);
+const currentPerPage = computed(() => props.pagination?.per_page ?? 15);
+
+const perPageSelectOptions = computed(() =>
+  props.perPageOptions.map((n) => ({ value: n, label: String(n) })),
+);
 
 function goToPage(page) {
   if (page >= 1 && page <= lastPage.value) {
-    emit('page-change', page)
+    emit('page-change', page);
   }
 }
 
-function onPerPageChange(event) {
-  const value = Number(event.target.value)
-  if (value > 0) {
-    emit('per-page-change', value)
+function onPerPageChange(value) {
+  const n = Number(value);
+  if (n > 0) {
+    emit('per-page-change', n);
   }
 }
 </script>

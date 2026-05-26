@@ -4,31 +4,8 @@ import { RouterLink } from 'vue-router';
 import publicApi from '@/services/publicApi';
 import { developmentSlug } from '@/site/utils/slug';
 
-const siteConfig = ref({
-  loteamento: {
-    name: '',
-    address: '',
-    lat: -11.4667,
-    lng: -39.9833,
-    maps_embed_url: '',
-  },
-  whatsapp: '5574988230151',
-});
-
-const waBase = computed(() => `https://wa.me/${String(siteConfig.value.whatsapp).replace(/\D/g, '')}`);
-
-const mapsEmbedUrl = computed(() => {
-  const l = siteConfig.value.loteamento;
-  if (l.maps_embed_url) {
-    return l.maps_embed_url;
-  }
-  return `https://maps.google.com/maps?q=${l.lat},${l.lng}&hl=pt-BR&z=16&output=embed`;
-});
-
-const mapsLink = computed(() => {
-  const l = siteConfig.value.loteamento;
-  return `https://www.google.com/maps/search/?api=1&query=${l.lat},${l.lng}`;
-});
+const whatsapp = ref('5574988230151');
+const waBase = computed(() => `https://wa.me/${whatsapp.value.replace(/\D/g, '')}`);
 
 const currentSlide = ref(0);
 const slides = ['/img/slide1.jpg', '/img/slide2.jpg', '/img/slide3.jpg'];
@@ -38,194 +15,90 @@ function goToSlide(n) {
   currentSlide.value = (n + slides.length) % slides.length;
   resetTimer();
 }
-
 function resetTimer() {
   clearInterval(slideTimer);
   slideTimer = setInterval(() => goToSlide(currentSlide.value + 1), 5000);
 }
 
 const heroScrollY = ref(0);
-
 function onHeroScroll() {
   heroScrollY.value = window.scrollY;
 }
 
 const developments = ref([]);
-const simLots = ref([]);
 const loadingDevs = ref(true);
-const loadingSimLots = ref(false);
-
-const mainDev = computed(() => developments.value[0] ?? null);
-
 const displayDevelopments = computed(() => developments.value.slice(0, 6));
+
+// ── Simulador genérico ──────────────────────────────────────────────────────
+const SIM_DOWN_PCT = 20;
+const SIM_MONTHS_OPTIONS = [12, 24, 36, 48, 60, 120];
+
+const simMin = ref(30000);
+const simMax = ref(200000);
+const simValue = ref(80000);
+const simMonths = ref(36);
+
+// clamp value when min/max change
+watch([simMin, simMax], () => {
+  if (simValue.value < simMin.value) simValue.value = simMin.value;
+  if (simValue.value > simMax.value) simValue.value = simMax.value;
+});
+
+const simEntrada = computed(() => Math.round(simValue.value * SIM_DOWN_PCT / 100));
+const simSaldo = computed(() => simValue.value - simEntrada.value);
+const simParcela = computed(() => Math.round(simSaldo.value / simMonths.value));
+
+function formatBRL(n) {
+  return Math.round(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+}
+
+const simWaText = computed(() => {
+  return `Olá! Simulei um lote de ${formatBRL(simValue.value)}: entrada ${formatBRL(simEntrada.value)} + ${simMonths.value}x de ${formatBRL(simParcela.value)}. Tenho interesse!`;
+});
+const simWaHref = computed(() => `${waBase.value}?text=${encodeURIComponent(simWaText.value)}`);
+
+// ── FAB ─────────────────────────────────────────────────────────────────────
+const fabVisible = ref(false);
+function updateFabVisibility() {
+  const sim = document.getElementById('simulador');
+  if (!sim) { fabVisible.value = window.scrollY > 600; return; }
+  const r = sim.getBoundingClientRect();
+  fabVisible.value = r.top > window.innerHeight || r.bottom < 0;
+}
 
 async function loadConfig() {
   try {
     const { data } = await publicApi.get('/public/config');
-    if (data?.loteamento) {
-      siteConfig.value.loteamento = { ...siteConfig.value.loteamento, ...data.loteamento };
-    }
-    if (data?.whatsapp) {
-      siteConfig.value.whatsapp = String(data.whatsapp);
-    }
-  } catch {
-    // defaults
-  }
-}
-
-async function loadSimLots() {
-  const dev = mainDev.value;
-  if (!dev?.id) {
-    simLots.value = [];
-    return;
-  }
-  loadingSimLots.value = true;
-  try {
-    const { data } = await publicApi.get(`/public/developments/${dev.id}`);
-    simLots.value = (data.lots ?? []).filter((lot) => lot.status === 'available');
-  } catch {
-    simLots.value = [];
-  } finally {
-    loadingSimLots.value = false;
-  }
+    if (data?.whatsapp) whatsapp.value = String(data.whatsapp);
+  } catch { /* defaults */ }
 }
 
 async function loadDevelopments() {
   try {
     const { data } = await publicApi.get('/public/developments');
     developments.value = Array.isArray(data) ? data : [];
-    await loadSimLots();
+
+    // compute global min/max from all developments
+    const values = developments.value.flatMap((d) => {
+      const min = d.min_lot_value;
+      const max = d.max_lot_value;
+      const arr = [];
+      if (min && min > 0) arr.push(Math.round(min / 100));
+      if (max && max > 0) arr.push(Math.round(max / 100));
+      return arr;
+    }).filter(Boolean);
+
+    if (values.length >= 2) {
+      simMin.value = Math.min(...values);
+      simMax.value = Math.max(...values);
+      simValue.value = Math.round((simMin.value + simMax.value) / 2 / 1000) * 1000;
+    }
   } catch {
     developments.value = [];
-    simLots.value = [];
   } finally {
     loadingDevs.value = false;
   }
 }
-
-const simMode = ref('price');
-const simLoteId = ref(null);
-const simEntrada = ref(0);
-const simParcelas = ref(24);
-const simParcelaMensal = ref(0);
-const simResult = ref(null);
-
-const downPctDefault = computed(() => mainDev.value?.down_payment_percent ?? 20);
-
-const simLoteOptions = computed(() => simLots.value.map((lot) => ({
-  value: lot.id,
-  label: `${lot.zone?.name ? `${lot.zone.name} · ` : ''}Lote ${lot.number}`,
-  lot,
-})));
-
-watch([simLots, simLoteOptions], () => {
-  if (!simLoteId.value && simLoteOptions.value.length) {
-    simLoteId.value = simLoteOptions.value[0].value;
-  }
-}, { immediate: true });
-
-const selectedSimLot = computed(() => simLots.value.find((l) => l.id === simLoteId.value) ?? null);
-
-const simTotalReais = computed(() => {
-  const v = selectedSimLot.value?.total_value;
-  if (!v) {
-    return 0;
-  }
-  return Math.round(v / 100);
-});
-
-watch([selectedSimLot, simTotalReais, downPctDefault], () => {
-  const total = simTotalReais.value;
-  if (total > 0) {
-    simEntrada.value = Math.round(total * (downPctDefault.value / 100));
-  }
-}, { immediate: true });
-
-function formatBRL(n) {
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
-}
-
-function calcularSimulacao() {
-  const total = simTotalReais.value;
-  if (!total) {
-    simResult.value = null;
-    return;
-  }
-
-  if (simMode.value === 'avista') {
-    simResult.value = {
-      mode: 'avista',
-      total,
-      label: 'Valor à vista (estimado)',
-    };
-    return;
-  }
-
-  const entrada = Math.max(0, Number(simEntrada.value) || 0);
-  const minEntrada = total * (downPctDefault.value / 100);
-  if (entrada < minEntrada - 0.01) {
-    simResult.value = null;
-    return;
-  }
-
-  const saldo = total - entrada;
-
-  if (simMode.value === 'price') {
-    const months = Number(simParcelas.value) || 24;
-    const parcela = saldo / months;
-    simResult.value = {
-      mode: 'price',
-      entrada,
-      saldo,
-      months,
-      parcela,
-    };
-    return;
-  }
-
-  const desejada = Math.max(1, Number(simParcelaMensal.value) || 0);
-  if (!desejada) {
-    simResult.value = null;
-    return;
-  }
-  const months = Math.max(1, Math.round(saldo / desejada));
-  const parcela = saldo / months;
-  simResult.value = {
-    mode: 'parcela',
-    entrada,
-    saldo,
-    months,
-    parcela,
-  };
-}
-
-const simWaHref = computed(() => {
-  const d = mainDev.value?.name ?? 'empreendimento';
-  if (!simResult.value || simResult.value.mode === 'avista') {
-    return `${waBase.value}?text=${encodeURIComponent(`Olá! Gostaria de simular um lote no ${d}.`)}`;
-  }
-  const r = simResult.value;
-  const parcelaText = `Olá! Simulei no ${d}: entrada ${formatBRL(r.entrada)} + ${r.months}x de ${formatBRL(r.parcela)}.`;
-  return `${waBase.value}?text=${encodeURIComponent(parcelaText)}`;
-});
-
-const fabVisible = ref(false);
-
-function updateFabVisibility() {
-  const loc = document.getElementById('localizacao');
-  const sim = document.getElementById('simulador');
-  if (!loc || !sim) {
-    fabVisible.value = false;
-    return;
-  }
-  const locRect = loc.getBoundingClientRect();
-  const simRect = sim.getBoundingClientRect();
-  const passedLocal = locRect.bottom < 0;
-  const simInView = simRect.top < window.innerHeight && simRect.bottom > 80;
-  fabVisible.value = passedLocal && !simInView;
-}
-
-const showFab = computed(() => fabVisible.value);
 
 onMounted(() => {
   resetTimer();
@@ -412,11 +285,19 @@ const heroContentStyle = computed(() => ({
               </svg>
             </div>
             <div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(28,10,6,0.7));" />
+
+            <!-- Destaque badge -->
+            <span
+              v-if="item.is_featured"
+              style="position:absolute;top:10px;left:10px;background:var(--accent);color:#1c0a06;font-size:0.6rem;font-weight:800;padding:4px 10px;border-radius:6px;text-transform:uppercase;letter-spacing:0.06em;"
+            >Em destaque</span>
+
+            <!-- Disponibilidade -->
             <span
               v-if="item.lots_available_count > 0"
               style="position:absolute;bottom:12px;left:12px;background:#25d366;color:#FAF5EE;font-size:0.65rem;font-weight:700;padding:4px 10px;border-radius:6px;text-transform:uppercase;"
             >
-              {{ item.lots_available_count }} lote{{ item.lots_available_count !== 1 ? 's' : '' }} disponível{{ item.lots_available_count !== 1 ? 'is' : '' }}
+              {{ item.lots_available_count }} disponível{{ item.lots_available_count !== 1 ? 'is' : '' }}
             </span>
             <span
               v-else
@@ -471,53 +352,53 @@ const heroContentStyle = computed(() => ({
       </div>
     </section>
 
-    <section id="localizacao" class="localizacao-section">
+    <section id="atuacao" class="atuacao-section">
       <div class="section-label">
-        Onde fica
+        Área de atuação
       </div>
       <h2 class="section-title">
-        Localização do <span>loteamento</span>
+        Onde o Sid <span>atua</span>
       </h2>
       <p class="section-sub">
-        {{ mainDev?.location ?? 'Empreendimento em Cafarnaum com fácil acesso. Veja no mapa e planeje sua visita.' }}
+        Loteamentos, terrenos e imóveis na região do Sertão baiano. Quem conhece a terra sabe onde estão as melhores oportunidades.
       </p>
 
-      <div class="localizacao-grid">
-        <div class="localizacao-info">
-          <h3>{{ siteConfig.loteamento.name || mainDev?.name || 'Sid360 — Cafarnaum' }}</h3>
-          <p>{{ siteConfig.loteamento.address }}. Região em expansão, ideal para moradia ou investimento com valorização.</p>
-          <ul class="localizacao-list">
-            <li>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                <circle cx="12" cy="10" r="3" />
-              </svg>
-              Acesso pela região de Cafarnaum — Bahia
-            </li>
-            <li>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round">
-                <path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v3" />
-                <rect x="9" y="11" width="14" height="10" rx="2" />
-              </svg>
-              Lotes com diferentes perfis e valores
-            </li>
-            <li>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round">
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-              </svg>
-              Infraestrutura em implantação
-            </li>
-          </ul>
-          <a :href="mapsLink" target="_blank" rel="noopener noreferrer" class="localizacao-link">Abrir no Google Maps &rarr;</a>
+      <div class="atuacao-grid">
+        <div class="atuacao-card">
+          <div class="atuacao-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
+            </svg>
+          </div>
+          <div class="atuacao-title">Cafarnaum</div>
+          <div class="atuacao-desc">Sede principal. Loteamentos residenciais e comerciais com fácil acesso à BR-122.</div>
         </div>
-        <div class="localizacao-map-wrap">
-          <iframe
-            :src="mapsEmbedUrl"
-            allowfullscreen
-            loading="lazy"
-            referrerpolicy="no-referrer-when-downgrade"
-            :title="`Mapa — ${siteConfig.loteamento.name || 'Sid360'}`"
-          />
+        <div class="atuacao-card">
+          <div class="atuacao-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
+            </svg>
+          </div>
+          <div class="atuacao-title">Região do Sertão Baiano</div>
+          <div class="atuacao-desc">Cidades vizinhas e interior da Bahia. Terrenos rurais, chácaras e imóveis com alto potencial de valorização.</div>
+        </div>
+        <div class="atuacao-card">
+          <div class="atuacao-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+          </div>
+          <div class="atuacao-title">Frente de Rodovia (BR-122)</div>
+          <div class="atuacao-desc">Lotes com visibilidade privilegiada na BR, ideais para comércio e investimento de longo prazo.</div>
+        </div>
+        <div class="atuacao-card">
+          <div class="atuacao-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 22V12a10 10 0 0 1 20 0v10" /><path d="M6 22V16a6 6 0 0 1 12 0v6" />
+            </svg>
+          </div>
+          <div class="atuacao-title">Zona Rural</div>
+          <div class="atuacao-desc">Fazendas, chácaras e sítios para quem busca qualidade de vida ou produção agrícola na região.</div>
         </div>
       </div>
     </section>
@@ -525,182 +406,75 @@ const heroContentStyle = computed(() => ({
     <section id="simulador" class="simulador-section">
       <div class="simulador-header">
         <h2 class="simulador-title">
-          Simulação de Parcelamento
+          Simule seu lote
         </h2>
         <p class="simulador-sub">
-          Faça uma simulação e descubra as melhores condições de pagamento para o seu lote.
+          Mova a barra para o valor que te interessa e veja como fica o parcelamento.
         </p>
         <div class="simulador-divider" />
       </div>
 
-      <div class="simulador-card">
-        <div class="sim-field">
-          <div id="simModeLabel" class="sim-label">
-            Tipo de simulação
+      <div class="simulador-card sim-generic">
+        <!-- Range slider -->
+        <div class="sim-range-wrap">
+          <div class="sim-range-labels">
+            <span>{{ formatBRL(simMin) }}</span>
+            <span class="sim-range-value">{{ formatBRL(simValue) }}</span>
+            <span>{{ formatBRL(simMax) }}</span>
           </div>
-          <div class="sim-radio-group sim-radio-group--mode" role="radiogroup" aria-labelledby="simModeLabel">
-            <label class="sim-radio-item">
-              <input v-model="simMode" type="radio" name="simMode" value="price">
-              <span>Valor Total</span>
-            </label>
-            <label class="sim-radio-item">
-              <input v-model="simMode" type="radio" name="simMode" value="parcela">
-              <span>Valor da Parcela</span>
-            </label>
-            <label class="sim-radio-item">
-              <input v-model="simMode" type="radio" name="simMode" value="avista">
-              <span>à Vista</span>
-            </label>
-          </div>
+          <input
+            v-model.number="simValue"
+            type="range"
+            :min="simMin"
+            :max="simMax"
+            :step="Math.max(1000, Math.round((simMax - simMin) / 100 / 1000) * 1000)"
+            class="sim-range-input"
+            aria-label="Valor do lote"
+          >
         </div>
 
-        <div v-if="simLoteOptions.length" id="simLotField" class="sim-field">
-          <label class="sim-label" for="simLoteType">Tipo de lote</label>
-          <select id="simLoteType" v-model.number="simLoteId" class="sim-select site-select" style="width:100%;max-width:420px;">
-            <option v-for="opt in simLoteOptions" :key="opt.value" :value="opt.value">
-              {{ opt.label }}
-            </option>
-          </select>
-        </div>
-
-        <div v-if="simMode === 'avista'" class="sim-avista-wrap is-visible">
-          <div class="sim-avista-offer">
-            <div class="sim-avista-lot">
-              {{ selectedSimLot ? `Lote ${selectedSimLot.number}` : 'Selecione um lote' }}
-            </div>
-            <span class="sim-avista-label">À vista</span>
-            <div class="sim-avista-main">
-              <div class="sim-avista-por">
-                {{ formatBRL(simTotalReais) }}
-              </div>
-            </div>
-          </div>
-          <a :href="waBase" class="sim-btn-contact" target="_blank" rel="noopener noreferrer">Entrar em contato</a>
-        </div>
-
-        <div v-else class="sim-simulate-wrap">
-          <div class="sim-field">
-            <label class="sim-label" for="simTotal">Valor parcelado do lote (R$)</label>
-            <input
-              id="simTotal"
-              type="text"
-              class="sim-input sim-input-readonly"
-              readonly
-              tabindex="-1"
-              aria-readonly="true"
-              autocomplete="off"
-              :value="formatBRL(simTotalReais)"
+        <!-- Parcelas toggle -->
+        <div class="sim-months-wrap">
+          <span class="sim-label">Número de parcelas</span>
+          <div class="sim-radio-group">
+            <label
+              v-for="m in SIM_MONTHS_OPTIONS"
+              :key="m"
+              class="sim-radio-item"
             >
+              <input v-model.number="simMonths" type="radio" name="simMonthsGeneric" :value="m">
+              <span>{{ m }}x</span>
+            </label>
           </div>
+        </div>
 
-          <div v-show="simMode === 'price'" id="simPanelPrice" class="sim-panel" :class="{ active: simMode === 'price' }">
-            <div class="sim-grid">
-              <div class="sim-field">
-                <label class="sim-label" for="simEntradaPrice">Entrada (R$)</label>
-                <input
-                  id="simEntradaPrice"
-                  v-model.number="simEntrada"
-                  type="number"
-                  class="sim-input"
-                  min="0"
-                  step="100"
-                  autocomplete="off"
-                >
-                <p class="sim-hint">
-                  Mínimo: {{ downPctDefault }}% do valor total ({{ formatBRL(Math.round(simTotalReais * (downPctDefault / 100))) }})
-                </p>
-              </div>
-            </div>
-            <div class="sim-field">
-              <div class="sim-label">
-                Número de parcelas
-              </div>
-              <div class="sim-radio-group">
-                <label class="sim-radio-item">
-                  <input v-model.number="simParcelas" type="radio" name="simParcelas" :value="6">
-                  <span>6x</span>
-                </label>
-                <label class="sim-radio-item">
-                  <input v-model.number="simParcelas" type="radio" name="simParcelas" :value="12">
-                  <span>12x</span>
-                </label>
-                <label class="sim-radio-item">
-                  <input v-model.number="simParcelas" type="radio" name="simParcelas" :value="18">
-                  <span>18x</span>
-                </label>
-                <label class="sim-radio-item">
-                  <input v-model.number="simParcelas" type="radio" name="simParcelas" :value="24">
-                  <span>24x</span>
-                </label>
-                <label class="sim-radio-item">
-                  <input v-model.number="simParcelas" type="radio" name="simParcelas" :value="30">
-                  <span>30x</span>
-                </label>
-              </div>
-            </div>
+        <!-- Result -->
+        <div class="sim-generic-result">
+          <div class="sim-generic-cell">
+            <span class="sim-generic-cell__label">Entrada ({{ SIM_DOWN_PCT }}%)</span>
+            <strong class="sim-generic-cell__value">{{ formatBRL(simEntrada) }}</strong>
           </div>
-
-          <div v-show="simMode === 'parcela'" id="simPanelParcela" class="sim-panel" :class="{ active: simMode === 'parcela' }">
-            <div class="sim-grid">
-              <div class="sim-field">
-                <label class="sim-label" for="simEntradaParcela">Entrada (R$)</label>
-                <input
-                  id="simEntradaParcela"
-                  v-model.number="simEntrada"
-                  type="number"
-                  class="sim-input"
-                  min="0"
-                  step="100"
-                  autocomplete="off"
-                >
-                <p class="sim-hint">
-                  Mínimo: {{ downPctDefault }}% do valor total
-                </p>
-              </div>
-              <div class="sim-field">
-                <label class="sim-label" for="simParcelaMensal">Parcela mensal desejada (R$)</label>
-                <input
-                  id="simParcelaMensal"
-                  v-model.number="simParcelaMensal"
-                  type="number"
-                  class="sim-input"
-                  min="0"
-                  step="50"
-                  autocomplete="off"
-                >
-              </div>
-            </div>
+          <div class="sim-generic-cell">
+            <span class="sim-generic-cell__label">Saldo a parcelar</span>
+            <strong class="sim-generic-cell__value">{{ formatBRL(simSaldo) }}</strong>
           </div>
-
-          <button type="button" class="sim-btn-calc" @click="calcularSimulacao">
-            Calcular simulação
-          </button>
-
-          <div class="sim-result" :class="{ visible: !!simResult && simMode !== 'avista' }">
-            <div class="sim-result-title">
-              Resultado da simulação
-            </div>
-            <div v-if="simResult && simResult.mode !== 'avista'" class="sim-result-grid">
-              <div class="sim-result-item">
-                <span>Entrada</span><strong>{{ formatBRL(simResult.entrada) }}</strong>
-              </div>
-              <div class="sim-result-item">
-                <span>Saldo</span><strong>{{ formatBRL(simResult.saldo) }}</strong>
-              </div>
-              <div class="sim-result-item">
-                <span>{{ simResult.months }}x de</span><strong>{{ formatBRL(simResult.parcela) }}</strong>
-              </div>
-            </div>
-            <p class="sim-result-note">
-              Valores estimados. Condições finais confirmadas diretamente com o corretor.
-            </p>
-            <div class="sim-result-actions">
-              <RouterLink :to="{ name: 'site.loteamentos' }" class="sim-btn-lotes">
-                Ver lotes disponíveis
-              </RouterLink>
-              <a :href="simWaHref" class="sim-wa" target="_blank" rel="noopener noreferrer">Enviar simulação no WhatsApp</a>
-            </div>
+          <div class="sim-generic-cell sim-generic-cell--highlight">
+            <span class="sim-generic-cell__label">{{ simMonths }}x de</span>
+            <strong class="sim-generic-cell__value sim-generic-cell__value--big">{{ formatBRL(simParcela) }}</strong>
           </div>
+        </div>
+
+        <p class="sim-result-note">
+          Valores estimados. Condições finais confirmadas diretamente com o corretor.
+        </p>
+
+        <div class="sim-result-actions">
+          <RouterLink :to="{ name: 'site.loteamentos' }" class="sim-btn-lotes">
+            Ver loteamentos
+          </RouterLink>
+          <a :href="simWaHref" class="sim-wa" target="_blank" rel="noopener noreferrer">
+            Enviar simulação no WhatsApp
+          </a>
         </div>
       </div>
     </section>
@@ -896,7 +670,7 @@ const heroContentStyle = computed(() => ({
     <a
       href="#simulador"
       class="fab-simular"
-      :class="{ 'is-hidden': !showFab }"
+      :class="{ 'is-hidden': !fabVisible }"
     >
       <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
         <path stroke="currentColor" stroke-width="2" d="M4 6h16M4 12h10M4 18h14" />

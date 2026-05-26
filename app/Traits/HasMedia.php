@@ -37,4 +37,20 @@ trait HasMedia
                 ->where('type', Media::TYPE_PHOTO)
                 ->first();
     }
+
+    /**
+     * First video in gallery order (used e.g. as public site hero background).
+     */
+    public function heroVideo(): ?Media
+    {
+        if ($this->relationLoaded('media')) {
+            return $this->getRelation('media')->first(
+                fn (Media $item): bool => $item->type === Media::TYPE_VIDEO,
+            );
+        }
+
+        return $this->media()
+            ->where('type', Media::TYPE_VIDEO)
+            ->first();
+    }
 }

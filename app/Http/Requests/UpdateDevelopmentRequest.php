@@ -30,6 +30,7 @@ class UpdateDevelopmentRequest extends FormRequest
             'map_center' => ['nullable', 'array'],
             'map_zoom' => ['nullable', 'integer'],
             'map_color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'is_featured' => ['nullable', 'boolean'],
         ];
     }
 }

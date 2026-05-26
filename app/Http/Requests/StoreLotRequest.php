@@ -28,6 +28,7 @@ class StoreLotRequest extends FormRequest
             'block' => ['nullable', 'string', 'max:50'],
             'area' => ['nullable', 'numeric', 'min:0'],
             'area_computed' => ['nullable', 'numeric', 'min:0'],
+            'size_label' => ['nullable', 'string', 'max:50'],
             'coordinates' => ['nullable', 'array'],
             'total_value' => ['nullable', 'integer', 'min:0'],
             'down_payment_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],

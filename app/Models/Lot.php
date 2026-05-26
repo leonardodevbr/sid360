@@ -39,6 +39,7 @@ class Lot extends Model
         'block',
         'area',
         'area_computed',
+        'size_label',
         'total_value',
         'down_payment_percent',
         'status',
