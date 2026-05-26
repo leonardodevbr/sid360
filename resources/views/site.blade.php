@@ -2371,6 +2371,12 @@ footer {
       </div>
     </div>
   </div>
+
+  <div style="text-align:center;margin-top:36px;">
+    <a href="/loteamentos" class="btn-primary" style="display:inline-flex;">
+      Ver todos os loteamentos →
+    </a>
+  </div>
 </section>
 
 @php

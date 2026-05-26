@@ -1,211 +1,129 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
+import { RouterLink } from 'vue-router';
 import publicApi from '@/services/publicApi';
-import SelectInput from '@/components/Common/SelectInput.vue';
-import LotCard from '@/site/components/LotCard.vue';
-import LotModal from '@/site/components/LotModal.vue';
+import { developmentSlug } from '@/site/utils/slug';
 
-const lots = ref([]);
 const developments = ref([]);
-const meta = ref(null);
-const loading = ref(false);
-const loadingLot = ref(false);
-const selectedLot = ref(null);
+const loading = ref(true);
 
-const filters = ref({
-  development_id: '',
-  area_min: '',
-  value_max: '',
-});
-
-const developmentOptions = computed(() => [
-  { value: '', label: 'Todos os loteamentos' },
-  ...developments.value.map((development) => ({
-    value: String(development.id),
-    label: development.name,
-  })),
-]);
-
-const areaMinOptions = [
-  { value: '', label: 'Área mínima' },
-  { value: '100', label: '100m²+' },
-  { value: '200', label: '200m²+' },
-  { value: '500', label: '500m²+' },
-  { value: '1000', label: '1000m²+' },
-];
-
-const valueMaxOptions = [
-  { value: '', label: 'Qualquer valor' },
-  { value: '50000', label: 'Até R$ 50.000' },
-  { value: '100000', label: 'Até R$ 100.000' },
-  { value: '200000', label: 'Até R$ 200.000' },
-  { value: '500000', label: 'Até R$ 500.000' },
-];
-
-async function load(page = 1) {
-  loading.value = true;
-
+async function load() {
   try {
-    const params = { page };
-    Object.entries(filters.value).forEach(([key, value]) => {
-      if (value !== '') {
-        params[key] = value;
-      }
-    });
-
-    const { data } = await publicApi.get('/public/lots/available', { params });
-    lots.value = data.data ?? [];
-    meta.value = data.meta ?? null;
+    const { data } = await publicApi.get('/public/developments');
+    developments.value = data ?? [];
+  } catch {
+    developments.value = [];
   } finally {
     loading.value = false;
   }
 }
 
-async function loadDevelopments() {
-  const { data } = await publicApi.get('/public/developments');
-  developments.value = data ?? [];
-}
-
-async function openLot(lot) {
-  loadingLot.value = true;
-
-  try {
-    const developmentId = lot.development?.id;
-    if (developmentId) {
-      const { data } = await publicApi.get(`/public/developments/${developmentId}/lots/${lot.id}`);
-      selectedLot.value = data;
-    } else {
-      selectedLot.value = lot;
-    }
-  } catch {
-    selectedLot.value = lot;
-  } finally {
-    loadingLot.value = false;
-  }
-}
-
-onMounted(() => {
-  loadDevelopments();
-  load();
-});
+onMounted(() => load());
 </script>
 
 <template>
   <div>
-    <section class="bg-slate-900 py-16 text-center text-white">
-      <h1 class="mb-2 text-3xl font-bold">
-        Loteamentos Disponíveis
+    <section style="background:var(--bg-dark);padding:80px 5% 60px;text-align:center;">
+      <span style="display:inline-block;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--accent-dark);margin-bottom:12px;">
+        Cafarnaum · Bahia
+      </span>
+      <h1 style="font-size:clamp(2rem,4vw,3rem);font-weight:800;color:#FAF5EE;letter-spacing:-1px;line-height:1.1;margin-bottom:12px;">
+        Loteamentos <span style="color:var(--accent)">disponíveis</span>
       </h1>
-      <p class="text-slate-400">
-        Encontre o lote ideal para sua família ou negócio
+      <p style="color:rgba(250,245,238,0.65);font-size:0.95rem;max-width:440px;margin:0 auto;">
+        Escolha o empreendimento ideal e veja os lotes disponíveis com simulador e formulário de interesse.
       </p>
     </section>
 
-    <section class="sticky top-0 z-20 border-b border-slate-200 bg-white shadow-sm">
-      <div class="mx-auto flex max-w-6xl flex-wrap items-end gap-3 px-4 py-3">
-        <div class="min-w-[180px] flex-1 sm:max-w-xs">
-          <SelectInput
-            v-model="filters.development_id"
-            label="Loteamento"
-            :options="developmentOptions"
-            placeholder="Todos os loteamentos"
-            :searchable="true"
-            :can-clear="true"
-            @update:model-value="load(1)"
-          />
-        </div>
-
-        <div class="min-w-[140px] flex-1 sm:max-w-[160px]">
-          <SelectInput
-            v-model="filters.area_min"
-            label="Área"
-            :options="areaMinOptions"
-            :searchable="false"
-            :can-clear="true"
-            @update:model-value="load(1)"
-          />
-        </div>
-
-        <div class="min-w-[140px] flex-1 sm:max-w-[180px]">
-          <SelectInput
-            v-model="filters.value_max"
-            label="Valor máximo"
-            :options="valueMaxOptions"
-            :searchable="false"
-            :can-clear="true"
-            @update:model-value="load(1)"
-          />
-        </div>
-
-        <span class="pb-2 text-xs text-slate-400 sm:ml-auto">
-          {{ meta?.total ?? 0 }} lotes encontrados
-        </span>
-      </div>
-    </section>
-
-    <section class="mx-auto max-w-6xl px-4 py-8">
+    <section style="background:var(--bg-page);padding:60px 5%;">
       <div
         v-if="loading"
-        class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+        style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px;"
       >
         <div
-          v-for="index in 6"
+          v-for="index in 3"
           :key="index"
-          class="h-72 animate-pulse rounded-xl bg-slate-100"
+          class="site-skeleton"
+          style="height:320px;border-radius:16px;background:#e8e0d4;"
         />
       </div>
 
       <div
-        v-else-if="lots.length"
-        class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+        v-else-if="developments.length"
+        style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px;"
       >
-        <LotCard
-          v-for="lot in lots"
-          :key="lot.id"
-          :lot="lot"
-          @click="openLot"
-        />
-      </div>
-
-      <div
-        v-else
-        class="py-20 text-center text-slate-400"
-      >
-        Nenhum lote disponível com esses filtros.
-      </div>
-
-      <div
-        v-if="meta && meta.last_page > 1"
-        class="mt-8 flex flex-wrap justify-center gap-2"
-      >
-        <button
-          v-for="page in meta.last_page"
-          :key="page"
-          type="button"
-          class="rounded-lg px-3 py-1.5 text-sm font-medium"
-          :class="page === meta.current_page
-            ? 'bg-emerald-600 text-white'
-            : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
-          @click="load(page)"
+        <RouterLink
+          v-for="dev in developments"
+          :key="dev.id"
+          :to="{ name: 'site.loteamento', params: { slug: developmentSlug(dev) } }"
+          class="dev-card"
         >
-          {{ page }}
-        </button>
+          <div style="height:200px;position:relative;overflow:hidden;background:#1C0A06;">
+            <img
+              v-if="dev.cover_photo"
+              :src="dev.cover_photo"
+              :alt="dev.name"
+              style="width:100%;height:100%;object-fit:cover;transition:transform 0.5s;"
+              loading="lazy"
+            >
+            <div
+              v-else
+              style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#1C0A06;"
+            >
+              <svg style="width:48px;height:48px;color:rgba(201,168,76,0.4);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+              </svg>
+            </div>
+            <div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(28,10,6,0.7));" />
+            <span
+              style="position:absolute;bottom:12px;left:12px;background:var(--accent);color:#FAF5EE;font-size:0.65rem;font-weight:700;padding:4px 10px;border-radius:6px;text-transform:uppercase;"
+            >
+              {{ dev.lots_available_count }} lote{{ dev.lots_available_count !== 1 ? 's' : '' }} disponível{{ dev.lots_available_count !== 1 ? 'is' : '' }}
+            </span>
+          </div>
+
+          <div style="padding:20px;flex:1;display:flex;flex-direction:column;gap:8px;">
+            <span style="font-size:0.65rem;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--accent-dark);">
+              Loteamento
+            </span>
+            <h2 style="font-size:1.1rem;font-weight:700;color:#FAF5EE;margin:0;">
+              {{ dev.name }}
+            </h2>
+            <p v-if="dev.location" style="font-size:0.8rem;color:rgba(250,245,238,0.55);margin:0;">
+              {{ dev.location }}
+            </p>
+            <p v-if="dev.description" style="font-size:0.82rem;color:rgba(250,245,238,0.65);line-height:1.6;margin:0;flex:1;">
+              {{ dev.description?.slice(0, 100) }}{{ dev.description?.length > 100 ? '...' : '' }}
+            </p>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding-top:12px;border-top:1px solid rgba(201,168,76,0.15);">
+              <span style="font-size:0.78rem;color:rgba(250,245,238,0.45);">
+                {{ dev.lots_count }} lotes no total
+              </span>
+              <span style="color:var(--accent-dark);font-size:0.82rem;font-weight:600;">
+                Ver lotes →
+              </span>
+            </div>
+          </div>
+        </RouterLink>
+      </div>
+
+      <div v-else style="text-align:center;padding:60px 0;color:var(--text-secondary);">
+        Nenhum loteamento disponível no momento.
       </div>
     </section>
 
-    <LotModal
-      v-if="selectedLot"
-      :lot="selectedLot"
-      @close="selectedLot = null"
-    />
-
-    <div
-      v-if="loadingLot"
-      class="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
-    >
-      <div class="rounded-lg bg-white px-4 py-3 text-sm text-slate-600">
-        Carregando detalhes...
-      </div>
-    </div>
+    <section style="background:var(--bg-darker);padding:60px 5%;text-align:center;border-top:1px solid rgba(201,168,76,0.12);">
+      <p style="font-size:1.1rem;font-weight:700;color:#FAF5EE;margin-bottom:16px;">
+        Não encontrou o que procura?
+      </p>
+      <a
+        href="https://wa.me/5574988230151"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="btn-whatsapp"
+      >
+        Falar com o Sid
+      </a>
+    </section>
   </div>
 </template>

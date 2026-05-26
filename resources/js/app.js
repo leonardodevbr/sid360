@@ -6,6 +6,7 @@ import 'sweetalert2/dist/sweetalert2.min.css';
 import 'flatpickr/dist/flatpickr.min.css';
 import '@vueform/multiselect/themes/default.css';
 import '../css/app.css';
+import '../css/site-public.css';
 import './style.css';
 import App from './App.vue';
 import router from './router';
