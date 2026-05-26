@@ -121,23 +121,15 @@
             />
           </div>
 
-          <div>
-            <p class="mb-1 text-xs font-medium text-slate-600">CPF *</p>
-            <input
-              :value="novoCliente.cpf"
-              type="text"
-              inputmode="numeric"
-              name="sid-fld-b3m9"
-              v-bind="noAutofillInputAttrs"
-              placeholder="000.000.000-00"
-              maxlength="14"
-              :class="maskedInputClass"
-              readonly
-              @mousedown="enableInputOnMousedown"
-              @focus="enableInputOnMousedown"
-              @input="onCpfInput"
-            />
-          </div>
+          <CpfInput
+            v-model="novoCliente.cpf"
+            label="CPF *"
+            label-class="mb-1 block text-xs font-medium text-slate-600"
+            :input-class="maskedInputClass"
+            required
+            disable-autofill
+            input-name="sid-fld-b3m9"
+          />
 
           <div>
             <p class="mb-1 text-xs font-medium text-slate-600">RG</p>
@@ -146,7 +138,7 @@
               type="text"
               name="sid-fld-c8n1"
               v-bind="noAutofillInputAttrs"
-              placeholder="0000000"
+              placeholder="Número do RG"
               :class="maskedInputClass"
               readonly
               @mousedown="enableInputOnMousedown"
@@ -196,25 +188,17 @@
             />
           </div>
 
-          <div>
-            <p class="mb-1 text-xs font-medium text-slate-600">Telefone</p>
-            <div class="relative">
-              <input
-                :value="novoCliente.phone"
-                type="text"
-                inputmode="numeric"
-                name="sid-fld-e2q4"
-                v-bind="noAutofillInputAttrs"
-                placeholder="(74) 9 0000-0000"
-                maxlength="16"
-                :class="[maskedInputClass, whatsappStatus || otpVerified ? 'pr-32' : '']"
-                readonly
-                @mousedown="enableInputOnMousedown"
-                @focus="enableInputOnMousedown"
-                @input="onPhoneInput"
-                @blur="checkWhatsapp"
-              />
-
+          <PhoneInput
+            v-model="novoCliente.phone"
+            label="Telefone"
+            label-class="mb-1 block text-xs font-medium text-slate-600"
+            :input-class="maskedInputClass"
+            :trailing-class="whatsappStatus || otpVerified ? 'pr-32' : ''"
+            disable-autofill
+            input-name="sid-fld-e2q4"
+            @blur="checkWhatsapp"
+          >
+            <template #trailing>
               <span
                 v-if="otpVerified"
                 :class="confirmationBadgeClass"
@@ -261,8 +245,10 @@
               >
                 Tentar novamente
               </button>
-            </div>
+            </template>
+          </PhoneInput>
 
+          <div>
             <div v-if="whatsappStatus === 'has' && !otpVerified" class="mt-2">
               <div v-if="!otpSent" class="flex flex-wrap items-center gap-2">
                 <button
@@ -346,35 +332,17 @@
             </div>
           </div>
 
-          <div>
-            <p class="mb-1 text-xs font-medium text-slate-600">CEP</p>
-            <div class="relative">
-              <input
-                :value="novoCliente.cep"
-                type="text"
-                inputmode="numeric"
-                name="sid-fld-f9r3"
-                v-bind="noAutofillInputAttrs"
-                placeholder="00000-000"
-                maxlength="9"
-                :class="[maskedInputClass, buscandoCep ? 'pr-8' : '']"
-                readonly
-                @mousedown="enableInputOnMousedown"
-              @focus="enableInputOnMousedown"
-                @input="onCepInput"
-              />
-              <svg
-                v-if="buscandoCep"
-                class="absolute right-2 top-2.5 h-4 w-4 animate-spin text-[#c23028]"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-              </svg>
-            </div>
-            <p v-if="erroCep" class="mt-1 text-xs text-red-500">{{ erroCep }}</p>
-          </div>
+          <CepInput
+            v-model="novoCliente.zip_code"
+            label="CEP"
+            label-class="mb-1 block text-xs font-medium text-slate-600"
+            :input-class="maskedInputClass"
+            :loading="buscandoCep"
+            :hint="erroCep"
+            disable-autofill
+            input-name="sid-fld-f9r3"
+            @complete="buscarCep"
+          />
 
           <div class="sm:col-span-2">
             <p class="mb-1 text-xs font-medium text-slate-600">Logradouro</p>
@@ -397,6 +365,8 @@
             <input
               :value="novoCliente.address_number"
               type="text"
+              inputmode="numeric"
+              pattern="[0-9]*"
               name="sid-fld-g2n1"
               v-bind="noAutofillInputAttrs"
               placeholder="123"
@@ -779,11 +749,15 @@ import { useAlert } from '@/composables/useAlert';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { enableInputOnMousedown, noAutofillInputAttrs } from '@/utils/noAutofill';
 import Input from '@/components/Common/Input.vue';
+import CpfInput from '@/components/Common/CpfInput.vue';
+import PhoneInput from '@/components/Common/PhoneInput.vue';
+import CepInput from '@/components/Common/CepInput.vue';
+import { getCpfValidationMessage } from '@/utils/validation';
 import Flatpickr from '@/components/Common/Flatpickr.vue';
 import CurrencyInput from '@/components/Common/CurrencyInput.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
 import { maritalStatusOptions } from '@/constants/maritalStatus';
-import { formatCurrency } from '@/utils/format';
+import { formatCpf, formatCurrency, formatPhone } from '@/utils/format';
 import { badgeColors, confirmationBadgeClass } from '@/utils/status';
 import Button from '@/components/Common/Button.vue';
 import {
@@ -828,7 +802,7 @@ const novoCliente = ref({
   address: '',
   address_number: '',
   neighborhood: '',
-  cep: '',
+  zip_code: '',
   city: 'Cafarnaum',
   state: 'BA',
 });
@@ -850,27 +824,6 @@ let otpTimer = null;
 
 const draftSavedAt = ref(null);
 const isRestoringDraft = ref(false);
-
-function maskCpf(val) {
-  return val
-    .replace(/\D/g, '')
-    .slice(0, 11)
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-}
-
-function maskPhone(val) {
-  const digits = val.replace(/\D/g, '').slice(0, 11);
-  if (digits.length <= 10) {
-    return digits.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{4})(\d)/, '$1-$2');
-  }
-  return digits.replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2');
-}
-
-function maskCep(val) {
-  return val.replace(/\D/g, '').slice(0, 8).replace(/(\d{5})(\d)/, '$1-$2');
-}
 
 function onNameInput(e) {
   novoCliente.value.name = e.target.value;
@@ -909,17 +862,13 @@ function onStateInput(e) {
   e.target.value = novoCliente.value.state;
 }
 
-function onCpfInput(e) {
-  novoCliente.value.cpf = maskCpf(e.target.value);
-  e.target.value = novoCliente.value.cpf;
-}
-
-function onPhoneInput(e) {
-  novoCliente.value.phone = maskPhone(e.target.value);
-  e.target.value = novoCliente.value.phone;
-  whatsappStatus.value = null;
-  resetOtp();
-}
+watch(
+  () => novoCliente.value.phone,
+  () => {
+    whatsappStatus.value = null;
+    resetOtp();
+  },
+);
 
 function onOtpInput(e) {
   otpCode.value = e.target.value.replace(/\D/g, '').slice(0, 4);
@@ -1003,13 +952,6 @@ async function checkWhatsapp() {
   } catch {
     whatsappStatus.value = 'error';
   }
-}
-
-function onCepInput(e) {
-  novoCliente.value.cep = maskCep(e.target.value);
-  e.target.value = novoCliente.value.cep;
-  const digits = novoCliente.value.cep.replace(/\D/g, '');
-  if (digits.length === 8) buscarCep(digits);
 }
 
 async function buscarCep(cep) {
@@ -1239,21 +1181,27 @@ function cancelarNovoCliente() {
     address: '',
     address_number: '',
     neighborhood: '',
-    cep: '',
+    zip_code: '',
     city: 'Cafarnaum',
     state: 'BA',
   };
 }
 
 async function salvarNovoCliente() {
-  if (!novoCliente.value.name || !novoCliente.value.cpf) {
-    toast.error('Nome e CPF são obrigatórios.');
+  if (!novoCliente.value.name?.trim()) {
+    toast.error('Nome é obrigatório.');
     return;
   }
+
+  const cpfMsg = getCpfValidationMessage(novoCliente.value.cpf, { required: true });
+  if (cpfMsg) {
+    toast.error(cpfMsg);
+    return;
+  }
+
   salvandoCliente.value = true;
   try {
-    const { cep: _cep, ...payload } = novoCliente.value;
-    const { data } = await api.post('/clients', payload);
+    const { data } = await api.post('/clients', novoCliente.value);
     const cliente = data.data ?? data;
     selecionarCliente(cliente);
     mostrarFormCliente.value = false;
@@ -1612,8 +1560,8 @@ async function applyLeadPrefill() {
         } else {
           mostrarFormCliente.value = true;
           novoCliente.value.name = prefill.name ?? '';
-          novoCliente.value.cpf = prefill.cpf ?? '';
-          novoCliente.value.phone = prefill.phone ?? '';
+          novoCliente.value.cpf = formatCpf(prefill.cpf ?? '');
+          novoCliente.value.phone = formatPhone(prefill.phone ?? '');
           novoCliente.value.email = prefill.email ?? '';
         }
       } else {

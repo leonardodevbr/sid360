@@ -29,6 +29,7 @@ class StoreClientRequest extends FormRequest
             'marital_status' => ['nullable', 'string', Rule::in(Client::MARITAL_STATUSES)],
             'phone' => ['nullable', 'string', 'max:20'],
             'email' => ['nullable', 'email', 'max:255'],
+            'zip_code' => ['nullable', 'string', 'max:10'],
             'address' => ['nullable', 'string', 'max:255'],
             'address_number' => ['nullable', 'string', 'max:20'],
             'neighborhood' => ['nullable', 'string', 'max:100'],

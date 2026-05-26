@@ -31,6 +31,22 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  inputmode: {
+    type: String,
+    default: '',
+  },
+  maxlength: {
+    type: [String, Number],
+    default: undefined,
+  },
+  pattern: {
+    type: String,
+    default: '',
+  },
+  required: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits(['update:modelValue']);
@@ -71,6 +87,10 @@ function togglePasswordVisibility() {
         ]"
         :autocomplete="autocomplete"
         :placeholder="placeholder"
+        :inputmode="inputmode || undefined"
+        :maxlength="maxlength"
+        :pattern="pattern || undefined"
+        :required="required"
         :value="modelValue"
         @input="emit('update:modelValue', $event.target.value)"
       />

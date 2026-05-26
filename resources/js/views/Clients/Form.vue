@@ -14,7 +14,6 @@
       <ClientFormFields
         :form="form"
         :errors="errors"
-        :input-class="inputClass"
         :buscando-cep="buscandoCep"
         :erro-cep="erroCep"
         :whatsapp-status="whatsappStatus"
@@ -26,15 +25,13 @@
         :otp-sending="otpSending"
         :otp-verifying="otpVerifying"
         :otp-countdown="otpCountdown"
-        :on-cpf-input="onCpfInput"
-        :on-phone-input="onPhoneInput"
-        :on-state-input="onStateInput"
-        :on-cep-input="onCepInput"
-        :on-otp-input="onOtpInput"
         :check-whatsapp="checkWhatsapp"
         :send-otp="sendOtp"
         :verify-otp="verifyOtp"
         :reset-otp="resetOtp"
+        :on-otp-input="onOtpInput"
+        :on-state-input="onStateInput"
+        :buscar-cep="buscarCep"
       />
 
       <div class="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
@@ -67,7 +64,6 @@ const isEdit = computed(() => Boolean(route.params.id));
 const {
   form,
   errors,
-  inputClass,
   buscandoCep,
   erroCep,
   whatsappStatus,
@@ -80,10 +76,7 @@ const {
   otpVerifying,
   otpCountdown,
   applyClientData,
-  onCpfInput,
-  onPhoneInput,
   onStateInput,
-  onCepInput,
   onOtpInput,
   checkWhatsapp,
   sendOtp,
@@ -92,6 +85,7 @@ const {
   validate,
   getPayload,
   resolveWhatsappStatus,
+  buscarCep,
 } = useClientForm();
 
 async function loadItem() {

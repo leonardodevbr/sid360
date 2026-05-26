@@ -27,6 +27,7 @@ class ClientResource extends JsonResource
             'phone' => $this->phone,
             'whatsapp_status' => $this->whatsapp_status,
             'email' => $this->email,
+            'zip_code' => $this->zip_code,
             'address' => $this->address,
             'address_number' => $this->address_number,
             'neighborhood' => $this->neighborhood,

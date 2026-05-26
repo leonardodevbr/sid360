@@ -30,6 +30,7 @@ class UpdateClientRequest extends FormRequest
             'phone' => ['nullable', 'string', 'max:20'],
             'whatsapp_status' => ['nullable', 'string', Rule::in(['confirmed', 'none'])],
             'email' => ['nullable', 'email', 'max:255'],
+            'zip_code' => ['nullable', 'string', 'max:10'],
             'address' => ['nullable', 'string', 'max:255'],
             'address_number' => ['nullable', 'string', 'max:20'],
             'neighborhood' => ['nullable', 'string', 'max:100'],

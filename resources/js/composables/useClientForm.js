@@ -1,7 +1,7 @@
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import api from '@/services/api';
 import { formatCep, formatCpf, formatPhone } from '@/utils/format';
-import { isValidCpf, isValidEmail } from '@/utils/validation';
+import { getCpfValidationMessage, isValidEmail } from '@/utils/validation';
 
 export const defaultClientForm = () => ({
   name: '',
@@ -12,7 +12,7 @@ export const defaultClientForm = () => ({
   marital_status: '',
   phone: '',
   email: '',
-  cep: '',
+  zip_code: '',
   address: '',
   address_number: '',
   neighborhood: '',
@@ -39,8 +39,7 @@ export function useClientForm() {
   const otpCountdown = ref(0);
   let otpTimer = null;
 
-  const inputClass =
-    'w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent/30 focus:border-sid-accent';
+  const skipPhoneWatch = ref(false);
 
   function clearErrors() {
     errors.value = {};
@@ -51,6 +50,7 @@ export function useClientForm() {
   }
 
   function applyClientData(client) {
+    skipPhoneWatch.value = true;
     const base = defaultClientForm();
     Object.keys(base).forEach((key) => {
       base[key] = client[key] ?? base[key];
@@ -70,6 +70,7 @@ export function useClientForm() {
     }
     whatsappManual.value = false;
     resetOtp();
+    skipPhoneWatch.value = false;
   }
 
   function clearFieldError(field) {
@@ -79,29 +80,8 @@ export function useClientForm() {
     errors.value = next;
   }
 
-  function onCpfInput(value) {
-    form.value.cpf = formatCpf(value);
-    clearFieldError('cpf');
-  }
-
-  function onPhoneInput(value) {
-    form.value.phone = formatPhone(value);
-    whatsappStatus.value = null;
-    otpVerified.value = false;
-    resetOtp();
-    clearFieldError('phone');
-  }
-
   function onStateInput(value) {
     form.value.state = String(value).toUpperCase().slice(0, 2);
-  }
-
-  function onCepInput(value) {
-    form.value.cep = formatCep(value);
-    const digits = form.value.cep.replace(/\D/g, '');
-    if (digits.length === 8) {
-      buscarCep(digits);
-    }
   }
 
   async function buscarCep(cep) {
@@ -230,11 +210,9 @@ export function useClientForm() {
       valid = false;
     }
 
-    if (!form.value.cpf?.trim()) {
-      setFieldError('cpf', 'CPF é obrigatório.');
-      valid = false;
-    } else if (!isValidCpf(form.value.cpf)) {
-      setFieldError('cpf', 'CPF inválido.');
+    const cpfMsg = getCpfValidationMessage(form.value.cpf, { required: true });
+    if (cpfMsg) {
+      setFieldError('cpf', cpfMsg);
       valid = false;
     }
 
@@ -258,8 +236,7 @@ export function useClientForm() {
   }
 
   function getPayload() {
-    const { cep: _cep, ...payload } = form.value;
-    return payload;
+    return { ...form.value };
   }
 
   async function resolveWhatsappStatus(clientId) {
@@ -287,10 +264,20 @@ export function useClientForm() {
     resetOtp();
   }
 
+  watch(
+    () => form.value.phone,
+    (value, previous) => {
+      if (skipPhoneWatch.value || value === previous) return;
+      whatsappStatus.value = null;
+      otpVerified.value = false;
+      resetOtp();
+      clearFieldError('phone');
+    },
+  );
+
   return {
     form,
     errors,
-    inputClass,
     buscandoCep,
     erroCep,
     whatsappStatus,
@@ -303,15 +290,13 @@ export function useClientForm() {
     otpVerifying,
     otpCountdown,
     applyClientData,
-    onCpfInput,
-    onPhoneInput,
     onStateInput,
-    onCepInput,
     onOtpInput,
     checkWhatsapp,
     sendOtp,
     verifyOtp,
     resetOtp,
+    buscarCep,
     validate,
     getPayload,
     resolveWhatsappStatus,

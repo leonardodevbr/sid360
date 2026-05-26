@@ -22,6 +22,9 @@
           <input
             :value="addressData.zip_code"
             type="text"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            autocomplete="postal-code"
             @blur="fetchAddress"
             @input="(e) => formatCep(e)"
             class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent"
@@ -53,6 +56,8 @@
             :value="addressData.number"
             @input="updateField('number', $event.target.value)"
             type="text"
+            inputmode="numeric"
+            pattern="[0-9]*"
             class="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent"
             placeholder="123"
           />

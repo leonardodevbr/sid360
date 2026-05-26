@@ -46,6 +46,7 @@ class Client extends Model
         'phone',
         'whatsapp_status',
         'email',
+        'zip_code',
         'address',
         'address_number',
         'neighborhood',

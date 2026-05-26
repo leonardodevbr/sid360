@@ -2,8 +2,10 @@
 import { computed, onMounted, ref } from 'vue';
 import { useToast } from 'vue-toastification';
 import Button from '@/components/Common/Button.vue';
-import Input from '@/components/Common/Input.vue';
-import { formatCurrency, formatCpf } from '@/utils/format';
+import CpfInput from '@/components/Common/CpfInput.vue';
+import PhoneInput from '@/components/Common/PhoneInput.vue';
+import { formatCurrency } from '@/utils/format';
+import { getCpfValidationMessage } from '@/utils/validation';
 import { getApiErrorMessage } from '@/utils/apiError';
 import {
   installmentStatusClass,
@@ -45,23 +47,6 @@ const showContractList = computed(() => isAuthenticated.value && selectedSaleId.
 
 const formatDate = (value) => (value ? new Date(`${value}T00:00:00`).toLocaleDateString('pt-BR') : '—');
 
-function onCpfInput(value) {
-  cpf.value = formatCpf(value);
-}
-
-function onPhoneInput(value) {
-  const digits = String(value ?? '').replace(/\D/g, '').slice(0, 11);
-  if (digits.length <= 2) {
-    phone.value = digits;
-    return;
-  }
-  if (digits.length <= 7) {
-    phone.value = `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-    return;
-  }
-  phone.value = `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
-}
-
 async function loadDashboard() {
   loading.value = true;
   try {
@@ -82,6 +67,18 @@ async function loadDashboard() {
 }
 
 async function handleAccess() {
+  const cpfError = getCpfValidationMessage(cpf.value, { required: true });
+  if (cpfError) {
+    toast.error(cpfError);
+    return;
+  }
+
+  const phoneDigits = phone.value.replace(/\D/g, '');
+  if (phoneDigits.length < 10) {
+    toast.error('Informe um WhatsApp válido.');
+    return;
+  }
+
   submitting.value = true;
   try {
     const result = await portalAccess(cpf.value, phone.value);
@@ -181,24 +178,8 @@ onMounted(async () => {
       </p>
 
       <form class="mt-5 space-y-4" @submit.prevent="handleAccess">
-        <Input
-          :model-value="cpf"
-          label="CPF"
-          inputmode="numeric"
-          autocomplete="off"
-          placeholder="000.000.000-00"
-          required
-          @update:model-value="onCpfInput"
-        />
-        <Input
-          v-model="phone"
-          label="WhatsApp cadastrado"
-          inputmode="tel"
-          autocomplete="tel"
-          placeholder="(00) 00000-0000"
-          required
-          @update:model-value="onPhoneInput"
-        />
+        <CpfInput v-model="cpf" label="CPF" required />
+        <PhoneInput v-model="phone" label="WhatsApp cadastrado" required />
         <Button type="submit" variant="primary" class="w-full sm:w-auto" :loading="submitting">
           Entrar
         </Button>
