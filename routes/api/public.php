@@ -6,6 +6,7 @@ use App\Http\Controllers\PublicController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('public')->group(function (): void {
+    Route::get('/config', [PublicController::class, 'publicConfig']);
     Route::get('/developments', [PublicController::class, 'developments']);
     Route::get('/developments/{slug}', [PublicController::class, 'development']);
     Route::get('/developments/{devId}/lots/{lotId}', [PublicController::class, 'lot']);

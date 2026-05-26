@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'whatsapp_phone' => env('SITE_WHATSAPP_PHONE', '5574988230151'),
+
     'loteamento' => [
         'name' => env('LOTEAMENTO_NAME', 'Novo Loteamento — Cafarnaum, BA'),
         'address' => env('LOTEAMENTO_ADDRESS', 'Cafarnaum, Bahia, Brasil'),

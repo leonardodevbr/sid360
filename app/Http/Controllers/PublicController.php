@@ -15,11 +15,31 @@ use Illuminate\Support\Str;
 
 class PublicController extends Controller
 {
+    public function publicConfig(): JsonResponse
+    {
+        /** @var array<string, mixed> $loteamento */
+        $loteamento = config('site.loteamento', []);
+
+        $lat = (float) ($loteamento['lat'] ?? -11.4667);
+        $lng = (float) ($loteamento['lng'] ?? -39.9833);
+
+        return response()->json([
+            'loteamento' => [
+                'name' => (string) ($loteamento['name'] ?? ''),
+                'address' => (string) ($loteamento['address'] ?? ''),
+                'lat' => $lat,
+                'lng' => $lng,
+                'maps_embed_url' => (string) ($loteamento['maps_embed_url']
+                    ?? 'https://maps.google.com/maps?q=' . $lat . ',' . $lng . '&hl=pt-BR&z=16&output=embed'),
+            ],
+            'whatsapp' => (string) config('site.whatsapp_phone', '5574988230151'),
+        ]);
+    }
+
     public function developments(): JsonResponse
     {
         $developments = Development::query()
             ->where('status', 'active')
-            ->whereHas('lots', fn ($query) => $query->where('status', Lot::STATUS_AVAILABLE))
             ->withCount([
                 'lots',
                 'lots as lots_available_count' => fn ($query) => $query->where('status', Lot::STATUS_AVAILABLE),
@@ -231,6 +251,14 @@ class PublicController extends Controller
             'down_payment_percent' => $development->down_payment_percent !== null
                 ? (float) $development->down_payment_percent
                 : 20,
+            'photos' => $development->relationLoaded('media')
+                ? $development->getRelation('media')->map(fn ($mediaItem): array => [
+                    'id' => $mediaItem->id,
+                    'url' => $mediaItem->url,
+                    'type' => $mediaItem->type,
+                    'caption' => $mediaItem->caption,
+                ])->values()->all()
+                : [],
         ];
     }
 

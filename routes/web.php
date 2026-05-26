@@ -5,9 +5,8 @@ use Illuminate\Support\Facades\Route;
 
 /**
  * Sid360 - Rotas Web
- * GET / serve o site estático; demais rotas carregam a SPA Vue.
+ * SPA Vue (view app) inclui site público e painel; exceções explícitas abaixo.
  */
-Route::get('/', fn () => view('site'));
 
 Route::get('/sales/{id}/carne/preview', [SaleController::class, 'carnePreview'])
     ->whereNumber('id');

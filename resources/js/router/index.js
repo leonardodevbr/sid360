@@ -217,7 +217,7 @@ const routes = [
   },
   {
     path: '/:pathMatch(.*)*',
-    redirect: '/app',
+    redirect: '/',
   },
 ];
 
@@ -240,12 +240,12 @@ router.beforeEach((to, from, next) => {
     return;
   }
 
-  if (to.path.startsWith('/pagamentos')) {
+  if (to.matched.some((record) => record.meta.publicSite)) {
     next();
     return;
   }
 
-  if (to.meta.publicSite) {
+  if (to.path.startsWith('/pagamentos')) {
     next();
     return;
   }
