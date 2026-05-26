@@ -5,7 +5,7 @@
         <h2 class="text-lg font-semibold text-slate-800">Clientes</h2>
         <p class="text-xs text-slate-500">Gerencie os clientes cadastrados</p>
       </div>
-      <router-link :to="{ name: 'clients.create' }">
+      <router-link v-if="authStore.can('clients.create')" :to="{ name: 'clients.create' }">
         <Button variant="primary">+ Novo Cliente</Button>
       </router-link>
     </div>
@@ -35,62 +35,76 @@
     </div>
 
     <div class="card overflow-hidden">
-      <table class="w-full text-sm">
-        <thead class="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
-          <tr>
-            <th class="px-4 py-3 text-left">Nome</th>
-            <th class="px-4 py-3 text-left">CPF</th>
-            <th class="px-4 py-3 text-left">Telefone</th>
-            <th class="px-4 py-3 text-left">Cidade</th>
-            <th class="px-4 py-3 text-right">Ações</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-          <tr v-if="loading">
-            <td colspan="5" class="px-4 py-8 text-center text-slate-400">Carregando...</td>
-          </tr>
-          <tr v-else-if="!clients.length">
-            <td colspan="5" class="px-4 py-8 text-center text-slate-400">Nenhum cliente encontrado.</td>
-          </tr>
-          <tr v-for="client in clients" :key="client.id" class="hover:bg-slate-50">
-            <td class="px-4 py-3 font-medium text-slate-800">{{ client.name }}</td>
-            <td class="px-4 py-3 text-slate-600">{{ client.cpf }}</td>
-            <td class="px-4 py-3 text-slate-600">
-              <div class="flex items-center gap-1.5">
-                <span>{{ client.phone ?? '—' }}</span>
-                <span
-                  v-if="client.whatsapp_status === 'confirmed'"
-                  :class="confirmationBadgeClass"
-                  class="inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium"
-                  title="WhatsApp confirmado"
-                >
-                  WPP
-                </span>
-                <span
-                  v-else-if="client.whatsapp_status === 'none'"
-                  class="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-400"
-                  title="Sem WhatsApp"
-                >
-                  sem WPP
-                </span>
-              </div>
-            </td>
-            <td class="px-4 py-3 text-slate-600">{{ client.city ?? '—' }}</td>
-            <td class="px-4 py-3 text-right">
-              <div class="flex justify-end gap-2">
-                <router-link :to="{ name: 'clients.edit', params: { id: client.id } }">
-                  <button type="button" class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-                    <PencilIcon class="h-4 w-4" />
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[640px] text-sm">
+          <thead class="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
+            <tr>
+              <th class="px-4 py-3 text-left sm:px-6">Nome</th>
+              <th class="px-4 py-3 text-left sm:px-6">CPF</th>
+              <th class="px-4 py-3 text-left sm:px-6">Telefone</th>
+              <th class="hidden px-4 py-3 text-left md:table-cell sm:px-6">Cidade</th>
+              <th class="sticky right-0 z-10 border-l border-slate-200 bg-slate-50 px-4 py-3 text-right text-xs font-medium uppercase text-slate-500 sm:px-6">
+                Ações
+              </th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr v-if="loading">
+              <td colspan="5" class="px-4 py-8 text-center text-slate-400 sm:px-6">Carregando...</td>
+            </tr>
+            <tr v-else-if="!clients.length">
+              <td colspan="5" class="px-4 py-8 text-center text-slate-400 sm:px-6">Nenhum cliente encontrado.</td>
+            </tr>
+            <tr v-for="client in clients" :key="client.id" class="hover:bg-slate-50">
+              <td class="px-4 py-3 font-medium text-slate-800 sm:px-6">{{ client.name }}</td>
+              <td class="px-4 py-3 text-slate-600 sm:px-6">{{ client.cpf }}</td>
+              <td class="px-4 py-3 text-slate-600 sm:px-6">
+                <div class="flex items-center gap-1.5">
+                  <span>{{ client.phone ?? '—' }}</span>
+                  <span
+                    v-if="client.whatsapp_status === 'confirmed'"
+                    :class="confirmationBadgeClass"
+                    class="inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium"
+                    title="WhatsApp confirmado"
+                  >
+                    WPP
+                  </span>
+                  <span
+                    v-else-if="client.whatsapp_status === 'none'"
+                    class="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-400"
+                    title="Sem WhatsApp"
+                  >
+                    sem WPP
+                  </span>
+                </div>
+              </td>
+              <td class="hidden px-4 py-3 text-slate-600 md:table-cell sm:px-6">{{ client.city ?? '—' }}</td>
+              <td class="sticky right-0 z-10 border-l border-slate-200 bg-white px-4 py-3 text-right sm:px-6">
+                <div class="flex items-center justify-end gap-1">
+                  <button
+                    v-if="authStore.can('clients.edit')"
+                    type="button"
+                    class="rounded p-1.5 text-sid-accent hover:bg-primary-50"
+                    title="Editar"
+                    @click="$router.push({ name: 'clients.edit', params: { id: client.id } })"
+                  >
+                    <PencilSquareIcon class="h-5 w-5" />
                   </button>
-                </router-link>
-                <button type="button" class="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600" @click="confirmDelete(client)">
-                  <TrashIcon class="h-4 w-4" />
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+                  <button
+                    v-if="authStore.can('clients.delete')"
+                    type="button"
+                    class="rounded p-1.5 text-red-600 hover:bg-red-50"
+                    title="Excluir"
+                    @click="confirmDelete(client)"
+                  >
+                    <TrashIcon class="h-5 w-5" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <PaginationBar v-if="pagination" :pagination="pagination" @page-change="fetchClients" />
@@ -112,7 +126,9 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useToast } from 'vue-toastification';
+import { PencilSquareIcon, TrashIcon } from '@heroicons/vue/24/outline';
 import api from '@/services/api';
+import { useAuthStore } from '@/stores/auth';
 import Button from '@/components/Common/Button.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
 import Modal from '@/components/Common/Modal.vue';
@@ -120,6 +136,7 @@ import PaginationBar from '@/components/Common/PaginationBar.vue';
 import { confirmationBadgeClass } from '@/utils/status';
 
 const toast = useToast();
+const authStore = useAuthStore();
 const clients = ref([]);
 const pagination = ref(null);
 const loading = ref(false);

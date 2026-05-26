@@ -11,43 +11,32 @@
     </div>
 
     <form v-if="!loading" class="card space-y-4 p-4 sm:p-6" @submit.prevent="submit">
-      <Input v-model="form.name" label="Nome completo" placeholder="Nome do cliente" />
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Input v-model="form.cpf" label="CPF" placeholder="000.000.000-00" />
-        <Input v-model="form.rg" label="RG" placeholder="0000000" />
-      </div>
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Input v-model="form.rg_issuer" label="Órgão emissor" placeholder="SSP/BA" />
-        <Input v-model="form.profession" label="Profissão" placeholder="Ex.: Comerciante" />
-      </div>
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <SelectInput
-          v-model="form.marital_status"
-          label="Estado civil"
-          :options="maritalStatusOptions"
-          placeholder="Selecione…"
-        />
-        <Input v-model="form.phone" label="Telefone" placeholder="(74) 9 0000-0000" />
-      </div>
-      <Input v-model="form.email" label="E-mail" type="email" placeholder="email@exemplo.com" />
-      <Input v-model="form.address" label="Logradouro" placeholder="Rua, avenida…" />
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Input v-model="form.address_number" label="Número" placeholder="123" />
-        <Input v-model="form.neighborhood" label="Bairro" placeholder="Centro" />
-      </div>
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Input v-model="form.city" label="Cidade" placeholder="Cafarnaum" />
-        <Input v-model="form.state" label="Estado" placeholder="BA" />
-      </div>
-      <div>
-        <label class="mb-1 block text-xs font-medium text-slate-600">Observações</label>
-        <textarea
-          v-model="form.notes"
-          rows="3"
-          class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent"
-          placeholder="Anotações internas..."
-        />
-      </div>
+      <ClientFormFields
+        :form="form"
+        :errors="errors"
+        :input-class="inputClass"
+        :buscando-cep="buscandoCep"
+        :erro-cep="erroCep"
+        :whatsapp-status="whatsappStatus"
+        v-model:whatsapp-manual="whatsappManual"
+        :otp-sent="otpSent"
+        :otp-code="otpCode"
+        :otp-verified="otpVerified"
+        :otp-error="otpError"
+        :otp-sending="otpSending"
+        :otp-verifying="otpVerifying"
+        :otp-countdown="otpCountdown"
+        :on-cpf-input="onCpfInput"
+        :on-phone-input="onPhoneInput"
+        :on-state-input="onStateInput"
+        :on-cep-input="onCepInput"
+        :on-otp-input="onOtpInput"
+        :check-whatsapp="checkWhatsapp"
+        :send-otp="sendOtp"
+        :verify-otp="verifyOtp"
+        :reset-otp="resetOtp"
+      />
+
       <div class="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" @click="$router.push({ name: 'clients.index' })">Cancelar</Button>
         <Button type="submit" variant="primary" :disabled="saving">{{ saving ? 'Salvando...' : 'Salvar' }}</Button>
@@ -62,10 +51,10 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import api from '@/services/api';
-import Input from '@/components/Common/Input.vue';
-import SelectInput from '@/components/Common/SelectInput.vue';
 import Button from '@/components/Common/Button.vue';
-import { maritalStatusOptions } from '@/constants/maritalStatus';
+import ClientFormFields from '@/components/Clients/ClientFormFields.vue';
+import { useClientForm } from '@/composables/useClientForm';
+import { getApiErrorMessage } from '@/utils/apiError';
 import { ArrowLeftIcon } from '@heroicons/vue/24/outline';
 
 const route = useRoute();
@@ -75,11 +64,35 @@ const loading = ref(false);
 const saving = ref(false);
 const isEdit = computed(() => Boolean(route.params.id));
 
-const form = ref({
-  name: '', cpf: '', rg: '', rg_issuer: '', profession: '', marital_status: '',
-  phone: '', email: '', address: '', address_number: '', neighborhood: '',
-  city: 'Cafarnaum', state: 'BA', notes: '',
-});
+const {
+  form,
+  errors,
+  inputClass,
+  buscandoCep,
+  erroCep,
+  whatsappStatus,
+  whatsappManual,
+  otpSent,
+  otpCode,
+  otpVerified,
+  otpError,
+  otpSending,
+  otpVerifying,
+  otpCountdown,
+  applyClientData,
+  onCpfInput,
+  onPhoneInput,
+  onStateInput,
+  onCepInput,
+  onOtpInput,
+  checkWhatsapp,
+  sendOtp,
+  verifyOtp,
+  resetOtp,
+  validate,
+  getPayload,
+  resolveWhatsappStatus,
+} = useClientForm();
 
 async function loadItem() {
   if (!isEdit.value) return;
@@ -87,7 +100,7 @@ async function loadItem() {
   try {
     const { data } = await api.get(`/clients/${route.params.id}`);
     const item = data.data ?? data;
-    Object.keys(form.value).forEach((k) => { form.value[k] = item[k] ?? ''; });
+    applyClientData(item);
   } catch {
     toast.error('Erro ao carregar cliente');
     router.push({ name: 'clients.index' });
@@ -97,19 +110,38 @@ async function loadItem() {
 }
 
 async function submit() {
+  if (!validate()) {
+    toast.error('Corrija os campos destacados antes de salvar.');
+    return;
+  }
+
   saving.value = true;
   try {
+    const payload = getPayload();
+
     if (isEdit.value) {
-      await api.put(`/clients/${route.params.id}`, form.value);
+      const { data } = await api.put(`/clients/${route.params.id}`, payload);
+      const client = data.data ?? data;
+      await resolveWhatsappStatus(client.id);
       toast.success('Cliente atualizado.');
     } else {
-      await api.post('/clients', form.value);
+      const { data } = await api.post('/clients', payload);
+      const client = data.data ?? data;
+      await resolveWhatsappStatus(client.id);
       toast.success('Cliente cadastrado.');
     }
     router.push({ name: 'clients.index' });
   } catch (err) {
-    const msg = err?.response?.data?.message ?? 'Erro ao salvar cliente.';
-    toast.error(msg);
+    const apiErrors = err?.response?.data?.errors;
+    if (apiErrors && typeof apiErrors === 'object') {
+      Object.entries(apiErrors).forEach(([field, messages]) => {
+        const msg = Array.isArray(messages) ? messages[0] : messages;
+        if (msg && Object.prototype.hasOwnProperty.call(form.value, field)) {
+          errors.value[field] = msg;
+        }
+      });
+    }
+    toast.error(getApiErrorMessage(err, 'Erro ao salvar cliente.'));
   } finally {
     saving.value = false;
   }

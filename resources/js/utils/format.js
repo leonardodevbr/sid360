@@ -125,6 +125,34 @@ export function formatCpf(value) {
 }
 
 /**
+ * Máscara de telefone brasileiro: (00) 0000-0000 ou (00) 00000-0000
+ * @param {string} value
+ * @returns {string}
+ */
+export function formatPhone(value) {
+  if (value == null || value === '') return '';
+  const digits = String(value).replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
+/**
+ * Máscara de CEP: 00000-000
+ * @param {string} value
+ * @returns {string}
+ */
+export function formatCep(value) {
+  if (value == null || value === '') return '';
+  const digits = String(value).replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 5) return digits;
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+}
+
+/**
  * Formata quantidade de diárias: inteiro sem decimal quando for valor inteiro (ex: 3), caso contrário com uma casa decimal (ex: 2,5).
  * @param {number|string} value - Quantidade de diárias (ex: 3, 3.0, 2.5)
  * @returns {string} Valor formatado (ex: "3", "2,5")
