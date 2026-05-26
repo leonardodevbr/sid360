@@ -43,9 +43,10 @@ class SettingSeeder extends Seeder
         Settings::setDefault('whatsapp_reply_window_hours', '48', 'integer', 'whatsapp');
         Settings::setDefault('whatsapp_sid_phone', '5574988230151', 'string', 'whatsapp');
 
-        Settings::setDefault('gcs_key_file_path', '', 'string', 'storage');
-        Settings::setDefault('gcs_project_id', '', 'string', 'storage');
-        Settings::setDefault('gcs_bucket', '', 'string', 'storage');
+        Settings::setDefault('email_notifications_enabled', '1', 'boolean', 'email');
+        Settings::setDefault('email_welcome_enabled', '1', 'boolean', 'email');
+        Settings::setDefault('email_reminder_enabled', '1', 'boolean', 'email');
+        Settings::setDefault('email_overdue_enabled', '1', 'boolean', 'email');
 
         $this->command->info('Configurações iniciais criadas.');
     }

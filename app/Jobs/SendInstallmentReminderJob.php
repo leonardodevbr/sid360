@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Mail\InstallmentReminderMail;
 use App\Models\Installment;
 use App\Models\Setting;
 use App\Services\WhatsappService;
@@ -13,6 +14,8 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class SendInstallmentReminderJob implements ShouldQueue
 {
@@ -45,17 +48,10 @@ class SendInstallmentReminderJob implements ShouldQueue
             return;
         }
 
-        if (! Setting::get('whatsapp_notifications_enabled', true)) {
-            return;
-        }
-        if (! Setting::get('whatsapp_reminder_enabled', true)) {
-            return;
-        }
-
         $sale = $this->installment->sale()->with(['client', 'lot.development'])->first();
         $client = $sale?->client;
 
-        if (! $client?->phone) {
+        if (! $client) {
             return;
         }
 
@@ -64,30 +60,57 @@ class SendInstallmentReminderJob implements ShouldQueue
         $contractNo = str_pad((string) $sale->id, 4, '0', STR_PAD_LEFT)
             .'/'.$sale->sale_date?->format('Y');
 
-        $vars = [
-            'nome' => $client->name,
-            'contrato' => $contractNo,
-            'lote' => 'Q'.($sale->lot?->block ?? '?').' · L'.($sale->lot?->number ?? '?'),
-            'valor' => $fmt($this->installment->value),
-            'vencimento' => $this->installment->due_date?->format('d/m/Y') ?? '–',
-            'dias' => (string) Setting::get('whatsapp_reminder_days_before', '3'),
-        ];
+        $lotDescription = 'Q'.($sale->lot?->block ?? '?').' · L'.($sale->lot?->number ?? '?');
 
-        $template = (string) Setting::get(
-            'whatsapp_reminder_message',
-            "Olá, *{nome}*! Sua parcela vence em {dias} dias.\nContrato: {contrato} · Lote: {lote}\nValor: {valor} · Vencimento: {vencimento}"
-        );
+        $daysBefore = (int) Setting::get('whatsapp_reminder_days_before', 3);
 
-        $message = $whatsapp->interpolate($template, $vars);
+        if (
+            Setting::get('whatsapp_notifications_enabled', true)
+            && Setting::get('whatsapp_reminder_enabled', true)
+            && $client->phone
+        ) {
+            $vars = [
+                'nome' => $client->name,
+                'contrato' => $contractNo,
+                'lote' => $lotDescription,
+                'valor' => $fmt($this->installment->value),
+                'vencimento' => $this->installment->due_date?->format('d/m/Y') ?? '–',
+                'dias' => (string) $daysBefore,
+            ];
 
-        if ($message === '') {
-            return;
+            $template = (string) Setting::get(
+                'whatsapp_reminder_message',
+                "Olá, *{nome}*! Sua parcela vence em {dias} dias.\nContrato: {contrato} · Lote: {lote}\nValor: {valor} · Vencimento: {vencimento}"
+            );
+
+            $message = $whatsapp->interpolate($template, $vars);
+
+            if ($message !== '' && $whatsapp->send($client->phone, $message)) {
+                $this->installment->update(['whatsapp_reminder_sent_at' => now()]);
+            }
         }
 
-        if (! $whatsapp->send($client->phone, $message)) {
-            return;
+        if (
+            Setting::get('email_notifications_enabled', true)
+            && Setting::get('email_reminder_enabled', true)
+            && filled($client->email)
+        ) {
+            try {
+                Mail::to($client->email)->queue(new InstallmentReminderMail(
+                    installment: $this->installment,
+                    clientName: $client->name,
+                    contractNo: $contractNo,
+                    lotDescription: $lotDescription,
+                    value: $fmt($this->installment->value),
+                    dueDate: $this->installment->due_date?->format('d/m/Y') ?? '–',
+                    daysBefore: $daysBefore,
+                ));
+            } catch (\Exception $e) {
+                Log::error('InstallmentReminderMail failed', [
+                    'installment_id' => $this->installment->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
-
-        $this->installment->update(['whatsapp_reminder_sent_at' => now()]);
     }
 }

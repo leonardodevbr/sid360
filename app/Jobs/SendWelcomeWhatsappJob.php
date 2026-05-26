@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Mail\WelcomeSaleMail;
 use App\Models\Sale;
 use App\Models\Setting;
 use App\Services\WhatsappService;
@@ -13,6 +14,8 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class SendWelcomeWhatsappJob implements ShouldQueue
 {
@@ -40,18 +43,6 @@ class SendWelcomeWhatsappJob implements ShouldQueue
     private function send(WhatsappService $whatsapp): void
     {
         $this->sale->refresh();
-
-        if ($this->sale->whatsapp_welcome_sent_at !== null) {
-            return;
-        }
-
-        if (! Setting::get('whatsapp_notifications_enabled', true)) {
-            return;
-        }
-        if (! Setting::get('whatsapp_welcome_enabled', true)) {
-            return;
-        }
-
         $this->sale->loadMissing(['client', 'lot.development', 'buyers']);
 
         $allBuyers = $this->sale->buyers->count() > 0
@@ -63,36 +54,64 @@ class SendWelcomeWhatsappJob implements ShouldQueue
 
         $fmt = fn ($v) => 'R$ '.number_format((int) $v / 100, 2, ',', '.');
 
-        $template = (string) Setting::get(
-            'whatsapp_welcome_message',
-            "Olá, *{nome}*! 🎉\nSua compra foi registrada!\nContrato: {contrato} · Lote: {lote}\nValor: {valor_total} · 1ª parcela: {primeira_parcela}"
-        );
+        $lotDescription = 'Quadra '.($this->sale->lot?->block ?? '?').' · Lote '.($this->sale->lot?->number ?? '?');
 
-        $sentAny = false;
+        if (
+            $this->sale->whatsapp_welcome_sent_at === null
+            && Setting::get('whatsapp_notifications_enabled', true)
+            && Setting::get('whatsapp_welcome_enabled', true)
+        ) {
+            $template = (string) Setting::get(
+                'whatsapp_welcome_message',
+                "Olá, *{nome}*! 🎉\nSua compra foi registrada!\nContrato: {contrato} · Lote: {lote}\nValor: {valor_total} · 1ª parcela: {primeira_parcela}"
+            );
 
-        foreach ($allBuyers as $buyer) {
-            if (! $buyer->phone) {
-                continue;
+            $sentAny = false;
+
+            foreach ($allBuyers as $buyer) {
+                if (! $buyer->phone) {
+                    continue;
+                }
+
+                $vars = [
+                    'nome' => $buyer->name,
+                    'contrato' => $contractNo,
+                    'empreendimento' => $this->sale->lot?->development?->name ?? '–',
+                    'lote' => $lotDescription,
+                    'valor_total' => $fmt($this->sale->total_value),
+                    'primeira_parcela' => $this->sale->first_due_date?->format('d/m/Y') ?? '–',
+                ];
+
+                $message = $whatsapp->interpolate($template, $vars);
+
+                if ($whatsapp->send($buyer->phone, $message)) {
+                    $sentAny = true;
+                }
             }
 
-            $vars = [
-                'nome' => $buyer->name,
-                'contrato' => $contractNo,
-                'empreendimento' => $this->sale->lot?->development?->name ?? '–',
-                'lote' => 'Quadra '.($this->sale->lot?->block ?? '?').' · Lote '.($this->sale->lot?->number ?? '?'),
-                'valor_total' => $fmt($this->sale->total_value),
-                'primeira_parcela' => $this->sale->first_due_date?->format('d/m/Y') ?? '–',
-            ];
-
-            $message = $whatsapp->interpolate($template, $vars);
-
-            if ($whatsapp->send($buyer->phone, $message)) {
-                $sentAny = true;
+            if ($sentAny) {
+                $this->sale->update(['whatsapp_welcome_sent_at' => now()]);
             }
         }
 
-        if ($sentAny) {
-            $this->sale->update(['whatsapp_welcome_sent_at' => now()]);
+        if (Setting::get('email_notifications_enabled', true) && Setting::get('email_welcome_enabled', true)) {
+            foreach ($allBuyers->filter(fn ($b) => filled($b->email)) as $buyer) {
+                try {
+                    Mail::to($buyer->email)->queue(new WelcomeSaleMail(
+                        sale: $this->sale,
+                        buyerName: $buyer->name,
+                        contractNo: $contractNo,
+                        lotDescription: $lotDescription,
+                        totalValue: $fmt($this->sale->total_value),
+                        firstDueDate: $this->sale->first_due_date?->format('d/m/Y') ?? '–',
+                    ));
+                } catch (\Exception $e) {
+                    Log::error('WelcomeSaleMail failed', [
+                        'buyer_id' => $buyer->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
         }
     }
 }

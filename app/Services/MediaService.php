@@ -5,26 +5,18 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Media;
-use Google\Cloud\Storage\Bucket;
-use Google\Cloud\Storage\StorageClient;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class MediaService
 {
-    private function client(): StorageClient
+    private function disk(): Filesystem
     {
-        return new StorageClient([
-            'keyFilePath' => (string) config('filesystems.disks.gcs.key_file_path'),
-            'projectId' => (string) config('filesystems.disks.gcs.project_id'),
-        ]);
-    }
-
-    private function bucket(): Bucket
-    {
-        return $this->client()->bucket((string) config('filesystems.disks.gcs.bucket'));
+        return Storage::disk('r2');
     }
 
     public function upload(
@@ -37,19 +29,14 @@ class MediaService
     ): Media {
         $ext = $file->getClientOriginalExtension();
         $filename = $file->getClientOriginalName();
-        $path = "{$folder}/" . Str::uuid() . ".{$ext}";
+        $path = "{$folder}/".Str::uuid().".{$ext}";
 
-        $bucket = $this->bucket();
-        $bucket->upload(
-            fopen($file->getRealPath(), 'r'),
-            [
-                'name' => $path,
-                'predefinedAcl' => 'publicRead',
-                'metadata' => ['contentType' => $file->getMimeType()],
-            ],
-        );
+        $this->disk()->put($path, file_get_contents($file->getRealPath()), [
+            'visibility' => 'public',
+            'ContentType' => $file->getMimeType() ?? 'application/octet-stream',
+        ]);
 
-        $url = rtrim((string) config('filesystems.disks.gcs.url'), '/') . '/' . $path;
+        $url = rtrim((string) config('filesystems.disks.r2.url'), '/').'/'.$path;
 
         if ($isCover) {
             $mediable->media()
@@ -60,7 +47,7 @@ class MediaService
         $nextOrder = ((int) $mediable->media()->where('type', $type)->max('order')) + 1;
 
         return $mediable->media()->create([
-            'disk' => 'gcs',
+            'disk' => 'r2',
             'path' => $path,
             'url' => $url,
             'filename' => $filename,
@@ -75,18 +62,17 @@ class MediaService
 
     public function delete(Media $media): void
     {
-        try {
-            $bucket = $this->bucket();
-            $object = $bucket->object($media->path);
-
-            if ($object->exists()) {
-                $object->delete();
+        if ($media->disk === 'r2') {
+            try {
+                if ($this->disk()->exists($media->path)) {
+                    $this->disk()->delete($media->path);
+                }
+            } catch (\Exception $e) {
+                Log::warning('MediaService::delete R2 error', [
+                    'path' => $media->path,
+                    'message' => $e->getMessage(),
+                ]);
             }
-        } catch (\Exception $e) {
-            Log::warning('MediaService::delete GCS error', [
-                'path' => $media->path,
-                'message' => $e->getMessage(),
-            ]);
         }
 
         $media->delete();

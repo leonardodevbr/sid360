@@ -60,15 +60,21 @@ return [
             'report' => false,
         ],
 
-        'gcs' => [
-            'driver' => 'gcs',
-            'key_file_path' => env('GOOGLE_CLOUD_KEY_FILE_PATH'),
-            'project_id' => env('GOOGLE_CLOUD_PROJECT_ID'),
-            'bucket' => env('GOOGLE_CLOUD_STORAGE_BUCKET'),
-            'url' => 'https://storage.googleapis.com/' . env('GOOGLE_CLOUD_STORAGE_BUCKET'),
+        'r2' => [
+            'driver' => 's3',
+            'key' => env('CLOUDFLARE_R2_ACCESS_KEY_ID'),
+            'secret' => env('CLOUDFLARE_R2_SECRET_ACCESS_KEY'),
+            'region' => 'auto',
+            'bucket' => env('CLOUDFLARE_R2_BUCKET'),
+            'endpoint' => env('CLOUDFLARE_R2_ENDPOINT'),
+            'url' => env('CLOUDFLARE_R2_PUBLIC_URL'),
+            'use_path_style_endpoint' => true,
             'visibility' => 'public',
             'throw' => false,
+            'report' => false,
         ],
+
+        // 'gcs' => [ ... ], // migrado para R2 em 2026-05
 
     ],
 
