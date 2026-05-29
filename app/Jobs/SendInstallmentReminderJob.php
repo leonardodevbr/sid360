@@ -67,7 +67,7 @@ class SendInstallmentReminderJob implements ShouldQueue
         if (
             Setting::get('whatsapp_notifications_enabled', true)
             && Setting::get('whatsapp_reminder_enabled', true)
-            && $client->phone
+            && $client->acceptsWhatsappNotifications()
         ) {
             $vars = [
                 'nome' => $client->name,

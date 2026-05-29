@@ -43,6 +43,12 @@ class SettingSeeder extends Seeder
         Settings::setDefault('whatsapp_reply_window_hours', '48', 'integer', 'whatsapp');
         Settings::setDefault('whatsapp_sid_phone', '5574988230151', 'string', 'whatsapp');
 
+        Settings::setDefault('whatsapp_bot_enabled', '1', 'boolean', 'whatsapp');
+        Settings::setDefault('whatsapp_bot_menu_message',
+            "Olá, *{nome}*! Sou o assistente *Sid360*.\n\nDigite um comando:\n\n*2ª via* — receber PIX ou boleto\n*saldo* — parcelas pendentes\n*extrato* — histórico de pagamentos\n*contrato* — PDF do contrato\n*atendimento* — falar com o corretor\n\nPortal: {portal_url}",
+            'string', 'whatsapp'
+        );
+
         Settings::setDefault('email_notifications_enabled', '1', 'boolean', 'email');
         Settings::setDefault('email_welcome_enabled', '1', 'boolean', 'email');
         Settings::setDefault('email_reminder_enabled', '1', 'boolean', 'email');

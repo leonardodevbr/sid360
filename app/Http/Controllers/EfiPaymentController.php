@@ -5,13 +5,15 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Actions\Installment\CalculateInstallmentChargeValueAction;
+use App\Actions\Installment\GenerateInstallmentBoletoAction;
+use App\Actions\Installment\GenerateInstallmentPixAction;
+use App\Actions\Installment\SendInstallmentBoletoWhatsappAction;
+use App\Actions\Installment\SendInstallmentPixWhatsappAction;
 use App\Http\Requests\GenerateInstallmentBoletoRequest;
 use App\Http\Requests\GenerateInstallmentPixRequest;
 use App\Models\Installment;
-use App\Models\InstallmentInteraction;
 use App\Models\Sale;
 use App\Services\EfiService;
-use App\Services\WhatsappService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -21,7 +23,10 @@ class EfiPaymentController extends Controller
 {
     public function __construct(
         private readonly EfiService $efi,
-        private readonly WhatsappService $whatsapp,
+        private readonly GenerateInstallmentPixAction $generatePix,
+        private readonly GenerateInstallmentBoletoAction $generateBoleto,
+        private readonly SendInstallmentPixWhatsappAction $sendPixWhatsapp,
+        private readonly SendInstallmentBoletoWhatsappAction $sendBoletoWhatsapp,
     ) {}
 
     public function chargePreview(
@@ -47,7 +52,6 @@ class EfiPaymentController extends Controller
     public function generatePix(
         GenerateInstallmentPixRequest $request,
         string|int $installmentId,
-        CalculateInstallmentChargeValueAction $calculateCharge,
     ): JsonResponse {
         $installment = Installment::query()
             ->with(['sale.client'])
@@ -59,36 +63,20 @@ class EfiPaymentController extends Controller
 
         try {
             $waivePenalties = $request->boolean('waive_penalties');
-            $charge = $calculateCharge->execute($installment, $waivePenalties);
             $expiry = (int) ($request->input('expiry_seconds') ?? config('services.efi.pix_expiry', 3600));
-            $reference = 'Contrato '.str_pad((string) $installment->sale_id, 4, '0', STR_PAD_LEFT)
-                .' – Parcela '.$installment->number;
 
-            $pix = $this->efi->createPixCharge(
-                valueInCents: (float) $charge['total_value'],
-                debtorName: (string) $installment->sale->client->name,
-                debtorCpf: (string) $installment->sale->client->cpf,
-                reference: $reference,
+            $result = $this->generatePix->execute(
+                installment: $installment,
+                waivePenalties: $waivePenalties,
                 expirySeconds: $expiry,
             );
 
-            $qrCode = $this->efi->getPixQrCode((int) $pix['loc_id']);
-            $qrcode = $this->normalizePixQrCodeImage($qrCode['image']);
-            $pixCopiaCola = $qrCode['copy_paste'] ?? $pix['pix_copia_cola'];
-
-            $installment->update([
-                'efi_txid' => $pix['txid'],
-                'efi_pix_copia_cola' => $pixCopiaCola,
-                'efi_pix_qrcode' => $qrcode,
-                'efi_payment_type' => 'pix',
-            ]);
-
             return response()->json([
-                'txid' => $pix['txid'],
-                'pix_copia_cola' => $pixCopiaCola,
-                'qrcode' => $qrcode,
-                'charge_value' => $charge['total_value'],
-                'charge_breakdown' => $charge,
+                'txid' => $result['txid'],
+                'pix_copia_cola' => $result['pix_copia_cola'],
+                'qrcode' => $result['qrcode'],
+                'charge_value' => $result['charge_value'],
+                'charge_breakdown' => $result['charge_breakdown'],
                 'expiry_seconds' => $expiry,
             ]);
         } catch (Throwable $e) {
@@ -102,14 +90,6 @@ class EfiPaymentController extends Controller
             ->with(['sale.client'])
             ->findOrFail((int) $installmentId);
 
-        $pixCode = trim((string) ($installment->efi_pix_copia_cola ?? ''));
-
-        if ($pixCode === '') {
-            return response()->json([
-                'error' => 'Código PIX não disponível. Gere o PIX antes de enviar.',
-            ], 422);
-        }
-
         $client = $installment->sale?->client;
         $phone = trim((string) ($client?->phone ?? ''));
 
@@ -119,31 +99,10 @@ class EfiPaymentController extends Controller
             ], 422);
         }
 
-        $sale = $installment->sale;
-        $contractNo = str_pad((string) $sale->id, 4, '0', STR_PAD_LEFT)
-            .'/'.($sale->sale_date?->format('Y') ?? now()->format('Y'));
-
-        $message = $this->whatsapp->buildPixPaymentMessage(
-            clientName: (string) $client->name,
-            contractNo: $contractNo,
+        $sent = $this->sendPixWhatsapp->execute(
             installment: $installment,
-            pixCopyPaste: $pixCode,
-        );
-
-        $imageCaption = $this->whatsapp->buildPixImageCaption(
-            contractNo: $contractNo,
-            installment: $installment,
-        );
-
-        $sent = $this->whatsapp->sendPixAndRecord(
             phone: $phone,
-            message: $message,
-            qrCodeImage: $installment->efi_pix_qrcode,
-            type: InstallmentInteraction::TYPE_PIX,
-            installmentId: $installment->id,
-            saleId: $installment->sale_id,
-            clientId: $client->id,
-            imageCaption: $imageCaption,
+            regenerate: trim((string) ($installment->efi_pix_copia_cola ?? '')) === '',
         );
 
         if (! $sent) {
@@ -162,14 +121,6 @@ class EfiPaymentController extends Controller
             ->with(['sale.client'])
             ->findOrFail((int) $installmentId);
 
-        $pdfUrl = trim((string) ($installment->efi_pdf_url ?? ''));
-
-        if ($pdfUrl === '' || $installment->efi_payment_type !== 'boleto') {
-            return response()->json([
-                'error' => 'Boleto não disponível. Gere o boleto antes de enviar.',
-            ], 422);
-        }
-
         $client = $installment->sale?->client;
         $phone = trim((string) ($client?->phone ?? ''));
 
@@ -179,42 +130,16 @@ class EfiPaymentController extends Controller
             ], 422);
         }
 
-        $sale = $installment->sale;
-        $contractNo = str_pad((string) $sale->id, 4, '0', STR_PAD_LEFT)
-            .'/'.($sale->sale_date?->format('Y') ?? now()->format('Y'));
+        $pdfUrl = trim((string) ($installment->efi_pdf_url ?? ''));
+        $regenerate = $pdfUrl === '' || $installment->efi_payment_type !== 'boleto';
 
-        $parcelLabel = $installment->type === Installment::TYPE_DOWN_PAYMENT
-            ? 'entrada'
-            : 'parcela-'.$installment->number;
-
-        $filename = "boleto-contrato-{$sale->id}-{$parcelLabel}.pdf";
-
-        $message = $this->whatsapp->buildBoletoPaymentMessage(
-            clientName: (string) $client->name,
-            contractNo: $contractNo,
+        $result = $this->sendBoletoWhatsapp->execute(
             installment: $installment,
-            barcode: $installment->efi_barcode,
-            pdfUrl: $pdfUrl,
-        );
-
-        $fileCaption = $this->whatsapp->buildBoletoFileCaption(
-            contractNo: $contractNo,
-            installment: $installment,
-        );
-
-        $result = $this->whatsapp->sendBoletoAndRecord(
             phone: $phone,
-            message: $message,
-            filename: $filename,
-            type: InstallmentInteraction::TYPE_BOLETO,
-            pdfUrl: $pdfUrl,
-            installmentId: $installment->id,
-            saleId: $installment->sale_id,
-            clientId: $client->id,
-            fileCaption: $fileCaption,
+            regenerate: $regenerate,
         );
 
-        if (! $result['text_sent']) {
+        if (! $result['ok']) {
             return response()->json([
                 'error' => 'Não foi possível enviar pelo WhatsApp automático.',
                 'fallback' => true,
@@ -224,8 +149,8 @@ class EfiPaymentController extends Controller
         return response()->json([
             'ok' => true,
             'text_sent' => true,
-            'pdf_sent' => $result['file_sent'] === true,
-            'warning' => $result['file_sent'] === false
+            'pdf_sent' => $result['pdf_sent'] === true,
+            'warning' => $result['pdf_sent'] === false
                 ? 'Mensagem enviada, mas o PDF não pôde ser anexado.'
                 : null,
         ]);
@@ -234,7 +159,6 @@ class EfiPaymentController extends Controller
     public function generateBoleto(
         GenerateInstallmentBoletoRequest $request,
         string|int $installmentId,
-        CalculateInstallmentChargeValueAction $calculateCharge,
     ): JsonResponse {
         $installment = Installment::query()
             ->with(['sale.client'])
@@ -249,41 +173,23 @@ class EfiPaymentController extends Controller
             $dueDate = $request->input('due_date');
 
             if (! is_string($dueDate) || $dueDate === '') {
-                $dueDate = $installment->due_date->gte(now()->startOfDay())
-                    ? $installment->due_date->toDateString()
-                    : now()->addDay()->toDateString();
+                $dueDate = null;
             }
 
-            $charge = $calculateCharge->execute($installment, $waivePenalties, $dueDate);
-
-            $description = 'Contrato '.str_pad((string) $installment->sale_id, 4, '0', STR_PAD_LEFT)
-                .' – Parcela '.$installment->number;
-
-            $boleto = $this->efi->createBoleto(
-                valueInCents: (float) $charge['total_value'],
-                debtorName: (string) $installment->sale->client->name,
-                debtorCpf: (string) $installment->sale->client->cpf,
+            $result = $this->generateBoleto->execute(
+                installment: $installment,
+                waivePenalties: $waivePenalties,
                 dueDate: $dueDate,
-                description: $description,
-                debtorPhone: $installment->sale->client->phone,
-                waivePenalties: $waivePenalties || $charge['total_value'] > $charge['original_value'],
             );
 
-            $installment->update([
-                'efi_charge_id' => (string) $boleto['charge_id'],
-                'efi_barcode' => $boleto['barcode'],
-                'efi_pdf_url' => $boleto['pdf'],
-                'efi_payment_type' => 'boleto',
-            ]);
-
             return response()->json([
-                'charge_id' => $boleto['charge_id'],
-                'barcode' => $boleto['barcode'],
-                'pdf' => $boleto['pdf'],
-                'link' => $boleto['link'],
-                'due_date' => $dueDate,
-                'charge_value' => $charge['total_value'],
-                'charge_breakdown' => $charge,
+                'charge_id' => $result['charge_id'],
+                'barcode' => $result['barcode'],
+                'pdf' => $result['pdf'],
+                'link' => $result['link'],
+                'due_date' => $result['due_date'],
+                'charge_value' => $result['charge_value'],
+                'charge_breakdown' => $result['charge_breakdown'],
             ]);
         } catch (Throwable $e) {
             return response()->json(['error' => 'Erro ao gerar boleto: '.$e->getMessage()], 500);
@@ -462,22 +368,5 @@ class EfiPaymentController extends Controller
                 'paid_at' => now()->toDateString(),
             ]);
         }
-    }
-
-    private function normalizePixQrCodeImage(string $qrcode): string
-    {
-        if ($qrcode === '') {
-            return '';
-        }
-
-        if (str_starts_with($qrcode, 'data:')) {
-            $pos = strpos($qrcode, ',');
-
-            if ($pos !== false) {
-                return substr($qrcode, $pos + 1);
-            }
-        }
-
-        return $qrcode;
     }
 }

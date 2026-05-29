@@ -69,7 +69,7 @@ class SendWelcomeWhatsappJob implements ShouldQueue
             $sentAny = false;
 
             foreach ($allBuyers as $buyer) {
-                if (! $buyer->phone) {
+                if (! $buyer->acceptsWhatsappNotifications()) {
                     continue;
                 }
 

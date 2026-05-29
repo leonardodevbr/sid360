@@ -88,7 +88,7 @@ class SendOverdueInstallmentsSummaryJob implements ShouldQueue
         if (
             Setting::get('whatsapp_notifications_enabled', true)
             && Setting::get('whatsapp_overdue_enabled', true)
-            && $sale->client->phone
+            && $sale->client->acceptsWhatsappNotifications()
         ) {
             $sections = [
                 [

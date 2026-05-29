@@ -169,6 +169,8 @@ const KEY_LABELS = {
   whatsapp_manual_overdue_message: 'Mensagem — contato manual (atraso)',
   whatsapp_reply_window_hours: 'Janela de resposta (horas)',
   whatsapp_sid_phone: 'WhatsApp do corretor (notificações)',
+  whatsapp_bot_enabled: 'Bot WhatsApp ativo',
+  whatsapp_bot_menu_message: 'Mensagem do menu do bot',
   email_notifications_enabled: 'Notificações por e-mail ativas',
   email_welcome_enabled: 'E-mail de boas-vindas',
   email_reminder_enabled: 'E-mail de lembrete de vencimento',

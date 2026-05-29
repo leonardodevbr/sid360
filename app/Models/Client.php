@@ -9,6 +9,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Client extends Model
 {
+    public const WHATSAPP_STATUS_CONFIRMED = 'confirmed';
+
+    public const WHATSAPP_STATUS_NONE = 'none';
+
     public const MARITAL_SINGLE = 'single';
 
     public const MARITAL_MARRIED = 'married';
@@ -72,6 +76,12 @@ class Client extends Model
         ]);
 
         return implode(', ', $parts);
+    }
+
+    public function acceptsWhatsappNotifications(): bool
+    {
+        return $this->whatsapp_status !== self::WHATSAPP_STATUS_NONE
+            && filled($this->phone);
     }
 
     public static function maritalStatusLabel(?string $status): string

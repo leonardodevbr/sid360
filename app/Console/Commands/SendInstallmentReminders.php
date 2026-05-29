@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Jobs\SendInstallmentReminderJob;
 use App\Jobs\SendOverdueInstallmentsSummaryJob;
+use App\Models\Client;
 use App\Models\Installment;
 use App\Models\Setting;
 use Carbon\Carbon;
@@ -33,7 +34,7 @@ class SendInstallmentReminders extends Command
             ->get();
 
         foreach ($upcoming as $installment) {
-            if ($installment->sale?->client?->phone) {
+            if ($installment->sale?->client?->acceptsWhatsappNotifications()) {
                 SendInstallmentReminderJob::dispatchSync($installment);
             }
         }
@@ -44,7 +45,14 @@ class SendInstallmentReminders extends Command
             ->overdue()
             ->where('type', '!=', Installment::TYPE_DOWN_PAYMENT)
             ->whereNull('whatsapp_overdue_sent_at')
-            ->whereHas('sale.client', fn ($q) => $q->whereNotNull('phone')->where('phone', '!=', ''))
+            ->whereHas('sale.client', function ($q): void {
+                $q->whereNotNull('phone')
+                    ->where('phone', '!=', '')
+                    ->where(function ($statusQuery): void {
+                        $statusQuery->whereNull('whatsapp_status')
+                            ->orWhere('whatsapp_status', '!=', Client::WHATSAPP_STATUS_NONE);
+                    });
+            })
             ->distinct()
             ->pluck('sale_id');
 

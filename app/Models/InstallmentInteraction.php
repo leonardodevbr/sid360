@@ -31,6 +31,16 @@ class InstallmentInteraction extends Model
 
     public const TYPE_REPLY_UNKNOWN = 'reply_unknown';
 
+    public const TYPE_BOT_COMMAND = 'bot_command';
+
+    public const TYPE_BOT_RESPONSE = 'bot_response';
+
+    public const TYPE_BOT_PAYMENT = 'bot_payment';
+
+    public const TYPE_BOT_CONTRACT = 'bot_contract';
+
+    public const TYPE_BOT_SUPPORT_NOTIFY = 'bot_support_notify';
+
     public const DIR_OUTBOUND = 'outbound';
 
     public const DIR_INBOUND = 'inbound';
