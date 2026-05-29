@@ -6,6 +6,8 @@ namespace App\Services;
 
 use App\Models\Installment;
 use App\Models\InstallmentInteraction;
+use App\Models\Setting;
+use App\Support\DocumentHelper;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -374,6 +376,72 @@ class WhatsappService
         ]);
 
         return $sent;
+    }
+
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    public function notifySid(
+        string $message,
+        ?int $saleId = null,
+        ?int $clientId = null,
+        ?string $relatedClientPhone = null,
+        string $type = InstallmentInteraction::TYPE_SID_NOTIFY,
+        array $meta = [],
+    ): bool {
+        $sidPhone = $this->sidPhoneDigits();
+
+        if ($relatedClientPhone !== null && DocumentHelper::phoneMatches($relatedClientPhone, $sidPhone)) {
+            Log::warning('WhatsappService::notifySid skipped — same phone as client', [
+                'sale_id' => $saleId,
+                'client_id' => $clientId,
+                'phone' => $sidPhone,
+            ]);
+
+            InstallmentInteraction::create([
+                'sale_id' => $saleId,
+                'client_id' => $clientId,
+                'phone' => $sidPhone,
+                'direction' => InstallmentInteraction::DIR_OUTBOUND,
+                'type' => $type,
+                'message' => $message,
+                'meta' => array_merge($meta, [
+                    'sent' => false,
+                    'skipped' => 'same_phone_as_client',
+                ]),
+            ]);
+
+            return false;
+        }
+
+        $sent = $this->send($sidPhone, $message);
+
+        InstallmentInteraction::create([
+            'sale_id' => $saleId,
+            'client_id' => $clientId,
+            'phone' => $sidPhone,
+            'direction' => InstallmentInteraction::DIR_OUTBOUND,
+            'type' => $type,
+            'message' => $message,
+            'meta' => array_merge($meta, ['sent' => $sent, 'recipient' => 'sid']),
+        ]);
+
+        if (! $sent) {
+            Log::warning('WhatsappService::notifySid failed', [
+                'sale_id' => $saleId,
+                'client_id' => $clientId,
+                'phone' => $sidPhone,
+            ]);
+        }
+
+        return $sent;
+    }
+
+    public function sidPhoneDigits(): string
+    {
+        $digits = preg_replace('/\D/', '', (string) Setting::get('whatsapp_sid_phone', '5574988230151')) ?? '';
+
+        return $digits !== '' ? $digits : '5574988230151';
     }
 
     /**

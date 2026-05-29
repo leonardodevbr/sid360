@@ -58,7 +58,7 @@ class WhatsappWebhookController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        $option = $this->extractOption($payload);
+        $option = $this->extractOption($payload, $body);
         $windowHours = (int) Setting::get('whatsapp_reply_window_hours', 48);
         $since = Carbon::now()->subHours($windowHours);
 
@@ -164,7 +164,7 @@ class WhatsappWebhookController extends Controller
     /**
      * @param  array<string, mixed>  $payload
      */
-    private function extractOption(array $payload): string
+    private function extractOption(array $payload, string $body): string
     {
         $rowId = data_get($payload, 'listResponse.singleSelectReply.selectedRowId')
             ?? data_get($payload, 'selectedRowId');
@@ -172,8 +172,6 @@ class WhatsappWebhookController extends Controller
         if (is_string($rowId) && $rowId !== '') {
             return trim($rowId);
         }
-
-        $body = trim((string) ($payload['body'] ?? $payload['content'] ?? ''));
 
         if ($body === '') {
             return '';
@@ -227,8 +225,8 @@ class WhatsappWebhookController extends Controller
 
         $bodyText = trim((string) ($payload['body'] ?? $payload['content'] ?? $option));
         $phone = preg_replace('/[^0-9]/', '', $from) ?? $from;
-        $sidWaMe = $this->sidWaMeLink();
-        $sidDisplay = $this->sidPhoneDisplay();
+        $sidWaMe = 'wa.me/'.$this->whatsapp->sidPhoneDigits();
+        $sidDisplay = $this->formatSidPhoneDisplay();
 
         if ($option === '2') {
             $this->processPaymentReply($payload, $from, $lastOutbound, $sale, $client, $bodyText, $phone);
@@ -293,7 +291,14 @@ class WhatsappWebhookController extends Controller
         );
 
         if ($sidNotification) {
-            $this->whatsapp->send($this->sidPhoneDigits(), $sidNotification);
+            $this->whatsapp->notifySid(
+                message: $sidNotification,
+                saleId: (int) $sale->id,
+                clientId: (int) $client->id,
+                relatedClientPhone: (string) $client->phone,
+                type: InstallmentInteraction::TYPE_SID_NOTIFY,
+                meta: ['trigger' => $type, 'option' => $option],
+            );
         }
     }
 
@@ -339,25 +344,39 @@ class WhatsappWebhookController extends Controller
             return;
         }
 
-        $sent = $this->sendPixWhatsapp->execute(
+        $pixSent = $this->sendPixWhatsapp->execute(
             installment: $installment,
             phone: (string) $client->phone,
             interactionType: InstallmentInteraction::TYPE_REPLY_BOLETO.'_pix',
         );
 
-        if (! $sent) {
-            $this->sendBoletoWhatsapp->execute(
-                installment: $installment,
-                phone: (string) $client->phone,
-                interactionType: InstallmentInteraction::TYPE_REPLY_BOLETO.'_boleto',
+        $boletoResult = $this->sendBoletoWhatsapp->execute(
+            installment: $installment,
+            phone: (string) $client->phone,
+            interactionType: InstallmentInteraction::TYPE_REPLY_BOLETO.'_boleto',
+        );
+
+        if (! $pixSent && ! ($boletoResult['ok'] ?? false)) {
+            $portalUrl = rtrim((string) config('app.url'), '/').'/pagamentos';
+            $this->whatsapp->sendAndRecord(
+                phone: $client->phone,
+                message: "⚠️ *{$client->name}*, não foi possível gerar PIX nem boleto agora.\n\nTente pelo portal:\n🔗 {$portalUrl}\n\nOu digite *atendimento*.",
+                type: InstallmentInteraction::TYPE_REPLY_BOLETO.'_response',
+                installmentId: $installment->id,
+                saleId: (int) $sale->id,
+                clientId: (int) $client->id,
             );
         }
 
-        $this->whatsapp->send(
-            $this->sidPhoneDigits(),
-            "💰 *{$client->name}* solicitou boleto/PIX atualizado.\n".
+        $this->whatsapp->notifySid(
+            message: "💰 *{$client->name}* solicitou boleto/PIX atualizado.\n".
             'Contrato: '.str_pad((string) $sale->id, 4, '0', STR_PAD_LEFT).'/'.$sale->sale_date?->format('Y')."\n".
             "Lote: Q{$sale->lot?->block} · L{$sale->lot?->number}\nFone: {$client->phone}",
+            saleId: (int) $sale->id,
+            clientId: (int) $client->id,
+            relatedClientPhone: (string) $client->phone,
+            type: InstallmentInteraction::TYPE_SID_NOTIFY,
+            meta: ['trigger' => 'reply_payment', 'pix_sent' => $pixSent, 'boleto_sent' => $boletoResult['ok'] ?? false],
         );
     }
 
@@ -421,6 +440,14 @@ class WhatsappWebhookController extends Controller
             }
         }
 
+        if ($from !== '') {
+            $byChat = (clone $query)->where('meta->from', $from)->latest()->first();
+
+            if ($byChat) {
+                return $byChat;
+            }
+        }
+
         $digits = preg_replace('/[^0-9]/', '', $from) ?? '';
 
         if (strlen($digits) >= 10 && strlen($digits) <= 13) {
@@ -457,21 +484,9 @@ class WhatsappWebhookController extends Controller
         return null;
     }
 
-    private function sidPhoneDigits(): string
+    private function formatSidPhoneDisplay(): string
     {
-        $digits = preg_replace('/\D/', '', (string) Setting::get('whatsapp_sid_phone', '5574988230151')) ?? '';
-
-        return $digits !== '' ? $digits : '5574988230151';
-    }
-
-    private function sidWaMeLink(): string
-    {
-        return 'wa.me/'.$this->sidPhoneDigits();
-    }
-
-    private function sidPhoneDisplay(): string
-    {
-        $digits = $this->sidPhoneDigits();
+        $digits = $this->whatsapp->sidPhoneDigits();
 
         if (str_starts_with($digits, '55') && strlen($digits) > 11) {
             $digits = substr($digits, 2);

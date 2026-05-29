@@ -43,6 +43,7 @@ return [
         'certificate' => env('EFI_CERTIFICATE_PATH', ''),
         'certificate_password' => env('EFI_CERTIFICATE_PASSWORD', ''),
         'pix_expiry' => (int) env('EFI_PIX_EXPIRY', 3600),
+        'holder_cpf' => env('EFI_HOLDER_CPF', ''),
     ],
 
     'wppconnect' => [

@@ -7,7 +7,9 @@ namespace App\Actions\Sale;
 use App\Models\Installment;
 use App\Models\Sale;
 use App\Services\EfiService;
+use App\Support\DocumentHelper;
 use Carbon\Carbon;
+use Efi\Exception\EfiException;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
@@ -65,16 +67,27 @@ class GenerateSaleCarneAction
         $contractNo = str_pad((string) $sale->id, 4, '0', STR_PAD_LEFT)
             .'/'.$sale->sale_date?->format('Y');
 
-        $carne = $this->efi->createCarne(
-            installmentValueCents: (int) $sale->installment_value,
-            installmentsCount: $unpaidInstallments->count(),
-            firstDueDate: $firstDueDate,
-            debtorName: (string) $client->name,
-            debtorCpf: (string) $client->cpf,
-            itemDescription: $description,
-            debtorPhone: $client->phone,
-            message: "Contrato {$contractNo} – Sid360 Imóveis",
-        );
+        $debtorCpfDigits = DocumentHelper::digitsOnly((string) $client->cpf);
+        $this->assertDebtorIsNotEfiHolder($debtorCpfDigits, (string) $client->name);
+
+        try {
+            $carne = $this->efi->createCarne(
+                installmentValueCents: (int) $sale->installment_value,
+                installmentsCount: $unpaidInstallments->count(),
+                firstDueDate: $firstDueDate,
+                debtorName: (string) $client->name,
+                debtorCpf: $debtorCpfDigits,
+                itemDescription: $description,
+                debtorPhone: $client->phone,
+                message: "Contrato {$contractNo} – Sid360 Imóveis",
+            );
+        } catch (EfiException $e) {
+            if (str_contains(mb_strtolower($e->getMessage()), 'mesma pessoa')) {
+                throw new InvalidArgumentException($this->samePersonErrorMessage($debtorCpfDigits, (string) $client->name));
+            }
+
+            throw $e;
+        }
 
         $sale->update([
             'efi_carnet_id' => $carne['carnet_id'],
@@ -128,5 +141,33 @@ class GenerateSaleCarneAction
         }
 
         return [$minimum->toDateString(), true];
+    }
+
+    private function assertDebtorIsNotEfiHolder(string $debtorCpfDigits, string $clientName): void
+    {
+        $holderCpfDigits = DocumentHelper::digitsOnly((string) config('services.efi.holder_cpf', ''));
+
+        if ($holderCpfDigits !== '' && $holderCpfDigits === $debtorCpfDigits) {
+            throw new InvalidArgumentException($this->samePersonErrorMessage($debtorCpfDigits, $clientName));
+        }
+    }
+
+    private function samePersonErrorMessage(string $debtorCpfDigits, string $clientName): string
+    {
+        return 'Recebedor e cliente não podem ser a mesma pessoa. '
+            ."CPF enviado: {$this->formatCpf($debtorCpfDigits)} (cliente «{$clientName}», cadastro clients.cpf da venda). "
+            .'Esse CPF não pode ser igual ao titular da conta Efi. Co-compradores não entram no carnê.';
+    }
+
+    private function formatCpf(string $digits): string
+    {
+        if (strlen($digits) !== 11) {
+            return $digits;
+        }
+
+        return substr($digits, 0, 3).'.'
+            .substr($digits, 3, 3).'.'
+            .substr($digits, 6, 3).'-'
+            .substr($digits, 9, 2);
     }
 }

@@ -122,11 +122,35 @@ class GenerateSaleCarneActionTest extends TestCase
         $this->assertFalse($result['adjusted_from_scheduled']);
     }
 
-    private function createSaleWithInstallments(string $firstDueDate, int $installmentsCount): Sale
+    public function test_rejects_client_cpf_matching_efi_holder_cpf(): void
     {
+        config(['services.efi.holder_cpf' => '39053344705']);
+
+        $sale = $this->createSaleWithInstallments(
+            firstDueDate: '2026-06-10',
+            installmentsCount: 1,
+            clientCpf: '39053344705',
+        );
+
+        $efi = Mockery::mock(EfiService::class);
+        $efi->shouldNotReceive('createCarne');
+
+        $action = new GenerateSaleCarneAction($efi);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('390.533.447-05');
+
+        $action->execute($sale);
+    }
+
+    private function createSaleWithInstallments(
+        string $firstDueDate,
+        int $installmentsCount,
+        string $clientCpf = '52998224725',
+    ): Sale {
         $client = Client::query()->create([
             'name' => 'Cliente Teste',
-            'cpf' => '52998224725',
+            'cpf' => $clientCpf,
             'phone' => '74988230151',
         ]);
 

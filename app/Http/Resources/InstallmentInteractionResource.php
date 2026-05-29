@@ -50,6 +50,12 @@ class InstallmentInteractionResource extends JsonResource
             'reply_boleto_response' => 'Resposta: instruções de pagamento',
             'reply_negotiate_response' => 'Resposta: encaminhado ao corretor',
             'reply_unknown_response' => 'Resposta: opção não reconhecida',
+            'bot_command' => 'Comando do bot recebido',
+            'bot_response' => 'Resposta do bot',
+            'bot_payment' => 'Bot: pagamento enviado',
+            'bot_contract' => 'Bot: contrato enviado',
+            'bot_support_notify' => 'Bot: corretor notificado',
+            'sid_notify' => 'Notificação ao corretor',
             default => $this->type,
         };
     }

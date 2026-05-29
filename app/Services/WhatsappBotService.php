@@ -446,20 +446,13 @@ class WhatsappBotService
             ? 'Contrato: '.$this->contractNumber($sale)."\nLote: Q{$sale->lot?->block} · L{$sale->lot?->number}\n"
             : '';
 
-        $this->whatsapp->send(
-            $this->sidPhoneDigits(),
-            "🤝 *{$client->name}* solicitou atendimento via bot.\n{$contractInfo}Fone: {$client->phone}\n\n⚡ Responda logo!",
+        $this->whatsapp->notifySid(
+            message: "🤝 *{$client->name}* solicitou atendimento via bot.\n{$contractInfo}Fone: {$client->phone}\n\n⚡ Responda logo!",
+            saleId: $sale?->id,
+            clientId: $client->id,
+            relatedClientPhone: (string) $client->phone,
+            type: InstallmentInteraction::TYPE_BOT_SUPPORT_NOTIFY,
         );
-
-        InstallmentInteraction::create([
-            'sale_id' => $sale?->id,
-            'client_id' => $client->id,
-            'phone' => $phone,
-            'direction' => InstallmentInteraction::DIR_OUTBOUND,
-            'type' => InstallmentInteraction::TYPE_BOT_SUPPORT_NOTIFY,
-            'message' => 'Notificação enviada ao corretor',
-            'meta' => ['sent' => true],
-        ]);
     }
 
     /**
@@ -554,16 +547,14 @@ class WhatsappBotService
         return rtrim((string) config('app.url'), '/').'/pagamentos';
     }
 
-    private function sidPhoneDigits(): string
-    {
-        $digits = preg_replace('/\D/', '', (string) Setting::get('whatsapp_sid_phone', '5574988230151')) ?? '';
-
-        return $digits !== '' ? $digits : '5574988230151';
-    }
-
     private function sidWaMeLink(): string
     {
-        return 'wa.me/'.$this->sidPhoneDigits();
+        return 'wa.me/'.$this->whatsapp->sidPhoneDigits();
+    }
+
+    private function sidPhoneDigits(): string
+    {
+        return $this->whatsapp->sidPhoneDigits();
     }
 
     private function sidPhoneDisplay(): string

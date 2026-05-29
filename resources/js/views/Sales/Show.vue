@@ -7,6 +7,9 @@
       <div class="min-w-0 flex-1">
         <h2 class="text-lg font-semibold text-slate-800">Venda #{{ sale?.id }}</h2>
         <p class="text-xs text-slate-500">{{ sale?.client?.name }}</p>
+        <p v-if="sale?.client?.cpf" class="mt-0.5 text-xs text-slate-500">
+          CPF {{ formatCpf(sale.client.cpf) }}
+        </p>
         <p
           v-if="sale?.client?.phone"
           class="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500"
@@ -513,7 +516,7 @@ import {
 } from '@/services/sale.service';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { swalDefaultConfig } from '@/composables/useAlert';
-import { formatCurrency, formatPhone } from '@/utils/format';
+import { formatCpf, formatCurrency, formatPhone } from '@/utils/format';
 import {
   badgeColors,
   installmentStatusClass as installmentStatusClassHelper,

@@ -41,6 +41,8 @@ class InstallmentInteraction extends Model
 
     public const TYPE_BOT_SUPPORT_NOTIFY = 'bot_support_notify';
 
+    public const TYPE_SID_NOTIFY = 'sid_notify';
+
     public const DIR_OUTBOUND = 'outbound';
 
     public const DIR_INBOUND = 'inbound';
