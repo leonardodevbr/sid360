@@ -164,7 +164,26 @@
         </div>
 
         <div class="mt-5 border-t border-slate-100 pt-5">
-          <p class="mb-3 text-sm font-medium text-slate-700">Notificações WhatsApp</p>
+          <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <p class="text-sm font-medium text-slate-700">Notificações WhatsApp</p>
+            <Button
+              v-if="financingOverdueCount > 0"
+              type="button"
+              variant="outline"
+              :loading="sendingOverdueWhatsapp"
+              :disabled="!sale?.client?.phone"
+              @click="handleSendOverdueWhatsapp"
+            >
+              <ChatBubbleLeftRightIcon class="mr-2 h-4 w-4" />
+              Enviar cobrança de atraso
+            </Button>
+          </div>
+          <p
+            v-if="financingOverdueCount > 0 && !sale?.client?.phone"
+            class="mb-3 text-xs text-amber-700"
+          >
+            Cadastre o WhatsApp do cliente para enviar a cobrança automática.
+          </p>
           <dl class="grid gap-3 sm:grid-cols-2">
             <div>
               <dt class="text-xs text-slate-500">Boas-vindas</dt>
@@ -414,6 +433,7 @@ import {
   uploadSignedContract,
 } from '@/services/sale.service';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { swalDefaultConfig } from '@/composables/useAlert';
 import { formatCurrency } from '@/utils/format';
 import {
   badgeColors,
@@ -434,6 +454,7 @@ import {
   ArrowUpTrayIcon,
   BanknotesIcon,
   ChevronDownIcon,
+  ChatBubbleLeftRightIcon,
   DocumentArrowDownIcon,
   DocumentCheckIcon,
   DocumentTextIcon,
@@ -479,6 +500,7 @@ const fileInputRef = ref(null);
 const selectedFile = ref(null);
 const selectedFileName = ref('');
 const generatingCarne = ref(false);
+const sendingOverdueWhatsapp = ref(false);
 const chargeModal = ref(null);
 const carneData = ref(null);
 
@@ -519,6 +541,50 @@ async function loadInteractions() {
     interactions.value = data.data ?? data;
   } catch {
     interactions.value = [];
+  }
+}
+
+async function handleSendOverdueWhatsapp() {
+  if (!sale.value?.client?.phone) {
+    toast.warning('Cliente sem telefone/WhatsApp cadastrado.');
+    return;
+  }
+
+  const phone = sale.value.client.phone;
+  const result = await Swal.fire({
+    ...swalDefaultConfig,
+    title: 'Enviar cobrança de atraso?',
+    html: `
+      <div class="text-left text-sm text-slate-600 space-y-2">
+        <p>Será enviada a <strong>mesma mensagem interativa</strong> do aviso automático (opções 1, 2 e 3), para:</p>
+        <p class="font-medium text-slate-800">${phone}</p>
+        <p class="text-xs text-slate-500 pt-2 border-t border-slate-100">
+          Pode reenviar mesmo se o sistema já tiver notificado — útil após atualizar o telefone ou para reforçar a cobrança.
+        </p>
+      </div>
+    `,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Enviar agora',
+    cancelButtonText: 'Cancelar',
+    reverseButtons: true,
+    focusCancel: true,
+  });
+
+  if (!result.isConfirmed) {
+    return;
+  }
+
+  sendingOverdueWhatsapp.value = true;
+  try {
+    const { data } = await api.post(`/sales/${sale.value.id}/whatsapp/overdue`);
+    toast.success(data.message || 'Cobrança enviada com sucesso.');
+    await loadSale();
+    await loadInteractions();
+  } catch (err) {
+    toast.error(getApiErrorMessage(err, 'Não foi possível enviar a cobrança.'));
+  } finally {
+    sendingOverdueWhatsapp.value = false;
   }
 }
 

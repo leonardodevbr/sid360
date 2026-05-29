@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Actions\Sale\DeleteSaleAction;
 use App\Actions\Sale\ListSalesAction;
+use App\Actions\Sale\SendOverdueWhatsappAction;
 use App\Actions\Sale\StoreSaleAction;
 use App\Actions\Sale\UpdateSaleAction;
 use App\Actions\Sale\UploadSignedContractAction;
@@ -82,6 +83,25 @@ class SaleController extends Controller
         $action->execute($sale);
 
         return response()->json(['message' => 'Venda excluída com sucesso.']);
+    }
+
+    public function sendOverdueWhatsapp(string|int $id, SendOverdueWhatsappAction $action): JsonResponse
+    {
+        $this->authorize('sales.edit');
+
+        Sale::query()->findOrFail((int) $id);
+
+        $result = $action->execute(
+            saleId: (int) $id,
+            forceResend: true,
+            sendEmail: false,
+        );
+
+        if (! $result['ok']) {
+            return response()->json($result, 422);
+        }
+
+        return response()->json($result);
     }
 
     public function contract(string|int $id): Response
