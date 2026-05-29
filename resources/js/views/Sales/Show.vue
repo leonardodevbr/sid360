@@ -7,6 +7,31 @@
       <div class="min-w-0 flex-1">
         <h2 class="text-lg font-semibold text-slate-800">Venda #{{ sale?.id }}</h2>
         <p class="text-xs text-slate-500">{{ sale?.client?.name }}</p>
+        <p
+          v-if="sale?.client?.phone"
+          class="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500"
+        >
+          <ChatBubbleLeftRightIcon class="h-3.5 w-3.5 shrink-0 text-slate-400" />
+          <a
+            v-if="clientWhatsAppUrl"
+            :href="clientWhatsAppUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="font-medium text-action hover:underline"
+          >
+            {{ formatPhone(sale.client.phone) }}
+          </a>
+          <span v-else>{{ formatPhone(sale.client.phone) }}</span>
+          <span
+            v-if="sale.client.whatsapp_status === 'confirmed'"
+            class="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"
+          >
+            confirmado
+          </span>
+        </p>
+        <p v-else-if="sale?.client" class="mt-0.5 text-xs text-amber-700">
+          WhatsApp não cadastrado
+        </p>
         <p v-if="sale?.lot?.full_address" class="mt-0.5 text-xs text-slate-500">
           {{ sale.lot.full_address }}
         </p>
@@ -185,6 +210,22 @@
             Cadastre o WhatsApp do cliente para enviar a cobrança automática.
           </p>
           <dl class="grid gap-3 sm:grid-cols-2">
+            <div>
+              <dt class="text-xs text-slate-500">WhatsApp do cliente</dt>
+              <dd class="mt-0.5 text-sm text-slate-800">
+                <a
+                  v-if="sale.client?.phone && clientWhatsAppUrl"
+                  :href="clientWhatsAppUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="font-medium text-action hover:underline"
+                >
+                  {{ formatPhone(sale.client.phone) }}
+                </a>
+                <span v-else-if="sale.client?.phone">{{ formatPhone(sale.client.phone) }}</span>
+                <span v-else class="text-amber-700">Não cadastrado</span>
+              </dd>
+            </div>
             <div>
               <dt class="text-xs text-slate-500">Boas-vindas</dt>
               <dd class="mt-0.5 text-sm text-slate-800">
@@ -434,7 +475,7 @@ import {
 } from '@/services/sale.service';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { swalDefaultConfig } from '@/composables/useAlert';
-import { formatCurrency } from '@/utils/format';
+import { formatCurrency, formatPhone } from '@/utils/format';
 import {
   badgeColors,
   installmentStatusClass as installmentStatusClassHelper,
@@ -447,7 +488,7 @@ import Button from '@/components/Common/Button.vue';
 import InstallmentWhatsappCell from '@/components/Sales/InstallmentWhatsappCell.vue';
 import InstallmentEfiActions from '@/components/Sales/InstallmentEfiActions.vue';
 import InstallmentChargeModal from '@/components/Sales/InstallmentChargeModal.vue';
-import { installmentDisplayStatus } from '@/utils/whatsapp';
+import { formatBrazilWhatsappNumber, installmentDisplayStatus } from '@/utils/whatsapp';
 import { formatWhatsappHtml } from '@/utils/whatsappFormat';
 import {
   ArrowLeftIcon,
@@ -482,6 +523,15 @@ const financingOverdueCount = computed(() =>
     (inst) => installmentDisplayStatus(inst) === 'overdue',
   ).length,
 );
+
+const clientWhatsAppUrl = computed(() => {
+  const phone = sale.value?.client?.phone;
+  if (!phone) {
+    return '';
+  }
+  const number = formatBrazilWhatsappNumber(phone);
+  return number ? `https://wa.me/${number}` : '';
+});
 
 const installmentsExpanded = ref(false);
 
