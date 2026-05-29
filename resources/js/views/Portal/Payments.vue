@@ -14,12 +14,13 @@ import {
   saleStatusLabel,
 } from '@/utils/status';
 import {
-  buildWhatsAppUrl,
   clearPortalSession,
   getStoredPortalClient,
   portalAccess,
   portalDashboard,
   portalLogout,
+  portalGeneratePix,
+  portalGenerateBoleto,
   storePortalSession,
 } from '@/services/portal.service';
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/vue/24/outline';
@@ -28,12 +29,13 @@ const toast = useToast();
 
 const loading = ref(false);
 const submitting = ref(false);
+const generatingPixId = ref(null);
+const generatingBoletoId = ref(null);
 const dashboard = ref(null);
 const selectedSaleId = ref(null);
 const clientName = ref(getStoredPortalClient()?.name ?? '');
 const cpf = ref('');
 const phone = ref('');
-const whatsappNumber = ref('5574988230151');
 
 const isAuthenticated = computed(() => Boolean(clientName.value) && Boolean(dashboard.value));
 
@@ -52,7 +54,6 @@ async function loadDashboard() {
   try {
     dashboard.value = await portalDashboard();
     clientName.value = dashboard.value.client?.name ?? clientName.value;
-    whatsappNumber.value = dashboard.value.whatsapp_number ?? whatsappNumber.value;
     selectedSaleId.value = null;
   } catch (err) {
     clearPortalSession();
@@ -118,29 +119,76 @@ function lotLabel(sale) {
   return `Quadra ${sale.lot?.block ?? '–'} · Lote ${sale.lot?.number ?? '–'}`;
 }
 
-function installmentLabel(inst) {
-  return inst.type === 'down_payment' ? 'Entrada' : `Parcela ${inst.number}`;
+function patchInstallment(updated) {
+  if (!dashboard.value?.sales || !updated?.id) {
+    return;
+  }
+
+  dashboard.value = {
+    ...dashboard.value,
+    sales: dashboard.value.sales.map((sale) => {
+      if (sale.id !== updated.sale_id) {
+        return sale;
+      }
+
+      return {
+        ...sale,
+        installments: sale.installments.map((inst) => (
+          inst.id === updated.id ? { ...inst, ...updated } : inst
+        )),
+      };
+    }),
+  };
 }
 
-function buildRequestMessage(inst, kind) {
-  const typeLabel = installmentLabel(inst);
-  const prefix = kind === 'pix'
-    ? 'Gostaria do código PIX'
-    : kind === 'boleto'
-      ? 'Gostaria da 2ª via do boleto'
-      : 'Gostaria da 2ª via de pagamento';
+async function handleGeneratePix(inst) {
+  generatingPixId.value = inst.id;
 
-  return [
-    `Olá! Sou ${clientName.value}.`,
-    `${prefix} da ${typeLabel} do contrato nº ${inst.contract_no}.`,
-    `Vencimento: ${formatDate(inst.due_date)} · Valor: ${formatCurrency(inst.value)}.`,
-    'Aguardo retorno. Obrigado!',
-  ].join(' ');
+  try {
+    const data = await portalGeneratePix(inst.id);
+    patchInstallment(data.installment);
+
+    if (data.pix_copia_cola) {
+      await copyPix(data.pix_copia_cola);
+    } else {
+      toast.success('PIX gerado com sucesso!');
+    }
+
+    if (data.charge_breakdown?.total_value && data.charge_breakdown.total_value !== inst.value) {
+      toast.info(`Valor atualizado: ${formatCurrency(data.charge_breakdown.total_value)} (com encargos de atraso).`);
+    }
+  } catch (err) {
+    toast.error(getApiErrorMessage(err, 'Erro ao gerar PIX.'));
+  } finally {
+    generatingPixId.value = null;
+  }
 }
 
-function openWhatsApp(inst, kind) {
-  const url = buildWhatsAppUrl(whatsappNumber.value, buildRequestMessage(inst, kind));
-  window.open(url, '_blank', 'noopener,noreferrer');
+async function handleGenerateBoleto(inst) {
+  generatingBoletoId.value = inst.id;
+
+  try {
+    const data = await portalGenerateBoleto(inst.id);
+    patchInstallment(data.installment);
+
+    const opened = data.pdf
+      ? window.open(data.pdf, '_blank', 'noopener,noreferrer') !== null
+      : false;
+
+    if (!opened && data.pdf) {
+      toast.warning('Boleto gerado. Use "Ver boleto" se a aba não abriu.');
+    } else {
+      toast.success('Boleto gerado com sucesso!');
+    }
+
+    if (data.charge_breakdown?.total_value && data.charge_breakdown.total_value !== inst.value) {
+      toast.info(`Valor atualizado: ${formatCurrency(data.charge_breakdown.total_value)} (com encargos de atraso).`);
+    }
+  } catch (err) {
+    toast.error(getApiErrorMessage(err, 'Erro ao gerar boleto.'));
+  } finally {
+    generatingBoletoId.value = null;
+  }
 }
 
 async function copyPix(code) {
@@ -167,7 +215,7 @@ onMounted(async () => {
         Meus pagamentos
       </h1>
       <p class="mt-1 text-sm text-slate-600">
-        Acompanhe entrada, parcelas e solicite PIX, boleto ou segunda via.
+        Acompanhe entrada, parcelas e gere PIX ou boleto diretamente pelo banco.
       </p>
     </div>
 
@@ -326,6 +374,17 @@ onMounted(async () => {
                 <p class="text-sm font-semibold text-slate-800">{{ formatCurrency(selectedSale.summary.pending_value) }}</p>
               </div>
             </div>
+
+            <div v-if="selectedSale.efi_carnet_pdf" class="mt-4">
+              <a
+                :href="selectedSale.efi_carnet_pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+              >
+                Baixar carnê bancário completo
+              </a>
+            </div>
           </div>
 
           <div class="overflow-x-auto">
@@ -381,22 +440,24 @@ onMounted(async () => {
                         >
                           Copiar PIX
                         </button>
-                        <template v-if="!inst.efi_pdf_url && !inst.efi_pix_copia_cola">
-                          <button
-                            type="button"
-                            class="rounded px-2 py-1 text-xs font-medium text-sid-accent hover:bg-primary-50"
-                            @click="openWhatsApp(inst, 'pix')"
-                          >
-                            Solicitar PIX
-                          </button>
-                          <button
-                            type="button"
-                            class="rounded px-2 py-1 text-xs font-medium text-sid-accent hover:bg-primary-50"
-                            @click="openWhatsApp(inst, 'boleto')"
-                          >
-                            Solicitar Boleto
-                          </button>
-                        </template>
+                        <button
+                          v-if="!inst.efi_pix_copia_cola"
+                          type="button"
+                          class="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                          :disabled="generatingPixId === inst.id"
+                          @click="handleGeneratePix(inst)"
+                        >
+                          {{ generatingPixId === inst.id ? 'Gerando...' : 'Gerar PIX' }}
+                        </button>
+                        <button
+                          v-if="!inst.efi_pdf_url"
+                          type="button"
+                          class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                          :disabled="generatingBoletoId === inst.id"
+                          @click="handleGenerateBoleto(inst)"
+                        >
+                          {{ generatingBoletoId === inst.id ? 'Gerando...' : 'Gerar boleto' }}
+                        </button>
                       </div>
                     </div>
                     <p v-else class="text-right text-xs text-slate-400">
@@ -410,8 +471,9 @@ onMounted(async () => {
         </div>
 
         <div class="rounded-lg border border-[#e8dcc8] bg-[#faf5ee] px-4 py-3 text-xs text-[#7a4535]">
-          Quando disponível, use os botões para copiar o PIX ou abrir o boleto diretamente.
-          Se a parcela ainda não tiver cobrança gerada, solicite pelo WhatsApp da corretora.
+          Gere PIX ou boleto diretamente pelo botão em cada parcela.
+          Parcelas em atraso incluem multa e juros automaticamente.
+          Dúvidas? Fale com a corretora pelo WhatsApp.
         </div>
       </template>
     </template>

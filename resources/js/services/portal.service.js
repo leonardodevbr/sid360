@@ -69,6 +69,16 @@ export async function portalLogout() {
   }
 }
 
+export async function portalGeneratePix(installmentId) {
+  const { data } = await portalApi.post(`/portal/installments/${installmentId}/pix`);
+  return data;
+}
+
+export async function portalGenerateBoleto(installmentId) {
+  const { data } = await portalApi.post(`/portal/installments/${installmentId}/boleto`);
+  return data;
+}
+
 export function buildWhatsAppUrl(number, message) {
   const digits = String(number ?? '').replace(/\D/g, '');
   return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;

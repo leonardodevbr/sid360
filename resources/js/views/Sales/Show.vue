@@ -101,7 +101,7 @@
             type="button"
             :disabled="generatingCarne"
             class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
-            @click="generateCarne"
+            @click="openCarneModal"
           >
             <BanknotesIcon class="h-4 w-4" />
             {{ generatingCarne ? 'Gerando...' : 'Gerar carnê bancário' }}
@@ -457,6 +457,44 @@
       @close="chargeModal = null"
       @updated="handleChargeUpdated"
     />
+
+    <Modal
+      :is-open="carneModalOpen"
+      title="Gerar carnê bancário"
+      @close="carneModalOpen = false"
+    >
+      <p class="mb-4 text-sm text-slate-600">
+        A Efi exige que a 1ª parcela do carnê vença após hoje.
+        Serão geradas {{ unpaidFinancingCount }} parcela(s) em aberto.
+      </p>
+      <p
+        v-if="carneScheduledFirstDueIsPast"
+        class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+      >
+        A 1ª parcela cadastrada ({{ formatDate(scheduledCarneFirstDueDate) }}) já passou.
+        Escolha uma nova data de vencimento.
+      </p>
+      <Flatpickr
+        v-model="carneFirstDueDate"
+        label="Vencimento da 1ª parcela"
+        :min-date="carneMinDueDate"
+        placeholder="DD/MM/AAAA"
+      />
+      <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <Button type="button" variant="outline" @click="carneModalOpen = false">
+          Cancelar
+        </Button>
+        <Button
+          type="button"
+          variant="primary"
+          :loading="generatingCarne"
+          :disabled="!carneFirstDueDate"
+          @click="generateCarne"
+        >
+          Gerar carnê
+        </Button>
+      </div>
+    </Modal>
   </div>
 </template>
 
@@ -485,6 +523,8 @@ import {
   saleStatusLabel as saleStatusLabelHelper,
 } from '@/utils/status';
 import Button from '@/components/Common/Button.vue';
+import Modal from '@/components/Common/Modal.vue';
+import Flatpickr from '@/components/Common/Flatpickr.vue';
 import InstallmentWhatsappCell from '@/components/Sales/InstallmentWhatsappCell.vue';
 import InstallmentEfiActions from '@/components/Sales/InstallmentEfiActions.vue';
 import InstallmentChargeModal from '@/components/Sales/InstallmentChargeModal.vue';
@@ -524,6 +564,49 @@ const financingOverdueCount = computed(() =>
   ).length,
 );
 
+const unpaidFinancingInstallments = computed(() =>
+  financingInstallments.value.filter((inst) => inst.status !== 'paid'),
+);
+
+const unpaidFinancingCount = computed(() => unpaidFinancingInstallments.value.length);
+
+function toApiDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+const carneMinDueDate = computed(() => {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+  return toApiDate(tomorrow);
+});
+
+const scheduledCarneFirstDueDate = computed(() => {
+  const firstUnpaid = unpaidFinancingInstallments.value[0];
+  return firstUnpaid?.due_date ?? sale.value?.first_due_date ?? '';
+});
+
+const suggestedCarneFirstDueDate = computed(() => {
+  const scheduled = scheduledCarneFirstDueDate.value;
+  if (!scheduled) {
+    return carneMinDueDate.value;
+  }
+
+  return scheduled >= carneMinDueDate.value ? scheduled : carneMinDueDate.value;
+});
+
+const carneScheduledFirstDueIsPast = computed(() => {
+  const scheduled = scheduledCarneFirstDueDate.value;
+  if (!scheduled) {
+    return false;
+  }
+
+  return scheduled < carneMinDueDate.value;
+});
+
 const clientWhatsAppUrl = computed(() => {
   const phone = sale.value?.client?.phone;
   if (!phone) {
@@ -550,6 +633,8 @@ const fileInputRef = ref(null);
 const selectedFile = ref(null);
 const selectedFileName = ref('');
 const generatingCarne = ref(false);
+const carneModalOpen = ref(false);
+const carneFirstDueDate = ref('');
 const sendingOverdueWhatsapp = ref(false);
 const chargeModal = ref(null);
 const carneData = ref(null);
@@ -813,19 +898,40 @@ async function handleChargeUpdated(updatedInstallment) {
   await loadInteractions();
 }
 
+async function openCarneModal() {
+  carneFirstDueDate.value = suggestedCarneFirstDueDate.value;
+  carneModalOpen.value = true;
+}
+
 async function generateCarne() {
+  if (!carneFirstDueDate.value) {
+    toast.warning('Informe o vencimento da 1ª parcela.');
+    return;
+  }
+
   generatingCarne.value = true;
 
   try {
-    const { data } = await api.post(`/sales/${route.params.id}/efi/carne`);
+    const { data } = await api.post(`/sales/${route.params.id}/efi/carne`, {
+      first_due_date: carneFirstDueDate.value,
+    });
     carneData.value = data;
+    carneModalOpen.value = false;
 
     const opened = data.pdf_carnet
       ? window.open(data.pdf_carnet, '_blank', 'noopener,noreferrer') !== null
       : false;
 
+    const dueLabel = data.first_due_date ? formatDate(data.first_due_date) : '';
+
     if (!opened) {
-      toast.warning('Carnê bancário gerado. Use o link "Baixar carnê bancário" se a aba não abriu.');
+      toast.warning(
+        dueLabel
+          ? `Carnê gerado com 1ª parcela em ${dueLabel}. Use o link "Baixar carnê bancário".`
+          : 'Carnê bancário gerado. Use o link "Baixar carnê bancário" se a aba não abriu.',
+      );
+    } else if (data.adjusted_from_scheduled) {
+      toast.success(`Carnê gerado — ${data.charges} parcelas. 1ª parcela ajustada para ${dueLabel}.`);
     } else {
       toast.success(`Carnê bancário gerado — ${data.charges} parcelas.`);
     }

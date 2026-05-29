@@ -9,8 +9,10 @@ use App\Actions\Installment\GenerateInstallmentBoletoAction;
 use App\Actions\Installment\GenerateInstallmentPixAction;
 use App\Actions\Installment\SendInstallmentBoletoWhatsappAction;
 use App\Actions\Installment\SendInstallmentPixWhatsappAction;
+use App\Actions\Sale\GenerateSaleCarneAction;
 use App\Http\Requests\GenerateInstallmentBoletoRequest;
 use App\Http\Requests\GenerateInstallmentPixRequest;
+use App\Http\Requests\GenerateSaleCarneRequest;
 use App\Models\Installment;
 use App\Models\Sale;
 use App\Services\EfiService;
@@ -196,69 +198,19 @@ class EfiPaymentController extends Controller
         }
     }
 
-    public function generateCarne(string|int $saleId): JsonResponse
+    public function generateCarne(GenerateSaleCarneRequest $request, string|int $saleId, GenerateSaleCarneAction $action): JsonResponse
     {
-        $sale = Sale::query()
-            ->with([
-                'client',
-                'lot.development',
-                'installments' => fn ($query) => $query
-                    ->where('type', '!=', Installment::TYPE_DOWN_PAYMENT)
-                    ->orderBy('number'),
-            ])
-            ->findOrFail((int) $saleId);
-
-        $client = $sale->client;
-        $installments = $sale->installments;
-
-        if ($installments->isEmpty()) {
-            return response()->json(['error' => 'Venda sem parcelas de financiamento.'], 422);
-        }
+        $sale = Sale::query()->findOrFail((int) $saleId);
 
         try {
-            $description = 'Lote '.($sale->lot?->number ?? '?')
-                .' – '.($sale->lot?->development?->name ?? 'Sid360 Imóveis');
-
-            $contractNo = str_pad((string) $sale->id, 4, '0', STR_PAD_LEFT)
-                .'/'.$sale->sale_date?->format('Y');
-
-            $carne = $this->efi->createCarne(
-                installmentValueCents: (int) $sale->installment_value,
-                installmentsCount: (int) $sale->installments_count,
-                firstDueDate: $sale->first_due_date->toDateString(),
-                debtorName: (string) $client->name,
-                debtorCpf: (string) $client->cpf,
-                itemDescription: $description,
-                debtorPhone: $client->phone,
-                message: "Contrato {$contractNo} – Sid360 Imóveis",
+            return response()->json(
+                $action->execute(
+                    sale: $sale,
+                    requestedFirstDueDate: $request->validated('first_due_date'),
+                ),
             );
-
-            $sale->update([
-                'efi_carnet_id' => $carne['carnet_id'],
-                'efi_carnet_pdf' => $carne['pdf_carnet'],
-                'efi_carnet_link' => $carne['link'],
-            ]);
-
-            foreach ($carne['charges'] as $charge) {
-                $installment = $installments->firstWhere('number', $charge['parcel']);
-
-                if ($installment) {
-                    $installment->update([
-                        'efi_charge_id' => (string) $charge['charge_id'],
-                        'efi_barcode' => $charge['barcode'],
-                        'efi_pdf_url' => $charge['pdf'],
-                        'efi_payment_type' => 'carne',
-                    ]);
-                }
-            }
-
-            return response()->json([
-                'carnet_id' => $carne['carnet_id'],
-                'pdf_carnet' => $carne['pdf_carnet'],
-                'pdf_cover' => $carne['pdf_cover'],
-                'link' => $carne['link'],
-                'charges' => count($carne['charges']),
-            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
         } catch (Throwable $e) {
             return response()->json(['error' => 'Erro ao gerar carnê bancário: '.$e->getMessage()], 500);
         }

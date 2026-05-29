@@ -11,4 +11,8 @@ Route::post('/portal/access', [PortalController::class, 'access'])
 Route::middleware('portal.token')->group(function (): void {
     Route::get('/portal/dashboard', [PortalController::class, 'dashboard']);
     Route::post('/portal/logout', [PortalController::class, 'logout']);
+    Route::post('/portal/installments/{id}/pix', [PortalController::class, 'generatePix'])
+        ->middleware('throttle:20,1');
+    Route::post('/portal/installments/{id}/boleto', [PortalController::class, 'generateBoleto'])
+        ->middleware('throttle:20,1');
 });
