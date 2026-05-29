@@ -20,6 +20,22 @@ class Setting extends Model
     public const MASKED_KEYS = [];
 
     /**
+     * Chaves legadas/removidas — não exibir nem aceitar na API de configurações.
+     *
+     * @var list<string>
+     */
+    public const HIDDEN_KEYS = [
+        'gcs_bucket',
+        'gcs_key_file_path',
+        'gcs_project_id',
+    ];
+
+    public static function isHiddenKey(string $key): bool
+    {
+        return in_array($key, self::HIDDEN_KEYS, true);
+    }
+
+    /**
      * Recupera valor de configuração pelo banco (cache via Settings). Uso em runtime.
      *
      * @param mixed $default

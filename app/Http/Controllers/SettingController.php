@@ -26,6 +26,7 @@ class SettingController extends Controller
         $this->authorize('settings.manage');
 
         $settings = Setting::query()
+            ->whereNotIn('key', Setting::HIDDEN_KEYS)
             ->orderBy('group')
             ->orderBy('key')
             ->get()
@@ -57,6 +58,9 @@ class SettingController extends Controller
         foreach ($data['settings'] as $item) {
             $key = $item['key'] ?? null;
             if (! is_string($key)) {
+                continue;
+            }
+            if (Setting::isHiddenKey($key)) {
                 continue;
             }
             if (in_array($key, Setting::MASKED_KEYS, true)) {

@@ -85,6 +85,13 @@
                   <code class="bg-slate-100 px-1 rounded">{vencimento}</code>
                   <code class="bg-slate-100 px-1 rounded">{valor}</code>
                 </template>
+                <template v-else-if="item.key === 'whatsapp_bot_menu_message'">
+                  <code class="bg-slate-100 px-1 rounded">{nome}</code>
+                  <code class="bg-slate-100 px-1 rounded">{portal_url}</code>
+                  <span class="block mt-2 text-slate-500">
+                    Comandos que o cliente pode digitar: 2ª via, saldo, extrato, contrato, atendimento.
+                  </span>
+                </template>
                 <template v-else>
                   <code class="bg-slate-100 px-1 rounded">{nome}</code>
                   <code class="bg-slate-100 px-1 rounded">{contrato}</code>
