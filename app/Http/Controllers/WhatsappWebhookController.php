@@ -29,28 +29,32 @@ class WhatsappWebhookController extends Controller
 
     public function handle(Request $request): JsonResponse
     {
-        Log::info('WhatsApp webhook received', ['payload' => $request->all()]);
-
-        $event = $request->input('event');
-
-        if ($event !== 'onmessage' && $event !== 'message') {
-            return response()->json(['ok' => true]);
-        }
-
         $payload = $this->resolvePayload($request);
+        $event = strtolower(trim((string) ($payload['event'] ?? $request->input('event', ''))));
 
-        if ($request->boolean('fromMe') || ($payload['fromMe'] ?? false)) {
+        if ($event !== '' && ! in_array($event, ['onmessage', 'message'], true)) {
             return response()->json(['ok' => true]);
         }
 
-        $from = $payload['from'] ?? $payload['chatId'] ?? $payload['sender']['id'] ?? null;
-        $body = trim((string) ($payload['body'] ?? $payload['content'] ?? ''));
-
-        if (! is_string($from) || $from === '') {
+        if ($this->isFromMe($request, $payload)) {
             return response()->json(['ok' => true]);
         }
 
-        if (str_contains($from, '@g.us')) {
+        $from = $this->resolveFrom($payload);
+        $body = $this->resolveMessageBody($payload);
+
+        Log::info('WhatsApp webhook inbound', [
+            'event' => $event,
+            'from' => $from,
+            'body' => $body,
+            'type' => $payload['type'] ?? null,
+        ]);
+
+        if ($from === null || $from === '') {
+            return response()->json(['ok' => true]);
+        }
+
+        if (str_contains($from, '@g.us') || str_contains($from, '@broadcast')) {
             return response()->json(['ok' => true]);
         }
 
@@ -96,8 +100,65 @@ class WhatsappWebhookController extends Controller
     {
         $root = $request->all();
         $nested = is_array($root['data'] ?? null) ? $root['data'] : [];
+        $message = is_array($nested['message'] ?? null)
+            ? $nested['message']
+            : (is_array($root['message'] ?? null) ? $root['message'] : []);
 
-        return array_merge($root, $nested);
+        return array_merge($root, $nested, $message);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function isFromMe(Request $request, array $payload): bool
+    {
+        if ($request->boolean('fromMe')) {
+            return true;
+        }
+
+        $fromMe = $payload['fromMe'] ?? false;
+
+        return filter_var($fromMe, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function resolveFrom(array $payload): ?string
+    {
+        foreach ([
+            data_get($payload, 'from'),
+            data_get($payload, 'chatId'),
+            data_get($payload, 'sender.id._serialized'),
+            data_get($payload, 'sender.id'),
+            data_get($payload, 'author'),
+        ] as $candidate) {
+            if (is_string($candidate) && $candidate !== '') {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function resolveMessageBody(array $payload): string
+    {
+        foreach ([
+            data_get($payload, 'body'),
+            data_get($payload, 'content'),
+            data_get($payload, 'text'),
+            data_get($payload, 'caption'),
+            data_get($payload, 'listResponse.title'),
+        ] as $candidate) {
+            if (is_string($candidate) && trim($candidate) !== '') {
+                return trim($candidate);
+            }
+        }
+
+        return '';
     }
 
     /**

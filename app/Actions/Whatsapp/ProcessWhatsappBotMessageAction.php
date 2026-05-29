@@ -40,6 +40,11 @@ class ProcessWhatsappBotMessageAction
             return;
         }
 
+        Log::info('WhatsApp bot: processing command', [
+            'client_id' => $client->id,
+            'body' => $body,
+        ]);
+
         $phone = (string) ($client->phone ?? $from);
 
         $this->bot->handle($client, $phone, $body, $payload);

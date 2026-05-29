@@ -26,7 +26,12 @@ class WhatsappWebhookKeyMiddleware
 
         $provided = $request->query('key');
 
-        if (! is_string($provided) || ! hash_equals($expected, $provided)) {
+        if (! is_string($provided) || $provided === '') {
+            $header = $request->header('X-Whatsapp-Webhook-Key');
+            $provided = is_string($header) ? $header : '';
+        }
+
+        if ($provided === '' || ! hash_equals($expected, $provided)) {
             return response()->json([
                 'message' => 'Não autorizado.',
             ], 401);
