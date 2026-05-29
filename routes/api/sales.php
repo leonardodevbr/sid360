@@ -16,8 +16,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/sales', [SaleController::class, 'index']);
     Route::post('/sales', [SaleController::class, 'store']);
     Route::get('/sales/{id}', [SaleController::class, 'show']);
-    Route::put('/sales/{id}', [SaleController::class, 'update']);
-    Route::delete('/sales/{id}', [SaleController::class, 'destroy']);
+    Route::post('/sales/{id}/update', [SaleController::class, 'update']);
+    Route::post('/sales/{id}/delete', [SaleController::class, 'destroy']);
     Route::get('/sales/{id}/contract', [SaleController::class, 'contract']);
     Route::get('/sales/{id}/carne', [SaleController::class, 'carne']);
     Route::get('/sales/{id}/carne/preview', [SaleController::class, 'carnePreviewHtml']);

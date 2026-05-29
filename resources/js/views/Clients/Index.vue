@@ -183,7 +183,7 @@ function confirmDelete(client) {
 async function doDelete() {
   deleting.value = true;
   try {
-    await api.delete(`/clients/${deleteTarget.value.id}`);
+    await api.post(`/clients/${deleteTarget.value.id}/delete`);
     toast.success('Cliente excluído.');
     deleteTarget.value = null;
     fetchClients();

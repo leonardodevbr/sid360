@@ -9,7 +9,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/clients', [ClientController::class, 'index']);
     Route::post('/clients', [ClientController::class, 'store']);
     Route::get('/clients/{id}', [ClientController::class, 'show']);
-    Route::put('/clients/{id}', [ClientController::class, 'update']);
-    Route::patch('/clients/{id}/whatsapp-status', [ClientController::class, 'updateWhatsappStatus']);
-    Route::delete('/clients/{id}', [ClientController::class, 'destroy']);
+    Route::post('/clients/{id}/update', [ClientController::class, 'update']);
+    Route::post('/clients/{id}/delete', [ClientController::class, 'destroy']);
+    Route::post('/clients/{id}/whatsapp-status', [ClientController::class, 'updateWhatsappStatus']);
 });

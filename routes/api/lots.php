@@ -9,6 +9,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/lots', [LotController::class, 'index']);
     Route::post('/lots', [LotController::class, 'store']);
     Route::get('/lots/{id}', [LotController::class, 'show']);
-    Route::put('/lots/{id}', [LotController::class, 'update']);
-    Route::delete('/lots/{id}', [LotController::class, 'destroy']);
+    Route::post('/lots/{id}/update', [LotController::class, 'update']);
+    Route::post('/lots/{id}/delete', [LotController::class, 'destroy']);
 });

@@ -53,7 +53,7 @@ async function setStatus(lead, status) {
   }
 
   try {
-    await api.patch(`/leads/${lead.id}/status`, { status });
+    await api.post(`/leads/${lead.id}/status`, { status });
     lead.status = status;
     toast.success('Status atualizado.');
     if (status === 'contacted') {

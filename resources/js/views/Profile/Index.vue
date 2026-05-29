@@ -86,7 +86,7 @@ async function submit() {
     payload.password_confirmation = form.value.password_confirmation;
   }
   try {
-    await api.put(`/users/${user.value.id}`, payload);
+    await api.post(`/users/${user.value.id}/update`, payload);
     await authStore.fetchMe();
     toast.success('Perfil atualizado.');
     form.value.password = '';

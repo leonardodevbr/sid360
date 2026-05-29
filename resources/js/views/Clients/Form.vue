@@ -114,7 +114,7 @@ async function submit() {
     const payload = getPayload();
 
     if (isEdit.value) {
-      const { data } = await api.put(`/clients/${route.params.id}`, payload);
+      const { data } = await api.post(`/clients/${route.params.id}/update`, payload);
       const client = data.data ?? data;
       await resolveWhatsappStatus(client.id);
       toast.success('Cliente atualizado.');

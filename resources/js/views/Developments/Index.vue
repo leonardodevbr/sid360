@@ -164,7 +164,7 @@ async function confirmDelete(item) {
   const ok = await confirm('Excluir empreendimento', `Excluir "${item.name}"?`);
   if (!ok) return;
   try {
-    await api.delete(`/developments/${item.id}`);
+    await api.post(`/developments/${item.id}/delete`);
     toast.success('Empreendimento excluído.');
     loadItems(pagination.value?.current_page || 1);
   } catch (e) {

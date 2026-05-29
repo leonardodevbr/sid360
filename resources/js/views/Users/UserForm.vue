@@ -127,7 +127,7 @@ async function submit() {
   }
   try {
     if (userId.value) {
-      await api.put(`/users/${userId.value}`, payload);
+      await api.post(`/users/${userId.value}/update`, payload);
       toast.success('Usuário atualizado.');
     } else {
       payload.password = form.value.password;

@@ -215,7 +215,7 @@ async function confirmDelete(item) {
   const ok = await confirm('Excluir lote', `Excluir lote ${item.number}?`);
   if (!ok) return;
   try {
-    await api.delete(`/lots/${item.id}`);
+    await api.post(`/lots/${item.id}/delete`);
     toast.success('Lote excluído.');
     loadItems(pagination.value?.current_page || 1);
   } catch (e) {

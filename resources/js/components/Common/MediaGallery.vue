@@ -95,7 +95,7 @@ async function confirmDelete(item) {
   }
 
   try {
-    await api.delete(`/media/${item.id}`);
+    await api.post(`/media/${item.id}/delete`);
     items.value = items.value.filter((mediaItem) => mediaItem.id !== item.id);
     toast.success('Foto excluída.');
   } catch {
@@ -109,7 +109,7 @@ async function updateCaption(item, caption) {
   }
 
   try {
-    await api.patch(`/media/${item.id}`, { caption });
+    await api.post(`/media/${item.id}/update`, { caption });
     item.caption = caption;
   } catch {
     toast.error('Erro ao salvar legenda.');

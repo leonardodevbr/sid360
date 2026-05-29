@@ -639,7 +639,7 @@ async function syncPending() {
   for (const record of pending) {
     try {
       if (record.lot_id) {
-        await api.put(`/lots/${record.lot_id}`, record.payload);
+        await api.post(`/lots/${record.lot_id}/update`, record.payload);
       } else {
         await api.post('/lots', record.payload);
       }
@@ -757,7 +757,7 @@ async function saveLotDemarcation(coords) {
 
   savingDemarcation.value = true;
   try {
-    await api.put(`/lots/${route.params.id}`, buildLotPayload());
+    await api.post(`/lots/${route.params.id}/update`, buildLotPayload());
     await loadDevelopmentLots();
     toast.success('Demarcação do lote salva.');
   } catch (err) {
@@ -795,7 +795,7 @@ async function submit() {
   saving.value = true;
   try {
     if (isEdit.value) {
-      await api.put(`/lots/${route.params.id}`, payload);
+      await api.post(`/lots/${route.params.id}/update`, payload);
       toast.success('Lote atualizado.');
     } else {
       await api.post('/lots', payload);

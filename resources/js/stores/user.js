@@ -77,7 +77,7 @@ export const useUserStore = defineStore('user', {
       this.error = null;
 
       try {
-        await api.delete(`/users/${id}`);
+        await api.post(`/users/${id}/delete`);
         this.users = this.users.filter((u) => u.id !== Number(id));
       } catch (err) {
         this.error = err.response?.data?.message ?? 'Erro ao excluir usuário';

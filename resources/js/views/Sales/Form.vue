@@ -1156,7 +1156,7 @@ async function checkAndRestoreDraft() {
 
 async function saveWhatsappStatus(clientId, status) {
   try {
-    await api.patch(`/clients/${clientId}/whatsapp-status`, { status });
+    await api.post(`/clients/${clientId}/whatsapp-status`, { status });
   } catch {
     // não bloqueia o cadastro
   }

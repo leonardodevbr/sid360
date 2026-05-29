@@ -119,7 +119,7 @@ class SettingsApiTest extends TestCase
         ];
 
         $response = $this->withHeader('Authorization', "Bearer {$token}")
-            ->putJson('/api/settings', $payload);
+            ->postJson('/api/settings/update', $payload);
 
         $response->assertStatus(200);
         $response->assertJson([

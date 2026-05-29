@@ -2106,7 +2106,7 @@ async function persistPerimeterCoordinates(coords, { successMessage = 'Perímetr
   }
 
   try {
-    await api.put(`/developments/${route.params.id}`, {
+    await api.post(`/developments/${route.params.id}/update`, {
       coordinates: coords,
       map_center: form.value.map_center ?? null,
       map_zoom: form.value.map_zoom ?? null,
@@ -2157,7 +2157,7 @@ async function undoClearPerimeter() {
 
 async function saveZoneCoordinates(zone, coords) {
   try {
-    await api.put(`/developments/${route.params.id}/zones/${zone.id}`, {
+    await api.post(`/developments/${route.params.id}/zones/${zone.id}/update`, {
       name: zone.name,
       type: zone.type,
       color: zone.color,
@@ -2186,7 +2186,7 @@ async function confirmClearZone(zone) {
   if (!ok) return;
 
   try {
-    await api.put(`/developments/${route.params.id}/zones/${zone.id}`, {
+    await api.post(`/developments/${route.params.id}/zones/${zone.id}/update`, {
       name: zone.name,
       type: zone.type,
       color: zone.color,
@@ -2419,8 +2419,8 @@ async function saveStreet() {
 
   try {
     if (editingStreet.value) {
-      await api.put(
-        `/developments/${route.params.id}/streets/${editingStreet.value.id}`,
+      await api.post(
+        `/developments/${route.params.id}/streets/${editingStreet.value.id}/update`,
         streetForm.value,
       );
       toast.success('Rua atualizada.');
@@ -2448,7 +2448,7 @@ async function deleteStreet(street) {
   if (!ok) return;
 
   try {
-    await api.delete(`/developments/${route.params.id}/streets/${street.id}`);
+    await api.post(`/developments/${route.params.id}/streets/${street.id}/delete`);
     toast.success('Rua excluída.');
     await loadStreets();
 
@@ -2474,7 +2474,7 @@ async function confirmClearStreet(street) {
   }
 
   try {
-    await api.put(`/developments/${route.params.id}/streets/${street.id}`, {
+    await api.post(`/developments/${route.params.id}/streets/${street.id}/update`, {
       name: street.name,
       color: street.color,
       order: street.order,
@@ -2520,7 +2520,7 @@ function startDrawStreet(street) {
 
 async function saveStreetCoordinates(street, coords) {
   try {
-    await api.put(`/developments/${route.params.id}/streets/${street.id}`, {
+    await api.post(`/developments/${route.params.id}/streets/${street.id}/update`, {
       name: street.name,
       color: street.color,
       order: street.order != null ? Number(street.order) : null,
@@ -2623,7 +2623,7 @@ async function saveZone() {
     let createdZone = null;
 
     if (editingZone.value) {
-      await api.put(`/developments/${route.params.id}/zones/${editingZone.value.id}`, payload);
+      await api.post(`/developments/${route.params.id}/zones/${editingZone.value.id}/update`, payload);
       toast.success('Zona atualizada.');
     } else {
       const { data } = await api.post(`/developments/${route.params.id}/zones`, payload);
@@ -2656,7 +2656,7 @@ async function deleteZone(zone) {
   if (!ok) return;
 
   try {
-    await api.delete(`/developments/${route.params.id}/zones/${zone.id}`);
+    await api.post(`/developments/${route.params.id}/zones/${zone.id}/delete`);
     toast.success('Zona excluída.');
     await loadZones();
     if (zoneLayers[zone.id]) {
@@ -2765,7 +2765,7 @@ async function submit() {
   saving.value = true;
   try {
     if (isEdit.value) {
-      await api.put(`/developments/${route.params.id}`, form.value);
+      await api.post(`/developments/${route.params.id}/update`, form.value);
       toast.success('Empreendimento atualizado.');
     } else {
       const { data } = await api.post('/developments', form.value);

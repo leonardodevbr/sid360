@@ -12,8 +12,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/developments/{id}/media', [MediaController::class, 'indexDevelopment']);
     Route::post('/developments/{id}/media', [MediaController::class, 'uploadDevelopment']);
 
-    Route::delete('/media/{id}', [MediaController::class, 'destroy']);
-    Route::patch('/media/{id}', [MediaController::class, 'update']);
+    Route::post('/media/{id}/update', [MediaController::class, 'update']);
+    Route::post('/media/{id}/delete', [MediaController::class, 'destroy']);
     Route::post('/media/{id}/cover', [MediaController::class, 'setCover']);
     Route::post('/media/reorder', [MediaController::class, 'reorder']);
 });
