@@ -18,7 +18,7 @@ class SendInstallmentBoletoWhatsappAction
     ) {}
 
     /**
-     * @return array{ok: bool, text_sent: bool, pdf_sent: bool|null}
+     * @return array{ok: bool, text_sent: bool, pdf_sent: bool|null, error?: string}
      */
     public function execute(
         Installment $installment,
@@ -40,7 +40,12 @@ class SendInstallmentBoletoWhatsappAction
                     'error' => $e->getMessage(),
                 ]);
 
-                return ['ok' => false, 'text_sent' => false, 'pdf_sent' => null];
+                return [
+                    'ok' => false,
+                    'text_sent' => false,
+                    'pdf_sent' => null,
+                    'error' => $e->getMessage(),
+                ];
             }
         }
 

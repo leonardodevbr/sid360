@@ -46,10 +46,12 @@ class ProcessWhatsappBotMessageAction
             'from' => $payload['from'] ?? null,
         ]);
 
-        $phone = (string) ($client->phone ?? $from);
+        $replyTo = str_contains(trim($from), '@')
+            ? trim($from)
+            : (string) ($client->phone ?? $from);
 
         try {
-            $this->bot->handle($client, $phone, $body, $payload);
+            $this->bot->handle($client, $replyTo, $body, $payload);
         } catch (\Throwable $e) {
             Log::error('WhatsApp bot: handle failed', [
                 'client_id' => $client->id,
@@ -58,7 +60,7 @@ class ProcessWhatsappBotMessageAction
             ]);
 
             $this->whatsapp->send(
-                $phone,
+                $replyTo,
                 "Desculpe, ocorreu um erro ao processar sua mensagem.\n\nDigite *menu* para ver os comandos disponíveis.",
             );
         }

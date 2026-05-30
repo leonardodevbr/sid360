@@ -6,6 +6,8 @@ namespace App\Actions\Installment;
 
 use App\Models\Installment;
 use App\Services\EfiService;
+use Efi\Exception\EfiException;
+use InvalidArgumentException;
 use Throwable;
 
 class GenerateInstallmentBoletoAction
@@ -47,18 +49,28 @@ class GenerateInstallmentBoletoAction
 
         $charge = $this->calculateCharge->execute($installment, $waivePenalties, $dueDate);
 
+        $this->assertValueWithinEfiLimit((int) $charge['total_value']);
+
         $description = 'Contrato '.str_pad((string) $installment->sale_id, 4, '0', STR_PAD_LEFT)
             .' – Parcela '.$installment->number;
 
-        $boleto = $this->efi->createBoleto(
-            valueInCents: (float) $charge['total_value'],
-            debtorName: (string) $installment->sale->client->name,
-            debtorCpf: (string) $installment->sale->client->cpf,
-            dueDate: $dueDate,
-            description: $description,
-            debtorPhone: $installment->sale->client->phone,
-            waivePenalties: $waivePenalties || $charge['total_value'] > $charge['original_value'],
-        );
+        try {
+            $boleto = $this->efi->createBoleto(
+                valueInCents: (float) $charge['total_value'],
+                debtorName: (string) $installment->sale->client->name,
+                debtorCpf: (string) $installment->sale->client->cpf,
+                dueDate: $dueDate,
+                description: $description,
+                debtorPhone: $installment->sale->client->phone,
+                waivePenalties: $waivePenalties || $charge['total_value'] > $charge['original_value'],
+            );
+        } catch (EfiException $e) {
+            if ($this->isValueLimitError($e)) {
+                throw new InvalidArgumentException($this->valueLimitErrorMessage((int) $charge['total_value']));
+            }
+
+            throw $e;
+        }
 
         $installment->update([
             'efi_charge_id' => (string) $boleto['charge_id'],
@@ -76,5 +88,39 @@ class GenerateInstallmentBoletoAction
             'charge_value' => (float) $charge['total_value'],
             'charge_breakdown' => $charge,
         ];
+    }
+
+    private function assertValueWithinEfiLimit(int $valueCents): void
+    {
+        $maxCents = (int) config('services.efi.carne_max_value_cents', 200_000);
+
+        if ($maxCents > 0 && $valueCents > $maxCents) {
+            throw new InvalidArgumentException($this->valueLimitErrorMessage($valueCents, $maxCents));
+        }
+    }
+
+    private function isValueLimitError(EfiException $e): bool
+    {
+        $message = mb_strtolower($e->getMessage());
+
+        return (int) ($e->code ?? 0) === 4600037
+            || str_contains($message, 'valor máximo')
+            || str_contains($message, 'limite operacional');
+    }
+
+    private function valueLimitErrorMessage(int $valueCents, ?int $maxCents = null): string
+    {
+        $maxCents ??= (int) config('services.efi.carne_max_value_cents', 200_000);
+
+        return 'Valor da parcela ('
+            .$this->formatMoney($valueCents)
+            .') ultrapassa o limite da conta Efi ('
+            .$this->formatMoney($maxCents)
+            .' por boleto). Peça aumento do limite ao suporte Efí ou use PIX.';
+    }
+
+    private function formatMoney(int $cents): string
+    {
+        return 'R$ '.number_format($cents / 100, 2, ',', '.');
     }
 }

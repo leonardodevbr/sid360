@@ -15,9 +15,9 @@ class WhatsappService
 {
     public function send(string $phone, string $message): bool
     {
-        $numero = $this->formatPhoneNumber($phone);
+        $recipient = $this->formatRecipient($phone);
 
-        if ($numero === null) {
+        if ($recipient === null) {
             return false;
         }
 
@@ -31,14 +31,14 @@ class WhatsappService
             $response = Http::timeout((int) config('services.wppconnect.timeout', 30))
                 ->withToken($config['token'])
                 ->post("{$config['base_url']}/api/{$config['session']}/send-message", [
-                    'phone' => $numero,
+                    'phone' => $recipient,
                     'message' => $message,
                 ]);
 
             if (! $response->successful()) {
                 Log::warning('WhatsappService::send failed', [
                     'status' => $response->status(),
-                    'phone' => $numero,
+                    'phone' => $recipient,
                 ]);
 
                 return false;
@@ -48,7 +48,7 @@ class WhatsappService
         } catch (\Exception $e) {
             Log::error('WhatsappService::send exception', [
                 'message' => $e->getMessage(),
-                'phone' => $numero,
+                'phone' => $recipient,
             ]);
 
             return false;
@@ -61,9 +61,9 @@ class WhatsappService
         ?string $caption = null,
         string $filename = 'pix-qrcode.png',
     ): bool {
-        $numero = $this->formatPhoneNumber($phone);
+        $recipient = $this->formatRecipient($phone);
 
-        if ($numero === null) {
+        if ($recipient === null) {
             return false;
         }
 
@@ -80,7 +80,7 @@ class WhatsappService
         }
 
         $payload = [
-            'phone' => $numero,
+            'phone' => $recipient,
             'base64' => $base64,
             'filename' => $filename,
             'isGroup' => false,
@@ -98,7 +98,7 @@ class WhatsappService
             if (! $response->successful()) {
                 Log::warning('WhatsappService::sendImage failed', [
                     'status' => $response->status(),
-                    'phone' => $numero,
+                    'phone' => $recipient,
                     'body' => $response->body(),
                 ]);
 
@@ -109,7 +109,7 @@ class WhatsappService
         } catch (\Exception $e) {
             Log::error('WhatsappService::sendImage exception', [
                 'message' => $e->getMessage(),
-                'phone' => $numero,
+                'phone' => $recipient,
             ]);
 
             return false;
@@ -165,21 +165,21 @@ class WhatsappService
         ?string $base64File = null,
         string $mimeType = 'application/pdf',
     ): bool {
-        $numero = $this->formatPhoneNumber($phone);
+        $recipient = $this->formatRecipient($phone);
 
-        if ($numero === null) {
+        if ($recipient === null) {
             return false;
         }
 
         $fileUrl = $fileUrl !== null ? trim($fileUrl) : null;
 
         if ($fileUrl !== null && $fileUrl !== '') {
-            if ($this->postSendFile($numero, $filename, $caption, ['path' => $fileUrl])) {
+            if ($this->postSendFile($recipient, $filename, $caption, ['path' => $fileUrl])) {
                 return true;
             }
 
             Log::warning('WhatsappService::sendDocument URL failed, trying base64 fallback', [
-                'phone' => $numero,
+                'phone' => $recipient,
                 'url' => $fileUrl,
             ]);
         }
@@ -195,7 +195,7 @@ class WhatsappService
         }
 
         return $this->postSendFile(
-            $numero,
+            $recipient,
             $filename,
             $caption,
             ['base64' => $this->normalizeBase64AsDataUri($base64, $mimeType)],
@@ -206,7 +206,7 @@ class WhatsappService
      * @param  array<string, string>  $filePayload
      */
     private function postSendFile(
-        string $numero,
+        string $phoneOrJid,
         string $filename,
         ?string $caption,
         array $filePayload,
@@ -217,27 +217,52 @@ class WhatsappService
             return false;
         }
 
-        $payload = array_merge([
-            'phone' => $numero,
-            'filename' => $filename,
-            'isGroup' => false,
-        ], $filePayload);
+        $targets = array_values(array_unique(array_filter([
+            $this->formatRecipientAsChatId($phoneOrJid),
+            $this->formatRecipient($phoneOrJid),
+        ])));
 
-        if ($caption !== null && $caption !== '') {
-            $payload['caption'] = $caption;
+        foreach ($targets as $target) {
+            $payload = array_merge([
+                'phone' => $target,
+                'filename' => $filename,
+                'isGroup' => false,
+            ], $filePayload);
+
+            if ($caption !== null && $caption !== '') {
+                $payload['caption'] = $caption;
+            }
+
+            if (isset($payload['base64'])) {
+                if ($this->postWppconnect($config, 'send-file-base64', $payload)) {
+                    return true;
+                }
+            }
+
+            if ($this->postWppconnect($config, 'send-file', $payload)) {
+                return true;
+            }
         }
 
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  array{base_url: string, session: string, token: string}  $config
+     */
+    private function postWppconnect(array $config, string $endpoint, array $payload): bool
+    {
         try {
             $response = Http::timeout((int) config('services.wppconnect.media_timeout', 90))
                 ->withToken($config['token'])
-                ->post("{$config['base_url']}/api/{$config['session']}/send-file", $payload);
+                ->post("{$config['base_url']}/api/{$config['session']}/{$endpoint}", $payload);
 
             if (! $response->successful()) {
-                Log::warning('WhatsappService::postSendFile failed', [
+                Log::warning("WhatsappService::{$endpoint} failed", [
                     'status' => $response->status(),
-                    'phone' => $numero,
+                    'phone' => $payload['phone'] ?? null,
                     'body' => $response->body(),
-                    'payload_keys' => array_keys($filePayload),
                 ]);
 
                 return false;
@@ -245,9 +270,9 @@ class WhatsappService
 
             return true;
         } catch (\Exception $e) {
-            Log::error('WhatsappService::postSendFile exception', [
+            Log::error("WhatsappService::{$endpoint} exception", [
                 'message' => $e->getMessage(),
-                'phone' => $numero,
+                'phone' => $payload['phone'] ?? null,
             ]);
 
             return false;
@@ -681,15 +706,44 @@ class WhatsappService
         ];
     }
 
-    private function formatPhoneNumber(string $phone): ?string
+    private function formatRecipient(string $phoneOrJid): ?string
     {
-        $digits = preg_replace('/\D/', '', $phone) ?? '';
+        $value = trim($phoneOrJid);
+
+        if ($value === '') {
+            return null;
+        }
+
+        if (str_contains($value, '@')) {
+            return $value;
+        }
+
+        $digits = preg_replace('/\D/', '', $value) ?? '';
 
         if (strlen($digits) < 10) {
             return null;
         }
 
+        if (str_starts_with($digits, '55') && strlen($digits) >= 12) {
+            return $digits;
+        }
+
         return strlen($digits) >= 11 ? "55{$digits}" : "559{$digits}";
+    }
+
+    private function formatRecipientAsChatId(string $phoneOrJid): ?string
+    {
+        $recipient = $this->formatRecipient($phoneOrJid);
+
+        if ($recipient === null) {
+            return null;
+        }
+
+        if (str_contains($recipient, '@')) {
+            return $recipient;
+        }
+
+        return "{$recipient}@c.us";
     }
 
     private function normalizeBase64Payload(string $base64, string $mimeType): string

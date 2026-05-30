@@ -191,15 +191,11 @@ class WhatsappBotService
             return;
         }
 
-        $sent = $this->sendPix->execute(
+        $pixSent = $this->sendPix->execute(
             installment: $installment,
             phone: $phone,
             interactionType: InstallmentInteraction::TYPE_BOT_PAYMENT,
         );
-
-        if ($sent) {
-            return;
-        }
 
         $boleto = $this->sendBoleto->execute(
             installment: $installment,
@@ -207,18 +203,34 @@ class WhatsappBotService
             interactionType: InstallmentInteraction::TYPE_BOT_PAYMENT,
         );
 
-        if ($boleto['ok']) {
+        if ($pixSent || ($boleto['ok'] ?? false)) {
             return;
         }
 
         $this->sendBotResponse(
-            $client,
-            $phone,
-            "Não foi possível gerar o pagamento agora.\n\nAcesse o portal:\n🔗 {$this->portalUrl()}\n\nOu digite *atendimento* para falar com o corretor.",
-            self::COMMAND_PAYMENT,
+            client: $client,
+            phone: $phone,
+            message: $this->paymentFailureMessage($client, $boleto['error'] ?? null),
+            command: self::COMMAND_PAYMENT,
             saleId: $installment->sale_id,
             installmentId: $installment->id,
         );
+    }
+
+    private function paymentFailureMessage(Client $client, ?string $boletoError): string
+    {
+        $portalUrl = $this->portalUrl();
+
+        if ($boletoError !== null && (
+            str_contains(mb_strtolower($boletoError), 'limite')
+            || str_contains(mb_strtolower($boletoError), 'máximo')
+        )) {
+            return "⚠️ *{$client->name}*, o boleto não pôde ser gerado:\n{$boletoError}\n\n"
+                ."O PIX pode ter sido enviado acima (se disponível).\n\n"
+                ."Portal: {$portalUrl}\n\nOu digite *atendimento*.";
+        }
+
+        return "Não foi possível gerar o pagamento agora.\n\nAcesse o portal:\n🔗 {$portalUrl}\n\nOu digite *atendimento* para falar com o corretor.";
     }
 
     private function handleBalance(Client $client, string $phone): void
@@ -425,7 +437,8 @@ class WhatsappBotService
             $this->sendBotResponse(
                 $client,
                 $phone,
-                "Não foi possível enviar o PDF agora.\n\nAcesse o portal ou digite *atendimento*.",
+                "Não foi possível enviar o PDF do contrato pelo WhatsApp.\n\n"
+                ."Peça ao corretor pelo comando *atendimento* ou acesse:\n{$this->portalUrl()}",
                 self::COMMAND_CONTRACT,
                 saleId: $sale->id,
             );

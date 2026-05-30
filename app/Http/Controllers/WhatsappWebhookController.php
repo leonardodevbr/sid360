@@ -346,21 +346,26 @@ class WhatsappWebhookController extends Controller
 
         $pixSent = $this->sendPixWhatsapp->execute(
             installment: $installment,
-            phone: (string) $client->phone,
+            phone: $this->replyAddress($from, $client),
             interactionType: InstallmentInteraction::TYPE_REPLY_BOLETO.'_pix',
         );
 
         $boletoResult = $this->sendBoletoWhatsapp->execute(
             installment: $installment,
-            phone: (string) $client->phone,
+            phone: $this->replyAddress($from, $client),
             interactionType: InstallmentInteraction::TYPE_REPLY_BOLETO.'_boleto',
         );
 
         if (! $pixSent && ! ($boletoResult['ok'] ?? false)) {
             $portalUrl = rtrim((string) config('app.url'), '/').'/pagamentos';
+            $boletoError = (string) ($boletoResult['error'] ?? '');
+            $message = str_contains(mb_strtolower($boletoError), 'limite') || str_contains(mb_strtolower($boletoError), 'máximo')
+                ? "⚠️ *{$client->name}*, o boleto não pôde ser gerado:\n{$boletoError}\n\nTente o PIX acima ou pelo portal:\n🔗 {$portalUrl}"
+                : "⚠️ *{$client->name}*, não foi possível gerar PIX nem boleto agora.\n\nTente pelo portal:\n🔗 {$portalUrl}\n\nOu digite *atendimento*.";
+
             $this->whatsapp->sendAndRecord(
-                phone: $client->phone,
-                message: "⚠️ *{$client->name}*, não foi possível gerar PIX nem boleto agora.\n\nTente pelo portal:\n🔗 {$portalUrl}\n\nOu digite *atendimento*.",
+                phone: $this->replyAddress($from, $client),
+                message: $message,
                 type: InstallmentInteraction::TYPE_REPLY_BOLETO.'_response',
                 installmentId: $installment->id,
                 saleId: (int) $sale->id,
@@ -523,5 +528,16 @@ class WhatsappWebhookController extends Controller
         }
 
         return $digits;
+    }
+
+    private function replyAddress(string $from, Client $client): string
+    {
+        $from = trim($from);
+
+        if (str_contains($from, '@')) {
+            return $from;
+        }
+
+        return (string) ($client->phone ?? $from);
     }
 }
