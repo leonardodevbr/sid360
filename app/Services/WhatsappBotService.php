@@ -6,38 +6,43 @@ namespace App\Services;
 
 use App\Actions\Installment\SendInstallmentBoletoWhatsappAction;
 use App\Actions\Installment\SendInstallmentPixWhatsappAction;
-use App\Actions\Sale\GenerateSaleContractPdfAction;
+use App\Actions\Sale\SendSaleCarneWhatsappAction;
+use App\Actions\Sale\SendSaleContractWhatsappAction;
 use App\Models\Client;
 use App\Models\Installment;
 use App\Models\InstallmentInteraction;
 use App\Models\Sale;
 use App\Models\Setting;
+use App\Support\WhatsappCommandParser;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Log;
 
 class WhatsappBotService
 {
-    public const COMMAND_MENU = 'menu';
+    public const COMMAND_MENU = WhatsappCommandParser::COMMAND_MENU;
 
-    public const COMMAND_PAYMENT = 'payment';
+    public const COMMAND_PAYMENT = WhatsappCommandParser::COMMAND_PAYMENT;
 
-    public const COMMAND_BALANCE = 'balance';
+    public const COMMAND_BALANCE = WhatsappCommandParser::COMMAND_BALANCE;
 
-    public const COMMAND_STATEMENT = 'statement';
+    public const COMMAND_STATEMENT = WhatsappCommandParser::COMMAND_STATEMENT;
 
-    public const COMMAND_CONTRACT = 'contract';
+    public const COMMAND_CONTRACT = WhatsappCommandParser::COMMAND_CONTRACT;
 
-    public const COMMAND_SUPPORT = 'support';
+    public const COMMAND_CARNE = WhatsappCommandParser::COMMAND_CARNE;
 
-    public const COMMAND_UNKNOWN = 'unknown';
+    public const COMMAND_SUPPORT = WhatsappCommandParser::COMMAND_SUPPORT;
+
+    public const COMMAND_UNKNOWN = WhatsappCommandParser::COMMAND_UNKNOWN;
 
     public function __construct(
         private readonly WhatsappService $whatsapp,
+        private readonly WhatsappCommandParser $commandParser,
         private readonly SendInstallmentPixWhatsappAction $sendPix,
         private readonly SendInstallmentBoletoWhatsappAction $sendBoleto,
-        private readonly GenerateSaleContractPdfAction $generateContract,
+        private readonly SendSaleContractWhatsappAction $sendContract,
+        private readonly SendSaleCarneWhatsappAction $sendCarne,
     ) {}
 
     /**
@@ -71,6 +76,7 @@ class WhatsappBotService
             self::COMMAND_BALANCE => $this->handleBalance($client, $phone),
             self::COMMAND_STATEMENT => $this->handleStatement($client, $phone),
             self::COMMAND_CONTRACT => $this->handleContract($client, $phone, $argument),
+            self::COMMAND_CARNE => $this->handleCarne($client, $phone, $argument),
             self::COMMAND_SUPPORT => $this->handleSupport($client, $phone),
             default => $this->sendMenu($client, $phone, unknown: true),
         };
@@ -81,87 +87,14 @@ class WhatsappBotService
      */
     public function parseCommand(string $body): array
     {
-        $normalized = mb_strtolower(trim($body));
-        $normalized = preg_replace('/\s+/u', ' ', $normalized) ?? $normalized;
-
-        if ($normalized === '') {
-            return [self::COMMAND_UNKNOWN, null];
-        }
-
-        if ($this->matchesAny($normalized, ['menu', 'ajuda', 'help', 'comandos', 'opcoes', 'opções'])) {
-            return [self::COMMAND_MENU, null];
-        }
-
-        if ($this->matchesAny($normalized, ['oi', 'olá', 'ola', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hello'])) {
-            return [self::COMMAND_MENU, null];
-        }
-
-        if ($this->matchesPaymentCommand($normalized)) {
-            return [self::COMMAND_PAYMENT, null];
-        }
-
-        if ($this->matchesAny($normalized, ['saldo', 'pendente', 'pendentes', 'parcelas', 'devo', 'quanto devo'])) {
-            return [self::COMMAND_BALANCE, null];
-        }
-
-        if ($this->matchesAny($normalized, ['extrato', 'historico', 'histórico', 'pagamentos', 'pago', 'pagos'])) {
-            return [self::COMMAND_STATEMENT, null];
-        }
-
-        if ($this->matchesSupportCommand($normalized)) {
-            return [self::COMMAND_SUPPORT, null];
-        }
-
-        if (preg_match('/^contrato(?:\s+(.+))?$/u', $normalized, $matches)) {
-            $argument = isset($matches[1]) ? trim($matches[1]) : null;
-
-            return [self::COMMAND_CONTRACT, $argument !== '' ? $argument : null];
-        }
-
-        return [self::COMMAND_UNKNOWN, null];
-    }
-
-    private function matchesPaymentCommand(string $normalized): bool
-    {
-        if ($this->matchesAny($normalized, ['2via', '2ª via', '2a via', 'segunda via', 'pagar', 'pagamento'])) {
-            return true;
-        }
-
-        return preg_match('/\b(pix|boleto)\b/u', $normalized) === 1;
-    }
-
-    private function matchesSupportCommand(string $normalized): bool
-    {
-        return $this->matchesAny($normalized, [
-            'atendimento',
-            'falar com sid',
-            'falar com o sid',
-            'corretor',
-            'negociar',
-            'humano',
-            'suporte',
-        ]);
-    }
-
-    /**
-     * @param  list<string>  $needles
-     */
-    private function matchesAny(string $haystack, array $needles): bool
-    {
-        foreach ($needles as $needle) {
-            if ($haystack === $needle || str_contains($haystack, $needle)) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->commandParser->parse($body);
     }
 
     private function sendMenu(Client $client, string $phone, bool $unknown = false): void
     {
         $template = (string) Setting::get(
             'whatsapp_bot_menu_message',
-            "Olá, *{nome}*! Sou o assistente *Sid360*.\n\nDigite um comando:\n\n*2ª via* — receber PIX ou boleto\n*saldo* — parcelas pendentes\n*extrato* — histórico de pagamentos\n*contrato* — PDF do contrato\n*atendimento* — falar com o corretor\n\nPortal: {portal_url}",
+            "Olá, *{nome}*! Sou o assistente *Sid360*.\n\nDigite um comando:\n\n*2ª via* — receber PIX ou boleto\n*saldo* — parcelas pendentes\n*extrato* — histórico de pagamentos\n*contrato* — PDF do contrato\n*carne* — carnê / promissória\n*atendimento* — falar com o corretor\n\nPortal: {portal_url}",
         );
 
         $prefix = $unknown
@@ -299,7 +232,7 @@ class WhatsappBotService
             ["📋 *Saldo de {$client->name}* ({$today->format('d/m/Y')})", ''],
             $lines,
             [
-                'Para pagar agora, digite *2ª via*.',
+                'Para pagar agora, digite *2ª via*, *quero pagar* ou *manda o pix*.',
                 "Portal: {$this->portalUrl()}",
             ],
         ));
@@ -360,6 +293,55 @@ class WhatsappBotService
 
     private function handleContract(Client $client, string $phone, ?string $argument): void
     {
+        $this->sendSaleDocument(
+            client: $client,
+            phone: $phone,
+            argument: $argument,
+            command: self::COMMAND_CONTRACT,
+            interactionType: InstallmentInteraction::TYPE_BOT_CONTRACT,
+            sendAction: fn (Sale $sale): bool => $this->sendContract->execute(
+                sale: $sale,
+                phone: $phone,
+                interactionType: InstallmentInteraction::TYPE_BOT_CONTRACT,
+            ),
+            documentLabel: 'contrato',
+            failureMessage: "Não foi possível enviar o PDF do contrato pelo WhatsApp.\n\n"
+                ."Peça ao corretor pelo comando *atendimento* ou acesse:\n{$this->portalUrl()}",
+        );
+    }
+
+    private function handleCarne(Client $client, string $phone, ?string $argument): void
+    {
+        $this->sendSaleDocument(
+            client: $client,
+            phone: $phone,
+            argument: $argument,
+            command: self::COMMAND_CARNE,
+            interactionType: InstallmentInteraction::TYPE_BOT_CARNE,
+            sendAction: fn (Sale $sale): bool => $this->sendCarne->execute(
+                sale: $sale,
+                phone: $phone,
+                interactionType: InstallmentInteraction::TYPE_BOT_CARNE,
+            ),
+            documentLabel: 'carnê',
+            failureMessage: "Não foi possível enviar o carnê pelo WhatsApp.\n\n"
+                ."Peça ao corretor pelo comando *atendimento* ou acesse:\n{$this->portalUrl()}",
+        );
+    }
+
+    /**
+     * @param  callable(Sale): bool  $sendAction
+     */
+    private function sendSaleDocument(
+        Client $client,
+        string $phone,
+        ?string $argument,
+        string $command,
+        string $interactionType,
+        callable $sendAction,
+        string $documentLabel,
+        string $failureMessage,
+    ): void {
         $sales = $this->activeSales($client);
 
         if ($sales->isEmpty()) {
@@ -367,7 +349,7 @@ class WhatsappBotService
                 $client,
                 $phone,
                 "Não encontramos contratos ativos para *{$client->name}*.",
-                self::COMMAND_CONTRACT,
+                $command,
             );
 
             return;
@@ -376,60 +358,48 @@ class WhatsappBotService
         $sale = $this->resolveSaleFromArgument($sales, $argument);
 
         if ($sale === null) {
-            $list = $sales->map(fn (Sale $s): string => '• *contrato '.$this->contractNumber($s).'* — Q'.$s->lot?->block.' · L'.$s->lot?->number)
+            $commandLabel = match ($command) {
+                self::COMMAND_CONTRACT => 'contrato',
+                self::COMMAND_CARNE => 'carne',
+                default => $command,
+            };
+
+            $list = $sales->map(fn (Sale $s): string => '• *'.$commandLabel.' '.$this->contractNumber($s).'* — Q'.$s->lot?->block.' · L'.$s->lot?->number)
                 ->implode("\n");
 
             $this->sendBotResponse(
                 $client,
                 $phone,
-                "Você possui mais de um contrato.\n\nEnvie, por exemplo:\n*contrato 0001/2025*\n\nContratos:\n{$list}",
-                self::COMMAND_CONTRACT,
-            );
-
-            return;
-        }
-
-        try {
-            $pdfBytes = $this->generateContract->execute($sale);
-        } catch (\Throwable $e) {
-            Log::error('WhatsappBotService: contract PDF failed', [
-                'sale_id' => $sale->id,
-                'error' => $e->getMessage(),
-            ]);
-
-            $this->sendBotResponse(
-                $client,
-                $phone,
-                'Não foi possível gerar o contrato agora. Digite *atendimento* para falar com o corretor.',
-                self::COMMAND_CONTRACT,
-                saleId: $sale->id,
+                "Você possui mais de um contrato.\n\nEnvie, por exemplo:\n*{$commandLabel} 0001/2025*\n\nContratos:\n{$list}",
+                $command,
             );
 
             return;
         }
 
         $contractNo = $this->contractNumber($sale);
-        $filename = "contrato-{$sale->id}.pdf";
-        $caption = "Contrato {$contractNo} — Sid360 Imóveis";
 
-        $sent = $this->whatsapp->sendDocument(
+        $this->whatsapp->sendAndRecord(
             phone: $phone,
-            filename: $filename,
-            caption: $caption,
-            base64File: base64_encode($pdfBytes),
+            message: "Olá, *{$client->name}*! Segue o PDF do *{$documentLabel}* do contrato *{$contractNo}*.",
+            type: InstallmentInteraction::TYPE_BOT_RESPONSE,
+            saleId: $sale->id,
+            clientId: $client->id,
+            meta: ['command' => $command, 'step' => 'document_intro'],
         );
+
+        $sent = $sendAction($sale);
 
         InstallmentInteraction::create([
             'sale_id' => $sale->id,
             'client_id' => $client->id,
             'phone' => $phone,
             'direction' => InstallmentInteraction::DIR_OUTBOUND,
-            'type' => InstallmentInteraction::TYPE_BOT_CONTRACT,
-            'message' => $caption,
+            'type' => $interactionType,
+            'message' => ucfirst($documentLabel)." {$contractNo}",
             'meta' => [
                 'sent' => $sent,
-                'command' => self::COMMAND_CONTRACT,
-                'filename' => $filename,
+                'command' => $command,
             ],
         ]);
 
@@ -437,9 +407,8 @@ class WhatsappBotService
             $this->sendBotResponse(
                 $client,
                 $phone,
-                "Não foi possível enviar o PDF do contrato pelo WhatsApp.\n\n"
-                ."Peça ao corretor pelo comando *atendimento* ou acesse:\n{$this->portalUrl()}",
-                self::COMMAND_CONTRACT,
+                $failureMessage,
+                $command,
                 saleId: $sale->id,
             );
         }

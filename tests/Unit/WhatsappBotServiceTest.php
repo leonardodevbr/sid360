@@ -6,9 +6,11 @@ namespace Tests\Unit;
 
 use App\Actions\Installment\SendInstallmentBoletoWhatsappAction;
 use App\Actions\Installment\SendInstallmentPixWhatsappAction;
-use App\Actions\Sale\GenerateSaleContractPdfAction;
+use App\Actions\Sale\SendSaleCarneWhatsappAction;
+use App\Actions\Sale\SendSaleContractWhatsappAction;
 use App\Services\WhatsappBotService;
 use App\Services\WhatsappService;
+use App\Support\WhatsappCommandParser;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -22,9 +24,11 @@ class WhatsappBotServiceTest extends TestCase
 
         $this->bot = new WhatsappBotService(
             whatsapp: $this->createMock(WhatsappService::class),
+            commandParser: new WhatsappCommandParser,
             sendPix: $this->createMock(SendInstallmentPixWhatsappAction::class),
             sendBoleto: $this->createMock(SendInstallmentBoletoWhatsappAction::class),
-            generateContract: $this->createMock(GenerateSaleContractPdfAction::class),
+            sendContract: $this->createMock(SendSaleContractWhatsappAction::class),
+            sendCarne: $this->createMock(SendSaleCarneWhatsappAction::class),
         );
     }
 
@@ -34,20 +38,13 @@ class WhatsappBotServiceTest extends TestCase
     public static function commandProvider(): array
     {
         return [
-            'menu' => ['ajuda', WhatsappBotService::COMMAND_MENU, null],
-            'greeting' => ['olá', WhatsappBotService::COMMAND_MENU, null],
-            'payment pix' => ['quero pix', WhatsappBotService::COMMAND_PAYMENT, null],
-            'second copy' => ['2ª via', WhatsappBotService::COMMAND_PAYMENT, null],
-            'balance' => ['saldo', WhatsappBotService::COMMAND_BALANCE, null],
-            'statement' => ['extrato', WhatsappBotService::COMMAND_STATEMENT, null],
+            'payment natural' => ['quero pagar', WhatsappBotService::COMMAND_PAYMENT, null],
             'contract with number' => ['contrato 0001/2025', WhatsappBotService::COMMAND_CONTRACT, '0001/2025'],
-            'support' => ['falar com o sid', WhatsappBotService::COMMAND_SUPPORT, null],
-            'unknown' => ['xyzabc', WhatsappBotService::COMMAND_UNKNOWN, null],
         ];
     }
 
     #[DataProvider('commandProvider')]
-    public function test_parse_command(string $body, string $expectedCommand, ?string $expectedArgument): void
+    public function test_parse_command_delegates_to_parser(string $body, string $expectedCommand, ?string $expectedArgument): void
     {
         [$command, $argument] = $this->bot->parseCommand($body);
 

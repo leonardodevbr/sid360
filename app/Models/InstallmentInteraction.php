@@ -39,6 +39,8 @@ class InstallmentInteraction extends Model
 
     public const TYPE_BOT_CONTRACT = 'bot_contract';
 
+    public const TYPE_BOT_CARNE = 'bot_carne';
+
     public const TYPE_BOT_SUPPORT_NOTIFY = 'bot_support_notify';
 
     public const TYPE_SID_NOTIFY = 'sid_notify';
