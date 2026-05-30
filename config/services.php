@@ -47,6 +47,7 @@ return [
         'certificate_password' => env('EFI_CERTIFICATE_PASSWORD', ''),
         'pix_expiry' => (int) env('EFI_PIX_EXPIRY', 3600),
         'holder_cpf' => env('EFI_HOLDER_CPF', ''),
+        'carne_max_value_cents' => (int) env('EFI_CARNE_MAX_VALUE_CENTS', 200_000),
     ],
 
     'wppconnect' => [

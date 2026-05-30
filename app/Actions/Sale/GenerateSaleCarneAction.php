@@ -78,6 +78,7 @@ class GenerateSaleCarneAction
         }
 
         $this->assertDebtorIsNotEfiHolder($debtorCpfDigits, (string) $client->name);
+        $this->assertInstallmentValueWithinCarneLimit((int) $sale->installment_value);
 
         try {
             $carne = $this->efi->createCarne(
@@ -97,6 +98,10 @@ class GenerateSaleCarneAction
                     (string) $client->name,
                     (int) ($e->code ?? 0),
                 ));
+            }
+
+            if ($this->isCarneValueLimitError($e)) {
+                throw new InvalidArgumentException($this->carneValueLimitErrorMessage((int) $sale->installment_value));
             }
 
             throw $e;
@@ -183,6 +188,41 @@ class GenerateSaleCarneAction
             .'No cadastro da Efi, esse CPF está vinculado ao recebedor desta conta/API — confira no painel Efí '
             .'(Meus dados / titular ou sócio administrador) se o documento cadastrado é realmente o seu, '
             .'e se o Client_Id da API é da mesma conta.';
+    }
+
+    private function assertInstallmentValueWithinCarneLimit(int $installmentValueCents): void
+    {
+        $maxCents = (int) config('services.efi.carne_max_value_cents', 200_000);
+
+        if ($maxCents > 0 && $installmentValueCents > $maxCents) {
+            throw new InvalidArgumentException($this->carneValueLimitErrorMessage($installmentValueCents, $maxCents));
+        }
+    }
+
+    private function isCarneValueLimitError(EfiException $e): bool
+    {
+        $message = mb_strtolower($e->getMessage());
+
+        return (int) ($e->code ?? 0) === 4600037
+            || str_contains($message, 'valor máximo')
+            || str_contains($message, 'limite operacional');
+    }
+
+    private function carneValueLimitErrorMessage(int $installmentValueCents, ?int $maxCents = null): string
+    {
+        $maxCents ??= (int) config('services.efi.carne_max_value_cents', 200_000);
+
+        return 'Cada parcela do carnê Efi ('
+            .$this->formatMoney($installmentValueCents)
+            .') ultrapassa o limite da sua conta ('
+            .$this->formatMoney($maxCents)
+            .' por boleto). Esse teto é da conta Efi, não do Sid360. '
+            .'Peça aumento do limite operacional ao suporte Efí ou gere boletos avulsos parcela a parcela.';
+    }
+
+    private function formatMoney(int $cents): string
+    {
+        return 'R$ '.number_format($cents / 100, 2, ',', '.');
     }
 
     private function formatCpf(string $digits): string
