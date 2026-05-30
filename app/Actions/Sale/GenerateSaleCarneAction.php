@@ -87,7 +87,7 @@ class GenerateSaleCarneAction
                 debtorName: (string) $client->name,
                 debtorCpf: $debtorCpfDigits,
                 itemDescription: $description,
-                debtorPhone: $client->phone,
+                debtorPhone: null,
                 message: "Contrato {$contractNo} – Sid360 Imóveis",
             );
         } catch (EfiException $e) {

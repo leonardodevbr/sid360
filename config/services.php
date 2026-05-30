@@ -38,7 +38,10 @@ return [
     'efi' => [
         'client_id' => env('EFI_CLIENT_ID'),
         'client_secret' => env('EFI_CLIENT_SECRET'),
-        'sandbox' => filter_var(env('EFI_SANDBOX', true), FILTER_VALIDATE_BOOLEAN),
+        'sandbox' => filter_var(
+            env('EFI_SANDBOX', env('APP_ENV', 'production') !== 'production'),
+            FILTER_VALIDATE_BOOLEAN,
+        ),
         'pix_key' => env('EFI_PIX_KEY'),
         'certificate' => env('EFI_CERTIFICATE_PATH', ''),
         'certificate_password' => env('EFI_CERTIFICATE_PASSWORD', ''),
