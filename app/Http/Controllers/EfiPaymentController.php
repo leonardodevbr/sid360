@@ -194,6 +194,8 @@ class EfiPaymentController extends Controller
                 'charge_value' => $result['charge_value'],
                 'charge_breakdown' => $result['charge_breakdown'],
             ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
         } catch (Throwable $e) {
             return response()->json(['error' => 'Erro ao gerar boleto: '.$e->getMessage()], 500);
         }

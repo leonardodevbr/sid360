@@ -6,6 +6,7 @@ namespace App\Actions\Installment;
 
 use App\Models\Installment;
 use App\Services\EfiService;
+use App\Support\EfiDebtorValidator;
 use Efi\Exception\EfiException;
 use InvalidArgumentException;
 use Throwable;
@@ -54,17 +55,32 @@ class GenerateInstallmentBoletoAction
         $description = 'Contrato '.str_pad((string) $installment->sale_id, 4, '0', STR_PAD_LEFT)
             .' – Parcela '.$installment->number;
 
+        $client = $installment->sale->client;
+        $clientName = (string) $client->name;
+        $debtorCpfDigits = EfiDebtorValidator::digitsOnlyCpf((string) $client->cpf);
+
+        EfiDebtorValidator::assertValidCpf($debtorCpfDigits, $clientName);
+        EfiDebtorValidator::assertNotConfiguredHolderCpf($debtorCpfDigits, $clientName);
+
         try {
             $boleto = $this->efi->createBoleto(
                 valueInCents: (float) $charge['total_value'],
-                debtorName: (string) $installment->sale->client->name,
-                debtorCpf: (string) $installment->sale->client->cpf,
+                debtorName: $clientName,
+                debtorCpf: $debtorCpfDigits,
                 dueDate: $dueDate,
                 description: $description,
-                debtorPhone: $installment->sale->client->phone,
+                debtorPhone: null,
                 waivePenalties: $waivePenalties || $charge['total_value'] > $charge['original_value'],
             );
         } catch (EfiException $e) {
+            if (EfiDebtorValidator::isSamePersonError($e)) {
+                throw new InvalidArgumentException(EfiDebtorValidator::samePersonErrorMessage(
+                    $debtorCpfDigits,
+                    $clientName,
+                    (int) ($e->code ?? 0),
+                ));
+            }
+
             if ($this->isValueLimitError($e)) {
                 throw new InvalidArgumentException($this->valueLimitErrorMessage((int) $charge['total_value']));
             }

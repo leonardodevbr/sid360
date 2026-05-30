@@ -172,6 +172,13 @@ class EfiService
         ];
 
         try {
+            Log::info('EfiService::createBoleto request', [
+                'customer_cpf' => $this->maskDocument($customer['cpf']),
+                'customer_name' => $debtorName,
+                'value_cents' => (int) $valueInCents,
+                'sandbox' => (bool) config('services.efi.sandbox', true),
+            ]);
+
             $response = $this->cobrancasClient()->createOneStepCharge([], $body);
             $data = $response['data'];
 
