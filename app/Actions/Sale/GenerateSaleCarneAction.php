@@ -92,7 +92,11 @@ class GenerateSaleCarneAction
             );
         } catch (EfiException $e) {
             if (str_contains(mb_strtolower($e->getMessage()), 'mesma pessoa')) {
-                throw new InvalidArgumentException($this->samePersonErrorMessage($debtorCpfDigits, (string) $client->name));
+                throw new InvalidArgumentException($this->efiSamePersonErrorMessage(
+                    $debtorCpfDigits,
+                    (string) $client->name,
+                    (int) ($e->code ?? 0),
+                ));
             }
 
             throw $e;
@@ -157,15 +161,28 @@ class GenerateSaleCarneAction
         $holderCpfDigits = DocumentHelper::digitsOnly((string) config('services.efi.holder_cpf', ''));
 
         if ($holderCpfDigits !== '' && $holderCpfDigits === $debtorCpfDigits) {
-            throw new InvalidArgumentException($this->samePersonErrorMessage($debtorCpfDigits, $clientName));
+            throw new InvalidArgumentException($this->envHolderCpfErrorMessage($debtorCpfDigits, (string) $client->name));
         }
     }
 
-    private function samePersonErrorMessage(string $debtorCpfDigits, string $clientName): string
+    private function envHolderCpfErrorMessage(string $debtorCpfDigits, string $clientName): string
     {
-        return 'Recebedor e cliente não podem ser a mesma pessoa. '
-            ."CPF enviado: {$this->formatCpf($debtorCpfDigits)} (cliente «{$clientName}», cadastro clients.cpf da venda). "
-            .'Esse CPF não pode ser igual ao titular da conta Efi. Co-compradores não entram no carnê.';
+        return 'CPF do cliente coincide com EFI_HOLDER_CPF do .env ('
+            .$this->formatCpf($debtorCpfDigits)
+            ."). Cliente «{$clientName}». "
+            .'Esse valor no .env deve ser o SEU CPF (titular da conta Efi), não o CPF do cliente. '
+            .'Remova EFI_HOLDER_CPF ou corrija para o CPF do titular.';
+    }
+
+    private function efiSamePersonErrorMessage(string $debtorCpfDigits, string $clientName, int $efiCode): string
+    {
+        $code = $efiCode > 0 ? " (código Efi {$efiCode})" : '';
+
+        return 'A Efi rejeitou o carnê'.$code.': recebedor e cliente não podem ser a mesma pessoa. '
+            ."CPF enviado ao pagador: {$this->formatCpf($debtorCpfDigits)} (cliente «{$clientName}»). "
+            .'No cadastro da Efi, esse CPF está vinculado ao recebedor desta conta/API — confira no painel Efí '
+            .'(Meus dados / titular ou sócio administrador) se o documento cadastrado é realmente o seu, '
+            .'e se o Client_Id da API é da mesma conta.';
     }
 
     private function formatCpf(string $digits): string
