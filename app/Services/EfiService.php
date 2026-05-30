@@ -231,6 +231,13 @@ class EfiService
         }
 
         try {
+            Log::info('EfiService::createCarne request', [
+                'customer_cpf' => $this->maskDocument($customer['cpf']),
+                'customer_name' => $debtorName,
+                'repeats' => $installmentsCount,
+                'sandbox' => (bool) config('services.efi.sandbox', true),
+            ]);
+
             $response = $this->cobrancasClient()->createCarnet([], $body);
             $data = $response['data'];
 
@@ -254,6 +261,15 @@ class EfiService
             Log::error('EfiService::createCarne', ['error' => $e->getMessage()]);
             throw $e;
         }
+    }
+
+    private function maskDocument(string $digits): string
+    {
+        if (strlen($digits) < 4) {
+            return '****';
+        }
+
+        return str_repeat('*', max(0, strlen($digits) - 4)).substr($digits, -4);
     }
 
     /**

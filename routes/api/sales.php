@@ -55,6 +55,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         return InstallmentInteractionResource::collection($interactions);
     });
     Route::post('/installments/{id}/pay', [InstallmentController::class, 'pay']);
+    Route::get('/sales/{id}/efi/carne-preview', [EfiPaymentController::class, 'previewCarneDebtor']);
     Route::post('/sales/{id}/efi/carne', [EfiPaymentController::class, 'generateCarne']);
     Route::get('/installments/{id}/efi/charge-preview', [EfiPaymentController::class, 'chargePreview']);
     Route::post('/installments/{id}/efi/pix', [EfiPaymentController::class, 'generatePix']);

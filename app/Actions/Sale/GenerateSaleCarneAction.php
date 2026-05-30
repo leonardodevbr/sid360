@@ -68,6 +68,15 @@ class GenerateSaleCarneAction
             .'/'.$sale->sale_date?->format('Y');
 
         $debtorCpfDigits = DocumentHelper::digitsOnly((string) $client->cpf);
+
+        if (strlen($debtorCpfDigits) !== 11) {
+            throw new InvalidArgumentException(
+                'CPF do cliente inválido no cadastro ('
+                .$this->formatCpf($debtorCpfDigits !== '' ? $debtorCpfDigits : 'vazio')
+                .'). Corrija em Clientes antes de gerar o carnê.',
+            );
+        }
+
         $this->assertDebtorIsNotEfiHolder($debtorCpfDigits, (string) $client->name);
 
         try {

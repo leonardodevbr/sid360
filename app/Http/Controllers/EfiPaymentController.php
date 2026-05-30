@@ -10,6 +10,7 @@ use App\Actions\Installment\GenerateInstallmentPixAction;
 use App\Actions\Installment\SendInstallmentBoletoWhatsappAction;
 use App\Actions\Installment\SendInstallmentPixWhatsappAction;
 use App\Actions\Sale\GenerateSaleCarneAction;
+use App\Actions\Sale\PreviewSaleCarneDebtorAction;
 use App\Http\Requests\GenerateInstallmentBoletoRequest;
 use App\Http\Requests\GenerateInstallmentPixRequest;
 use App\Http\Requests\GenerateSaleCarneRequest;
@@ -213,6 +214,19 @@ class EfiPaymentController extends Controller
             return response()->json(['error' => $e->getMessage()], 422);
         } catch (Throwable $e) {
             return response()->json(['error' => 'Erro ao gerar carnê bancário: '.$e->getMessage()], 500);
+        }
+    }
+
+    public function previewCarneDebtor(string|int $saleId, PreviewSaleCarneDebtorAction $action): JsonResponse
+    {
+        $this->authorize('sales.view');
+
+        $sale = Sale::query()->findOrFail((int) $saleId);
+
+        try {
+            return response()->json($action->execute($sale));
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
         }
     }
 
