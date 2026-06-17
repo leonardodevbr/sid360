@@ -41,6 +41,12 @@ class WhatsappCommandParserTest extends TestCase
             'carne' => ['carne', WhatsappCommandParser::COMMAND_CARNE, null],
             'carne natural' => ['quero a promissória', WhatsappCommandParser::COMMAND_CARNE, null],
             'support' => ['falar com o sid', WhatsappCommandParser::COMMAND_SUPPORT, null],
+            'pause sair' => ['SAIR', WhatsappCommandParser::COMMAND_PAUSE, null],
+            'pause parar' => ['parar', WhatsappCommandParser::COMMAND_PAUSE, null],
+            'resume menu' => ['MENU', WhatsappCommandParser::COMMAND_RESUME, null],
+            'resume iniciar' => ['iniciar', WhatsappCommandParser::COMMAND_RESUME, null],
+            'human corretor' => ['corretor', WhatsappCommandParser::COMMAND_HUMAN, null],
+            'human falar com corretor' => ['falar com corretor', WhatsappCommandParser::COMMAND_HUMAN, null],
             'unknown' => ['xyzabc', WhatsappCommandParser::COMMAND_UNKNOWN, null],
         ];
     }

@@ -9,6 +9,7 @@ use App\Actions\Installment\SendInstallmentPixWhatsappAction;
 use App\Actions\Sale\SendSaleCarneWhatsappAction;
 use App\Actions\Sale\SendSaleContractWhatsappAction;
 use App\Services\WhatsappBotService;
+use App\Services\WhatsappConversationStateService;
 use App\Services\WhatsappService;
 use App\Support\WhatsappCommandParser;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -25,6 +26,7 @@ class WhatsappBotServiceTest extends TestCase
         $this->bot = new WhatsappBotService(
             whatsapp: $this->createMock(WhatsappService::class),
             commandParser: new WhatsappCommandParser,
+            conversationState: $this->createMock(WhatsappConversationStateService::class),
             sendPix: $this->createMock(SendInstallmentPixWhatsappAction::class),
             sendBoleto: $this->createMock(SendInstallmentBoletoWhatsappAction::class),
             sendContract: $this->createMock(SendSaleContractWhatsappAction::class),

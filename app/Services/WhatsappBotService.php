@@ -13,6 +13,8 @@ use App\Models\Installment;
 use App\Models\InstallmentInteraction;
 use App\Models\Sale;
 use App\Models\Setting;
+use App\Models\WhatsappConversationState;
+use App\Support\WhatsappBotMessageFooter;
 use App\Support\WhatsappCommandParser;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -34,11 +36,18 @@ class WhatsappBotService
 
     public const COMMAND_SUPPORT = WhatsappCommandParser::COMMAND_SUPPORT;
 
+    public const COMMAND_PAUSE = WhatsappCommandParser::COMMAND_PAUSE;
+
+    public const COMMAND_RESUME = WhatsappCommandParser::COMMAND_RESUME;
+
+    public const COMMAND_HUMAN = WhatsappCommandParser::COMMAND_HUMAN;
+
     public const COMMAND_UNKNOWN = WhatsappCommandParser::COMMAND_UNKNOWN;
 
     public function __construct(
         private readonly WhatsappService $whatsapp,
         private readonly WhatsappCommandParser $commandParser,
+        private readonly WhatsappConversationStateService $conversationState,
         private readonly SendInstallmentPixWhatsappAction $sendPix,
         private readonly SendInstallmentBoletoWhatsappAction $sendBoleto,
         private readonly SendSaleContractWhatsappAction $sendContract,
@@ -48,38 +57,101 @@ class WhatsappBotService
     /**
      * @param  array<string, mixed>  $payload
      */
-    public function handle(Client $client, string $phone, string $body, array $payload = []): void
-    {
+    public function handle(
+        Client $client,
+        string $phone,
+        string $body,
+        array $payload = [],
+        ?WhatsappConversationState $state = null,
+        ?string $forcedCommand = null,
+    ): void {
         if (! Setting::get('whatsapp_bot_enabled', true)) {
             return;
         }
 
+        $state ??= $this->conversationState->findOrCreate($phone, $client->id);
+
         if (! $client->acceptsWhatsappNotifications()) {
-            $this->recordInbound($client, $phone, $body, self::COMMAND_UNKNOWN, $payload);
+            $this->recordInboundCommand($client, $phone, $body, self::COMMAND_UNKNOWN, $payload);
             $this->sendBotResponse(
                 $client,
                 $phone,
                 'Este número está cadastrado para não receber mensagens automáticas. Fale com a corretora para reativar.',
                 self::COMMAND_UNKNOWN,
+                state: $state,
             );
 
             return;
         }
 
-        [$command, $argument] = $this->parseCommand($body);
+        [$command, $argument] = $forcedCommand !== null
+            ? [$forcedCommand, null]
+            : $this->parseCommand($body);
 
-        $this->recordInbound($client, $phone, $body, $command, $payload, $argument);
+        $this->recordInboundCommand($client, $phone, $body, $command, $payload, $argument);
 
         match ($command) {
-            self::COMMAND_MENU => $this->sendMenu($client, $phone),
-            self::COMMAND_PAYMENT => $this->handlePayment($client, $phone),
-            self::COMMAND_BALANCE => $this->handleBalance($client, $phone),
-            self::COMMAND_STATEMENT => $this->handleStatement($client, $phone),
-            self::COMMAND_CONTRACT => $this->handleContract($client, $phone, $argument),
-            self::COMMAND_CARNE => $this->handleCarne($client, $phone, $argument),
-            self::COMMAND_SUPPORT => $this->handleSupport($client, $phone),
-            default => $this->sendMenu($client, $phone, unknown: true),
+            self::COMMAND_MENU, self::COMMAND_RESUME => $this->sendMenu($client, $phone, state: $state),
+            self::COMMAND_PAYMENT => $this->handlePayment($client, $phone, $state),
+            self::COMMAND_BALANCE => $this->handleBalance($client, $phone, $state),
+            self::COMMAND_STATEMENT => $this->handleStatement($client, $phone, $state),
+            self::COMMAND_CONTRACT => $this->handleContract($client, $phone, $argument, $state),
+            self::COMMAND_CARNE => $this->handleCarne($client, $phone, $argument, $state),
+            self::COMMAND_SUPPORT, self::COMMAND_HUMAN => $this->handleSupport($client, $phone, $state, $command),
+            default => $this->sendMenu($client, $phone, unknown: true, state: $state),
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function recordIgnoredInbound(
+        Client $client,
+        string $phone,
+        string $body,
+        WhatsappConversationState $state,
+        array $payload,
+        string $command,
+    ): void {
+        InstallmentInteraction::query()->create([
+            'client_id' => $client->id,
+            'phone' => $phone,
+            'direction' => InstallmentInteraction::DIR_INBOUND,
+            'type' => InstallmentInteraction::TYPE_BOT_IGNORED,
+            'message' => $body,
+            'meta' => [
+                'command' => $command,
+                'conversation_status' => $state->status,
+                'human_until' => $state->human_until?->toIso8601String(),
+                'from' => $payload['from'] ?? null,
+                'ignored' => true,
+            ],
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function recordInboundCommand(
+        Client $client,
+        string $phone,
+        string $body,
+        string $command,
+        array $payload,
+        ?string $argument = null,
+    ): void {
+        InstallmentInteraction::query()->create([
+            'client_id' => $client->id,
+            'phone' => $phone,
+            'direction' => InstallmentInteraction::DIR_INBOUND,
+            'type' => InstallmentInteraction::TYPE_BOT_COMMAND,
+            'message' => $body,
+            'meta' => [
+                'command' => $command,
+                'argument' => $argument,
+                'from' => $payload['from'] ?? null,
+            ],
+        ]);
     }
 
     /**
@@ -90,8 +162,12 @@ class WhatsappBotService
         return $this->commandParser->parse($body);
     }
 
-    private function sendMenu(Client $client, string $phone, bool $unknown = false): void
-    {
+    private function sendMenu(
+        Client $client,
+        string $phone,
+        bool $unknown = false,
+        ?WhatsappConversationState $state = null,
+    ): void {
         $template = (string) Setting::get(
             'whatsapp_bot_menu_message',
             "Olá, *{nome}*! Sou o assistente *Sid360*.\n\nDigite um comando:\n\n*2ª via* — receber PIX ou boleto\n*saldo* — parcelas pendentes\n*extrato* — histórico de pagamentos\n*contrato* — PDF do contrato\n*carne* — carnê / promissória\n*atendimento* — falar com o corretor\n\nPortal: {portal_url}",
@@ -106,10 +182,10 @@ class WhatsappBotService
             'portal_url' => $this->portalUrl(),
         ]);
 
-        $this->sendBotResponse($client, $phone, $message, self::COMMAND_MENU);
+        $this->sendBotResponse($client, $phone, $message, self::COMMAND_MENU, state: $state);
     }
 
-    private function handlePayment(Client $client, string $phone): void
+    private function handlePayment(Client $client, string $phone, WhatsappConversationState $state): void
     {
         $installment = $this->nextPayableInstallment($client);
 
@@ -119,6 +195,7 @@ class WhatsappBotService
                 $phone,
                 "✅ *{$client->name}*, não encontramos parcelas em aberto nos seus contratos.\n\nPortal: {$this->portalUrl()}",
                 self::COMMAND_PAYMENT,
+                state: $state,
             );
 
             return;
@@ -147,6 +224,7 @@ class WhatsappBotService
             command: self::COMMAND_PAYMENT,
             saleId: $installment->sale_id,
             installmentId: $installment->id,
+            state: $state,
         );
     }
 
@@ -166,7 +244,7 @@ class WhatsappBotService
         return "Não foi possível gerar o pagamento agora.\n\nAcesse o portal:\n🔗 {$portalUrl}\n\nOu digite *atendimento* para falar com o corretor.";
     }
 
-    private function handleBalance(Client $client, string $phone): void
+    private function handleBalance(Client $client, string $phone, WhatsappConversationState $state): void
     {
         $sales = $this->activeSales($client);
 
@@ -176,6 +254,7 @@ class WhatsappBotService
                 $phone,
                 "Não encontramos contratos ativos para *{$client->name}*.\n\nFale com a corretora se acredita que isso é um erro.",
                 self::COMMAND_BALANCE,
+                state: $state,
             );
 
             return;
@@ -223,6 +302,7 @@ class WhatsappBotService
                 $phone,
                 "✅ *{$client->name}*, todas as parcelas estão em dia. Obrigado!",
                 self::COMMAND_BALANCE,
+                state: $state,
             );
 
             return;
@@ -237,10 +317,10 @@ class WhatsappBotService
             ],
         ));
 
-        $this->sendBotResponse($client, $phone, $message, self::COMMAND_BALANCE);
+        $this->sendBotResponse($client, $phone, $message, self::COMMAND_BALANCE, state: $state);
     }
 
-    private function handleStatement(Client $client, string $phone): void
+    private function handleStatement(Client $client, string $phone, WhatsappConversationState $state): void
     {
         $sales = $this->activeSales($client);
 
@@ -250,6 +330,7 @@ class WhatsappBotService
                 $phone,
                 "Não encontramos contratos ativos para *{$client->name}*.",
                 self::COMMAND_STATEMENT,
+                state: $state,
             );
 
             return;
@@ -288,11 +369,15 @@ class WhatsappBotService
 
         $lines[] = "Extrato completo: {$this->portalUrl()}";
 
-        $this->sendBotResponse($client, $phone, implode("\n", $lines), self::COMMAND_STATEMENT);
+        $this->sendBotResponse($client, $phone, implode("\n", $lines), self::COMMAND_STATEMENT, state: $state);
     }
 
-    private function handleContract(Client $client, string $phone, ?string $argument): void
-    {
+    private function handleContract(
+        Client $client,
+        string $phone,
+        ?string $argument,
+        WhatsappConversationState $state,
+    ): void {
         $this->sendSaleDocument(
             client: $client,
             phone: $phone,
@@ -307,11 +392,16 @@ class WhatsappBotService
             documentLabel: 'contrato',
             failureMessage: "Não foi possível enviar o PDF do contrato pelo WhatsApp.\n\n"
                 ."Peça ao corretor pelo comando *atendimento* ou acesse:\n{$this->portalUrl()}",
+            state: $state,
         );
     }
 
-    private function handleCarne(Client $client, string $phone, ?string $argument): void
-    {
+    private function handleCarne(
+        Client $client,
+        string $phone,
+        ?string $argument,
+        WhatsappConversationState $state,
+    ): void {
         $this->sendSaleDocument(
             client: $client,
             phone: $phone,
@@ -326,6 +416,7 @@ class WhatsappBotService
             documentLabel: 'carnê',
             failureMessage: "Não foi possível enviar o carnê pelo WhatsApp.\n\n"
                 ."Peça ao corretor pelo comando *atendimento* ou acesse:\n{$this->portalUrl()}",
+            state: $state,
         );
     }
 
@@ -341,6 +432,7 @@ class WhatsappBotService
         callable $sendAction,
         string $documentLabel,
         string $failureMessage,
+        WhatsappConversationState $state,
     ): void {
         $sales = $this->activeSales($client);
 
@@ -350,6 +442,7 @@ class WhatsappBotService
                 $phone,
                 "Não encontramos contratos ativos para *{$client->name}*.",
                 $command,
+                state: $state,
             );
 
             return;
@@ -372,6 +465,7 @@ class WhatsappBotService
                 $phone,
                 "Você possui mais de um contrato.\n\nEnvie, por exemplo:\n*{$commandLabel} 0001/2025*\n\nContratos:\n{$list}",
                 $command,
+                state: $state,
             );
 
             return;
@@ -381,12 +475,16 @@ class WhatsappBotService
 
         $this->whatsapp->sendAndRecord(
             phone: $phone,
-            message: "Olá, *{$client->name}*! Segue o PDF do *{$documentLabel}* do contrato *{$contractNo}*.",
+            message: WhatsappBotMessageFooter::append(
+                "Olá, *{$client->name}*! Segue o PDF do *{$documentLabel}* do contrato *{$contractNo}*.",
+            ),
             type: InstallmentInteraction::TYPE_BOT_RESPONSE,
             saleId: $sale->id,
             clientId: $client->id,
             meta: ['command' => $command, 'step' => 'document_intro'],
         );
+
+        $this->conversationState->touchOutbound($state);
 
         $sent = $sendAction($sale);
 
@@ -410,19 +508,26 @@ class WhatsappBotService
                 $failureMessage,
                 $command,
                 saleId: $sale->id,
+                state: $state,
             );
         }
     }
 
-    private function handleSupport(Client $client, string $phone): void
-    {
+    private function handleSupport(
+        Client $client,
+        string $phone,
+        WhatsappConversationState $state,
+        string $command = self::COMMAND_SUPPORT,
+    ): void {
         $sales = $this->activeSales($client);
         $sale = $sales->first();
         $sidDisplay = $this->sidPhoneDisplay();
 
-        $message = "📞 *{$client->name}*, o corretor Sid foi notificado e entrará em contato em breve.\n\nOu chame diretamente:\n📱 *{$this->sidWaMeLink()}*\n\n_Sid360 Imóveis · {$sidDisplay}_";
+        $message = "📞 *{$client->name}*, o corretor Sid foi notificado e entrará em contato em breve.\n\n"
+            ."Nas próximas 24 horas, o assistente automático ficará pausado.\n\n"
+            ."Ou chame diretamente:\n📱 *{$this->sidWaMeLink()}*\n\n_Sid360 Imóveis · {$sidDisplay}_";
 
-        $this->sendBotResponse($client, $phone, $message, self::COMMAND_SUPPORT, saleId: $sale?->id);
+        $this->sendBotResponse($client, $phone, $message, $command, saleId: $sale?->id, state: $state);
 
         $contractInfo = $sale
             ? 'Contrato: '.$this->contractNumber($sale)."\nLote: Q{$sale->lot?->block} · L{$sale->lot?->number}\n"
@@ -560,31 +665,6 @@ class WhatsappBotService
         return $digits;
     }
 
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function recordInbound(
-        Client $client,
-        string $phone,
-        string $body,
-        string $command,
-        array $payload,
-        ?string $argument = null,
-    ): void {
-        InstallmentInteraction::create([
-            'client_id' => $client->id,
-            'phone' => $phone,
-            'direction' => InstallmentInteraction::DIR_INBOUND,
-            'type' => InstallmentInteraction::TYPE_BOT_COMMAND,
-            'message' => $body,
-            'meta' => [
-                'command' => $command,
-                'argument' => $argument,
-                'from' => $payload['from'] ?? null,
-            ],
-        ]);
-    }
-
     private function sendBotResponse(
         Client $client,
         string $phone,
@@ -592,15 +672,20 @@ class WhatsappBotService
         string $command,
         ?int $saleId = null,
         ?int $installmentId = null,
+        ?WhatsappConversationState $state = null,
     ): void {
+        $state ??= $this->conversationState->findOrCreate($phone, $client->id);
+
         $this->whatsapp->sendAndRecord(
             phone: $phone,
-            message: $message,
+            message: WhatsappBotMessageFooter::append($message),
             type: InstallmentInteraction::TYPE_BOT_RESPONSE,
             installmentId: $installmentId,
             saleId: $saleId,
             clientId: $client->id,
             meta: ['command' => $command],
         );
+
+        $this->conversationState->touchOutbound($state);
     }
 }

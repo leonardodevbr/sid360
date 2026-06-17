@@ -20,6 +20,12 @@ final class WhatsappCommandParser
 
     public const COMMAND_SUPPORT = 'support';
 
+    public const COMMAND_PAUSE = 'pause';
+
+    public const COMMAND_RESUME = 'resume';
+
+    public const COMMAND_HUMAN = 'human';
+
     public const COMMAND_UNKNOWN = 'unknown';
 
     /**
@@ -34,8 +40,20 @@ final class WhatsappCommandParser
             return [self::COMMAND_UNKNOWN, null];
         }
 
+        if ($this->matchesPauseCommand($normalized)) {
+            return [self::COMMAND_PAUSE, null];
+        }
+
+        if ($this->matchesResumeCommand($normalized)) {
+            return [self::COMMAND_RESUME, null];
+        }
+
+        if ($this->matchesHumanCommand($normalized)) {
+            return [self::COMMAND_HUMAN, null];
+        }
+
         if ($this->matchesAny($normalized, [
-            'menu', 'ajuda', 'help', 'comandos', 'opcoes', 'opções', 'inicio', 'início', 'voltar',
+            'menu', 'ajuda', 'help', 'comandos', 'opcoes', 'opções',
         ])) {
             return [self::COMMAND_MENU, null];
         }
@@ -76,6 +94,38 @@ final class WhatsappCommandParser
         }
 
         return [self::COMMAND_UNKNOWN, null];
+    }
+
+    private function matchesPauseCommand(string $normalized): bool
+    {
+        return in_array($normalized, [
+            'sair',
+            'parar',
+            'cancelar',
+            'encerrar',
+            'remover',
+        ], true);
+    }
+
+    private function matchesResumeCommand(string $normalized): bool
+    {
+        return in_array($normalized, [
+            'iniciar',
+            'menu',
+            'voltar',
+        ], true);
+    }
+
+    private function matchesHumanCommand(string $normalized): bool
+    {
+        if (in_array($normalized, ['humano', 'corretor'], true)) {
+            return true;
+        }
+
+        return $this->matchesAny($normalized, [
+            'falar com corretor',
+            'falar com o corretor',
+        ]);
     }
 
     private function matchesPaymentCommand(string $normalized): bool
@@ -176,8 +226,8 @@ final class WhatsappCommandParser
     private function matchesSupportCommand(string $normalized): bool
     {
         return $this->matchesAny($normalized, [
-            'atendimento', 'falar com sid', 'falar com o sid', 'corretor', 'negociar',
-            'humano', 'suporte', 'falar com alguem', 'falar com alguém', 'preciso de ajuda',
+            'atendimento', 'falar com sid', 'falar com o sid', 'negociar',
+            'suporte', 'falar com alguem', 'falar com alguém', 'preciso de ajuda',
         ]);
     }
 

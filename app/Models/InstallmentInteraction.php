@@ -43,6 +43,12 @@ class InstallmentInteraction extends Model
 
     public const TYPE_BOT_SUPPORT_NOTIFY = 'bot_support_notify';
 
+    public const TYPE_BOT_UNKNOWN_CONTACT = 'bot_unknown_contact';
+
+    public const TYPE_BOT_IGNORED = 'bot_ignored';
+
+    public const TYPE_BOT_PAUSE = 'bot_pause';
+
     public const TYPE_SID_NOTIFY = 'sid_notify';
 
     public const DIR_OUTBOUND = 'outbound';
