@@ -16,6 +16,7 @@ use App\Models\Setting;
 use App\Models\WhatsappConversationState;
 use App\Support\WhatsappBotMenuButtons;
 use App\Support\WhatsappBotMessageFooter;
+use Illuminate\Support\Facades\Log;
 use App\Support\WhatsappCommandParser;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -199,6 +200,11 @@ class WhatsappBotService
 
             return;
         }
+
+        Log::warning('WhatsappBotService::sendMenu list failed, using text fallback', [
+            'client_id' => $client->id,
+            'phone' => $phone,
+        ]);
 
         $template = (string) Setting::get(
             'whatsapp_bot_menu_message',

@@ -16,9 +16,9 @@ class WhatsappService
 {
     public function send(string $phone, string $message, ?array $wppconnectOptions = null): bool
     {
-        $recipient = $this->formatRecipient($phone);
+        $contacts = $this->phoneAsWppconnectContacts($phone);
 
-        if ($recipient === null) {
+        if ($contacts === []) {
             return false;
         }
 
@@ -29,7 +29,7 @@ class WhatsappService
         }
 
         $payload = [
-            'phone' => $recipient,
+            'phone' => $contacts,
             'message' => $message,
             'isGroup' => false,
         ];
@@ -46,7 +46,7 @@ class WhatsappService
             if (! $response->successful()) {
                 Log::warning('WhatsappService::send failed', [
                     'status' => $response->status(),
-                    'phone' => $recipient,
+                    'phone' => $contacts,
                 ]);
 
                 return false;
@@ -56,7 +56,7 @@ class WhatsappService
         } catch (\Exception $e) {
             Log::error('WhatsappService::send exception', [
                 'message' => $e->getMessage(),
-                'phone' => $recipient,
+                'phone' => $contacts,
             ]);
 
             return false;
@@ -491,12 +491,12 @@ class WhatsappService
         array $sections,
         ?string $footer = null,
     ): bool {
-        $digits = preg_replace('/\D/', '', $phone) ?? '';
-        if (strlen($digits) < 10) {
+        $contacts = $this->phoneAsWppconnectContacts($phone);
+
+        if ($contacts === []) {
             return false;
         }
 
-        $numero = strlen($digits) >= 11 ? "55{$digits}" : "559{$digits}";
         $config = WppconnectConfig::resolved();
 
         if ($config === null) {
@@ -509,7 +509,7 @@ class WhatsappService
 
         try {
             $payload = [
-                'phone' => ["{$numero}@c.us"],
+                'phone' => $contacts,
                 'isGroup' => false,
                 'description' => $description,
                 'buttonText' => $buttonText,
@@ -520,14 +520,14 @@ class WhatsappService
                 $payload['footer'] = $footer;
             }
 
-            $response = Http::timeout(10)
+            $response = Http::timeout(WppconnectConfig::timeout())
                 ->withToken($token)
                 ->post("{$baseUrl}/api/{$session}/send-list-message", $payload);
 
             if (! $response->successful()) {
                 Log::warning('WhatsappService::sendList failed', [
                     'status' => $response->status(),
-                    'phone' => $numero,
+                    'phone' => $contacts,
                     'body' => $response->body(),
                 ]);
 
@@ -538,7 +538,7 @@ class WhatsappService
         } catch (\Exception $e) {
             Log::error('WhatsappService::sendList exception', [
                 'message' => $e->getMessage(),
-                'phone' => $numero,
+                'phone' => $contacts,
             ]);
 
             return false;
@@ -766,6 +766,18 @@ class WhatsappService
     private function wppconnectConfig(): ?array
     {
         return WppconnectConfig::resolved();
+    }
+
+    /**
+     * WPPConnect itera `for (const contact of phone)` — string quebra caractere a caractere.
+     *
+     * @return list<string>
+     */
+    public function phoneAsWppconnectContacts(string $phoneOrJid): array
+    {
+        $chatId = $this->formatRecipientAsChatId($phoneOrJid);
+
+        return $chatId !== null ? [$chatId] : [];
     }
 
     private function formatRecipient(string $phoneOrJid): ?string
