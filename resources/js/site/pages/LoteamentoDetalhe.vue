@@ -23,6 +23,23 @@ const loading = ref(true);
 const loadingLot = ref(false);
 const selectedLot = ref(null);
 const selectedGroupContext = ref(null);
+
+// Modo do modal: 'group-picker' | 'lot-detail'
+const modalMode = ref('lot-detail');
+
+// Lotes do grupo selecionado para o picker
+const pickerLots = computed(() => {
+  if (!selectedGroupContext.value) return [];
+  const ids = new Set(selectedGroupContext.value.lot_ids);
+  return lots.value
+    .filter((l) => ids.has(l.id))
+    .sort((a, b) => {
+      if (a.status === 'available' && b.status !== 'available') return -1;
+      if (a.status !== 'available' && b.status === 'available') return 1;
+      return String(a.number).localeCompare(String(b.number), 'pt-BR', { numeric: true });
+    });
+});
+
 const leadSent = ref(false);
 const submitting = ref(false);
 
@@ -201,7 +218,9 @@ function openGallery(i) {
 
 function closeGallery() {
   galleryOpen.value = false;
-  if (!selectedLot.value) unlockScroll();
+  if (!selectedLot.value && !(selectedGroupContext.value && modalMode.value === 'group-picker')) {
+    unlockScroll();
+  }
 }
 
 function galleryPrev() {
@@ -221,6 +240,7 @@ function galleryNext() {
 }
 
 async function openLot(lot) {
+  modalMode.value = 'lot-detail';
   lockScroll();
   loadingLot.value = true;
   try {
@@ -280,17 +300,31 @@ function groupAreaSubtitle(group) {
 
 async function openGroup(group) {
   selectedGroupContext.value = group;
-  const lot = lots.value.find((item) => item.id === group.representative_lot_id);
-  if (lot) {
-    await openLot(lot);
-    return;
+  selectedLot.value = null;
+  leadSent.value = false;
+  lead.value = { name: '', phone: '', email: '', message: '' };
+
+  if (group.lot_ids.length === 1) {
+    const lot = lots.value.find((l) => l.id === group.lot_ids[0]);
+    if (lot) {
+      modalMode.value = 'lot-detail';
+      await openLot(lot);
+      return;
+    }
   }
-  scrollToMap();
+
+  modalMode.value = 'group-picker';
+  lockScroll();
+}
+
+async function selectLotFromPicker(lot) {
+  await openLot(lot);
 }
 
 function closeModal() {
   selectedLot.value = null;
   selectedGroupContext.value = null;
+  modalMode.value = 'lot-detail';
   if (!galleryOpen.value) unlockScroll();
 }
 
@@ -371,7 +405,10 @@ async function renderMap() {
       fillOpacity: lot.status === 'available' ? 0.38 : 0.28,
     })
       .addTo(overlay)
-      .on('click', () => openLot(lot));
+      .on('click', () => {
+        selectedGroupContext.value = null;
+        openLot(lot);
+      });
   });
 
   try {
@@ -863,7 +900,7 @@ function scrollToMap() {
 
       <Transition name="lot-modal">
         <div
-          v-if="selectedLot"
+          v-if="selectedLot || (selectedGroupContext && modalMode === 'group-picker')"
           class="site-lot-modal-backdrop"
           style="position:fixed;inset:0;z-index:1200;background:rgba(28,10,6,0.75);display:flex;align-items:flex-end;justify-content:center;padding:0;"
           @click.self="closeModal"
@@ -872,6 +909,101 @@ function scrollToMap() {
           class="site-modal-panel"
           style="width:100%;max-width:560px;max-height:90vh;overflow-y:auto;background:var(--bg-page);border-radius:20px 20px 0 0;margin:0 auto;padding-bottom:env(safe-area-inset-bottom);"
         >
+          <!-- MODO PICKER: lista de lotes do grupo -->
+          <template v-if="modalMode === 'group-picker' && selectedGroupContext">
+            <div style="padding:20px 24px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-light);">
+              <div>
+                <span style="font-size:0.65rem;color:var(--accent-dark);font-weight:700;text-transform:uppercase;letter-spacing:0.8px;">
+                  {{ selectedGroupContext.label }}
+                </span>
+                <p style="font-size:0.82rem;color:var(--text-secondary);margin:4px 0 0;">
+                  {{ groupAvailabilityText(selectedGroupContext) }}
+                </p>
+              </div>
+              <button
+                type="button"
+                style="background:rgba(0,0,0,0.06);border:none;color:var(--text-primary);width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;"
+                aria-label="Fechar"
+                @click="closeModal"
+              >
+                <XMarkIcon style="width:18px;height:18px;" />
+              </button>
+            </div>
+
+            <div style="overflow-y:auto;max-height:calc(90vh - 80px);padding:12px 16px 24px;">
+              <p style="font-size:0.8rem;color:var(--text-secondary);margin:8px 0 16px;line-height:1.5;">
+                Escolha o lote específico para ver detalhes, simular e enviar interesse:
+              </p>
+
+              <div style="display:flex;flex-direction:column;gap:10px;">
+                <button
+                  v-for="lot in pickerLots"
+                  :key="lot.id"
+                  type="button"
+                  class="lot-picker-item"
+                  :class="{
+                    'lot-picker-item--available': lot.status === 'available',
+                    'lot-picker-item--unavailable': lot.status !== 'available',
+                  }"
+                  @click="lot.status === 'available' ? selectLotFromPicker(lot) : null"
+                >
+                  <div class="lot-picker-item__thumb">
+                    <img
+                      v-if="lot.cover_photo"
+                      :src="lot.cover_photo"
+                      :alt="`Lote ${lot.number}`"
+                      loading="lazy"
+                    >
+                    <div v-else class="lot-picker-item__thumb-empty">
+                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="width:20px;height:20px;color:rgba(201,168,76,0.4);">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  <div class="lot-picker-item__info">
+                    <div class="lot-picker-item__header">
+                      <span class="lot-picker-item__number">Lote {{ lot.number }}</span>
+                      <span
+                        class="lot-picker-item__status"
+                        :style="lotStatusStyle(lot.status)"
+                      >{{ lotStatusLabel(lot.status) }}</span>
+                    </div>
+                    <p class="lot-picker-item__address">{{ lot.full_address }}</p>
+                    <div class="lot-picker-item__footer">
+                      <span v-if="lot.area" class="lot-picker-item__area">{{ lot.area }}m²</span>
+                      <span class="lot-picker-item__price">
+                        {{ lot.total_value ? formatCurrencyCents(lot.total_value) : 'Consulte' }}
+                      </span>
+                      <span v-if="lot.status === 'available'" class="lot-picker-item__cta">
+                        Ver detalhes →
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              <div
+                v-if="pickerLots.every(l => l.status !== 'available')"
+                style="margin-top:16px;padding:16px;background:var(--bg-section);border-radius:10px;text-align:center;"
+              >
+                <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:12px;">
+                  Todos os lotes deste tipo estão {{ pickerLots.every(l => l.status === 'sold') ? 'vendidos' : 'indisponíveis' }}.
+                  Fale com o corretor para saber sobre novos lotes.
+                </p>
+                <a
+                  :href="`${waUrl}?text=${encodeURIComponent(`Olá! Tenho interesse em lotes do tipo ${selectedGroupContext.label} no ${dev?.name}. Há previsão de novos lotes?`)}`"
+                  class="btn-whatsapp"
+                  style="display:inline-flex;justify-content:center;"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >Falar no WhatsApp</a>
+              </div>
+            </div>
+          </template>
+
+          <!-- MODO DETALHE: simulador + lead form -->
+          <template v-else-if="modalMode === 'lot-detail' && selectedLot">
           <div style="height:220px;background:#1C0A06;border-radius:20px 20px 0 0;overflow:hidden;position:relative;">
             <img
               v-if="selectedLot.cover_photo"
@@ -879,6 +1011,14 @@ function scrollToMap() {
               style="width:100%;height:100%;object-fit:cover;"
               alt="Foto do lote"
             >
+            <button
+              v-if="selectedGroupContext"
+              type="button"
+              style="position:absolute;top:12px;left:12px;background:rgba(0,0,0,0.4);border:none;color:#fff;padding:5px 10px;border-radius:8px;cursor:pointer;font-size:0.75rem;font-weight:600;display:flex;align-items:center;gap:4px;"
+              @click="modalMode = 'group-picker'; selectedLot = null;"
+            >
+              ← Lotes
+            </button>
             <button
               type="button"
               style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,0.5);border:none;color:#fff;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;"
@@ -1046,6 +1186,8 @@ function scrollToMap() {
               </a>
             </div>
           </div>
+          </template>
+
         </div>
         </div>
       </Transition>
@@ -2098,5 +2240,117 @@ function scrollToMap() {
 .lot-modal-enter-from .site-modal-panel,
 .lot-modal-leave-to .site-modal-panel {
   transform: translateY(100%);
+}
+
+/* ── Lot picker ───────────────────────────────────────────────────────────── */
+.lot-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: var(--bg-page);
+  border: 1.5px solid var(--border-light);
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s, transform 0.15s;
+}
+
+.lot-picker-item--available:hover {
+  border-color: rgba(201, 168, 76, 0.55);
+  background: rgba(201, 168, 76, 0.04);
+  transform: translateY(-1px);
+}
+
+.lot-picker-item--unavailable {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.lot-picker-item__thumb {
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-section);
+}
+
+.lot-picker-item__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lot-picker-item__thumb-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-section);
+}
+
+.lot-picker-item__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.lot-picker-item__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+
+.lot-picker-item__number {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.lot-picker-item__status {
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.lot-picker-item__address {
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  margin: 0 0 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+}
+
+.lot-picker-item__footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.lot-picker-item__area {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.lot-picker-item__price {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.lot-picker-item__cta {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent-dark);
 }
 </style>
