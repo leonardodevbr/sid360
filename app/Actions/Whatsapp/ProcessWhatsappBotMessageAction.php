@@ -12,7 +12,6 @@ use App\Models\WhatsappConversationState;
 use App\Services\WhatsappBotService;
 use App\Services\WhatsappConversationStateService;
 use App\Services\WhatsappService;
-use App\Support\WhatsappBotMessageFooter;
 use App\Support\WhatsappCommandParser;
 use Illuminate\Support\Facades\Log;
 
@@ -221,7 +220,6 @@ class ProcessWhatsappBotMessageAction
             type: $type,
             clientId: $client->id,
             meta: $meta,
-            wppconnectOptions: WhatsappBotMessageFooter::wppconnectOptions(),
         );
 
         $this->conversationState->touchOutbound($state);

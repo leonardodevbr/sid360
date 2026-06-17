@@ -20,6 +20,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/developments/{id}/zones/{zoneId}/update', [DevelopmentZoneController::class, 'update']);
     Route::post('/developments/{id}/zones/{zoneId}/delete', [DevelopmentZoneController::class, 'destroy']);
     Route::post('/developments/{id}/zones/{zoneId}/generate-lots', [DevelopmentZoneController::class, 'generateLots']);
+    Route::post('/developments/{id}/zones/{zoneId}/generate-lots-geometric', [DevelopmentZoneController::class, 'generateLotsGeometric']);
 
     Route::get('/developments/{id}/streets', [DevelopmentStreetController::class, 'index']);
     Route::post('/developments/{id}/streets', [DevelopmentStreetController::class, 'store']);

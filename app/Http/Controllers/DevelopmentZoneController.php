@@ -9,6 +9,7 @@ use App\Models\DevelopmentZone;
 use App\Models\Lot;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class DevelopmentZoneController extends Controller
@@ -150,6 +151,83 @@ class DevelopmentZoneController extends Controller
 
             $created[] = $lot;
         }
+
+        return response()->json([
+            'created' => count($created),
+            'lots' => $created,
+        ], 201);
+    }
+
+    public function generateLotsGeometric(Request $request, string|int $developmentId, string|int $zoneId): JsonResponse
+    {
+        $this->authorize('lots.create');
+
+        $development = Development::query()->findOrFail((int) $developmentId);
+        $zone = DevelopmentZone::query()
+            ->where('development_id', $developmentId)
+            ->findOrFail((int) $zoneId);
+
+        if (! $zone->allowsLotGeneration()) {
+            return response()->json([
+                'message' => 'Defina a área da zona no mapa antes de gerar lotes.',
+                'errors' => ['zone' => ['Área da zona não definida.']],
+            ], 422);
+        }
+
+        $data = $request->validate([
+            'start_from' => ['nullable', 'integer', 'min:1'],
+            'total_value' => ['nullable', 'integer', 'min:0'],
+            'pattern' => ['nullable', 'string', 'max:100'],
+            'lot_width' => ['nullable', 'numeric', 'min:0'],
+            'lot_depth' => ['nullable', 'numeric', 'min:0'],
+            'lots' => ['required', 'array', 'min:1', 'max:500'],
+            'lots.*.coordinates' => ['required', 'array', 'min:3'],
+            'lots.*.coordinates.*' => ['array', 'size:2'],
+            'lots.*.area_computed' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $startFrom = (int) ($data['start_from'] ?? 1);
+        $pattern = $data['pattern'] ?? $development->lot_number_pattern ?? '{zona}-L{numero2}';
+
+        $sizeLabel = ($data['lot_width'] ?? null) && ($data['lot_depth'] ?? null)
+            ? rtrim(rtrim((string) $data['lot_width'], '0'), '.') . '×' . rtrim(rtrim((string) $data['lot_depth'], '0'), '.')
+            : null;
+
+        $lastNumber = Lot::query()->where('zone_id', $zone->id)->max('number');
+        $nextNumber = $lastNumber ? ((int) preg_replace('/\D/', '', $lastNumber) + 1) : $startFrom;
+
+        $created = [];
+
+        DB::transaction(function () use ($data, $development, $zone, $pattern, $nextNumber, $sizeLabel, &$created): void {
+            foreach (array_values($data['lots']) as $i => $lotData) {
+                $num = $nextNumber + $i;
+
+                $number = str_replace(
+                    ['{zona}', '{numero}', '{numero2}', '{numero3}'],
+                    [
+                        $zone->name,
+                        (string) $num,
+                        str_pad((string) $num, 2, '0', STR_PAD_LEFT),
+                        str_pad((string) $num, 3, '0', STR_PAD_LEFT),
+                    ],
+                    $pattern,
+                );
+
+                $created[] = Lot::query()->create([
+                    'development_id' => $development->id,
+                    'zone_id' => $zone->id,
+                    'block' => $zone->name,
+                    'number' => $number,
+                    'area' => $lotData['area_computed'] ?? null,
+                    'area_computed' => $lotData['area_computed'] ?? null,
+                    'size_label' => $sizeLabel,
+                    'total_value' => $data['total_value'] ?? null,
+                    'down_payment_percent' => null,
+                    'status' => Lot::STATUS_AVAILABLE,
+                    'coordinates' => $lotData['coordinates'],
+                ]);
+            }
+        });
 
         return response()->json([
             'created' => count($created),

@@ -673,48 +673,142 @@
     <Modal
       :is-open="!!generateLotsZone"
       :title="generateLotsZone ? `Gerar lotes — ${generateLotsZone.name}` : 'Gerar lotes'"
-      @close="generateLotsZone = null"
+      @close="closeGenerateLotsModal"
     >
       <div class="space-y-3">
-        <Input
-          v-model="generateForm.quantity"
-          label="Quantidade de lotes"
-          type="number"
-          min="1"
-          max="500"
-          required
-        />
-        <Input
-          v-model="generateForm.start_from"
-          label="Iniciar numeração em"
-          type="number"
-          min="1"
-        />
-        <Input
-          v-model="generateForm.area"
-          label="Área de cada lote (m²)"
-          type="number"
-          step="0.01"
-        />
-        <CurrencyInput v-model="generateForm.total_value" label="Valor de cada lote" />
-        <div>
-          <label class="mb-1 block text-xs font-medium text-slate-600">Padrão de numeração</label>
-          <input
-            v-model="generateForm.pattern"
-            type="text"
-            :placeholder="form.lot_number_pattern || '{zona}-L{numero2}'"
-            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          />
-          <p class="mt-1 text-xs text-slate-400">
-            Deixe vazio para usar o padrão do empreendimento.
-            Prévia: <strong>{{ previewLotNumber }}</strong>
-          </p>
+        <div class="mb-4 flex gap-2">
+          <button
+            type="button"
+            class="flex-1 rounded-lg border px-3 py-2 text-sm font-semibold"
+            :class="genMode === 'simple' ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500'"
+            @click="switchGenMode('simple')"
+          >
+            Simples (sem mapa)
+          </button>
+          <button
+            type="button"
+            class="flex-1 rounded-lg border px-3 py-2 text-sm font-semibold"
+            :class="genMode === 'geometric' ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500'"
+            @click="switchGenMode('geometric')"
+          >
+            Com polígonos no mapa
+          </button>
         </div>
+
+        <template v-if="genMode === 'simple'">
+          <Input
+            v-model="generateForm.quantity"
+            label="Quantidade de lotes"
+            type="number"
+            min="1"
+            max="500"
+            required
+          />
+          <Input
+            v-model="generateForm.start_from"
+            label="Iniciar numeração em"
+            type="number"
+            min="1"
+          />
+          <Input
+            v-model="generateForm.area"
+            label="Área de cada lote (m²)"
+            type="number"
+            step="0.01"
+          />
+          <CurrencyInput v-model="generateForm.total_value" label="Valor de cada lote" />
+          <div>
+            <label class="mb-1 block text-xs font-medium text-slate-600">Padrão de numeração</label>
+            <input
+              v-model="generateForm.pattern"
+              type="text"
+              :placeholder="form.lot_number_pattern || '{zona}-L{numero2}'"
+              class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            <p class="mt-1 text-xs text-slate-400">
+              Deixe vazio para usar o padrão do empreendimento.
+              Prévia: <strong>{{ previewLotNumber }}</strong>
+            </p>
+          </div>
+        </template>
+
+        <template v-else>
+          <div v-if="!blockEdges.length" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
+            Esta quadra precisa ter a área desenhada no mapa antes de gerar lotes com polígonos.
+          </div>
+
+          <template v-else>
+            <div class="grid grid-cols-2 gap-3">
+              <Input v-model.number="geoForm.lotWidth" type="number" label="Largura do lote (m)" />
+              <Input v-model.number="geoForm.lotDepth" type="number" label="Profundidade (m)" />
+            </div>
+
+            <SelectInput
+              v-model="geoForm.frontEdgeIndex"
+              label="Frente do lote (rua)"
+              :options="blockEdgeOptions"
+              placeholder="Selecione a aresta de frente"
+              :searchable="false"
+            />
+            <p class="mt-1 text-xs text-slate-400">
+              A frente é o lado da quadra que dá para a rua. Os lotes serão fatiados ao longo dela.
+            </p>
+
+            <div class="mt-3 grid grid-cols-2 gap-3">
+              <Input v-model.number="geoForm.start_from" type="number" label="Número inicial" />
+              <CurrencyInput v-model="geoForm.total_value" label="Valor de cada lote" />
+            </div>
+
+            <div>
+              <label class="mb-1 block text-xs font-medium text-slate-600">Padrão de numeração</label>
+              <input
+                v-model="geoForm.pattern"
+                type="text"
+                :placeholder="form.lot_number_pattern || '{zona}-L{numero2}'"
+                class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+              <p class="mt-1 text-xs text-slate-400">
+                Prévia: <strong>{{ previewGeoLotNumber }}</strong>
+              </p>
+            </div>
+
+            <Button variant="outline" class="mt-3 w-full" :disabled="previewing" @click="buildPreview">
+              {{ previewing ? 'Calculando...' : 'Pré-visualizar no mapa' }}
+            </Button>
+
+            <div v-if="previewLots.length" class="mt-3 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">
+              {{ previewLots.length }} lote(s) gerado(s) no preview.
+              <span v-if="previewLots.some((l) => l.clipped)">
+                Alguns foram recortados nas bordas da quadra.
+              </span>
+            </div>
+
+            <div class="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+              <p class="font-medium text-slate-600">Limitações</p>
+              <ul class="mt-1 list-inside list-disc space-y-0.5">
+                <li>Quadras irregulares podem gerar lotes trapezoidais nas pontas (marcados em laranja)</li>
+                <li>Frentes curvas são aproximadas em linha reta</li>
+                <li>A profundidade é perpendicular à frente; o recorte ajusta a área real</li>
+                <li>Cada lote pode ser redesenhado individualmente depois</li>
+              </ul>
+            </div>
+          </template>
+        </template>
       </div>
       <div class="mt-4 flex justify-end gap-2">
-        <Button variant="outline" @click="generateLotsZone = null">Cancelar</Button>
-        <Button variant="primary" :disabled="generating" @click="doGenerateLots">
-          {{ generating ? 'Gerando...' : `Gerar ${generateForm.quantity || 0} lotes` }}
+        <Button variant="outline" @click="closeGenerateLotsModal">Cancelar</Button>
+        <Button
+          variant="primary"
+          :disabled="generating"
+          @click="genMode === 'geometric' ? doGenerateGeometricLots() : doGenerateLots()"
+        >
+          {{
+            generating
+              ? 'Gerando...'
+              : genMode === 'geometric'
+                ? `Gerar ${previewLots.length || 0} lotes`
+                : `Gerar ${generateForm.quantity || 0} lotes`
+          }}
         </Button>
       </div>
     </Modal>
@@ -747,6 +841,7 @@ import {
   zoneTypeLabel as zoneTypeLabelHelper,
 } from '@/utils/zone';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
+import { subdivideBlockIntoLots, getBlockEdges } from '@/utils/lotSubdivision';
 import Input from '@/components/Common/Input.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
 import Button from '@/components/Common/Button.vue';
@@ -813,6 +908,7 @@ let edgeLabelMarkers = [];
 let zoneLayers = {};
 let streetLayersMap = {};
 let lotLayersMap = {};
+let previewLayerGroup = null;
 let locationMarker = null;
 let mapLayersSetup = null;
 let fullscreenResizeHandler = null;
@@ -2670,6 +2766,7 @@ async function deleteZone(zone) {
 
 const generateLotsZone = ref(null);
 const generating = ref(false);
+const genMode = ref('simple');
 const generateForm = ref({
   quantity: 10,
   start_from: 1,
@@ -2677,6 +2774,24 @@ const generateForm = ref({
   total_value: 0,
   pattern: '',
 });
+const geoForm = ref({
+  lotWidth: 20,
+  lotDepth: 30,
+  frontEdgeIndex: null,
+  total_value: 0,
+  start_from: 1,
+  pattern: '',
+});
+const blockEdges = ref([]);
+const previewLots = ref([]);
+const previewing = ref(false);
+
+const blockEdgeOptions = computed(() =>
+  blockEdges.value.map((edge) => ({
+    value: edge.index,
+    label: `Lado ${edge.index + 1} — ${edge.lengthMeters}m`,
+  })),
+);
 
 const previewLotNumber = computed(() => {
   const zone = generateLotsZone.value;
@@ -2691,6 +2806,104 @@ const previewLotNumber = computed(() => {
     .replace('{numero3}', String(num).padStart(3, '0'));
 });
 
+const previewGeoLotNumber = computed(() => {
+  const zone = generateLotsZone.value;
+  const pattern = geoForm.value.pattern || form.value.lot_number_pattern || '{zona}-L{numero2}';
+  if (!zone) return pattern;
+
+  const num = parseInt(geoForm.value.start_from, 10) || 1;
+  return pattern
+    .replace('{zona}', zone.name)
+    .replace('{numero}', String(num))
+    .replace('{numero2}', String(num).padStart(2, '0'))
+    .replace('{numero3}', String(num).padStart(3, '0'));
+});
+
+function loadBlockEdges() {
+  const zone = generateLotsZone.value;
+  if (!zone?.coordinates || zone.coordinates.length < 3) {
+    blockEdges.value = [];
+    return;
+  }
+  blockEdges.value = getBlockEdges(zone.coordinates);
+}
+
+function clearPreviewLayer() {
+  if (previewLayerGroup && map) {
+    map.removeLayer(previewLayerGroup);
+    previewLayerGroup = null;
+  }
+}
+
+function drawPreviewLotsOnMap() {
+  if (!map || !L) return;
+
+  clearPreviewLayer();
+  previewLayerGroup = L.featureGroup().addTo(map);
+
+  previewLots.value.forEach((lot, i) => {
+    L.polygon(lot.coordinates, {
+      color: lot.clipped ? '#f59e0b' : '#c9a84c',
+      weight: 2,
+      fillColor: lot.clipped ? '#f59e0b' : '#c9a84c',
+      fillOpacity: 0.25,
+      dashArray: '6 4',
+      className: 'map-lot-preview-path',
+    })
+      .bindTooltip(`Lote ${geoForm.value.start_from + i} · ${lot.area}m²`, { permanent: false })
+      .addTo(previewLayerGroup);
+  });
+
+  try {
+    const bounds = previewLayerGroup.getBounds();
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 20 });
+    }
+  } catch {
+    /* geometria inválida */
+  }
+}
+
+function buildPreview() {
+  const zone = generateLotsZone.value;
+  if (!zone?.coordinates || geoForm.value.frontEdgeIndex == null) {
+    toast.warning('Selecione a aresta de frente (rua) da quadra.');
+    return;
+  }
+  previewing.value = true;
+  try {
+    previewLots.value = subdivideBlockIntoLots({
+      blockLatLng: zone.coordinates,
+      frontEdgeIndex: geoForm.value.frontEdgeIndex,
+      lotWidth: Number(geoForm.value.lotWidth),
+      lotDepth: Number(geoForm.value.lotDepth),
+    });
+    if (!previewLots.value.length) {
+      toast.warning('Nenhum lote gerado. Verifique as dimensões e a aresta de frente.');
+    }
+    drawPreviewLotsOnMap();
+  } finally {
+    previewing.value = false;
+  }
+}
+
+function switchGenMode(mode) {
+  if (genMode.value === mode) return;
+  clearPreviewLayer();
+  previewLots.value = [];
+  genMode.value = mode;
+  if (mode === 'geometric') {
+    loadBlockEdges();
+  }
+}
+
+function closeGenerateLotsModal() {
+  clearPreviewLayer();
+  previewLots.value = [];
+  genMode.value = 'simple';
+  generateLotsZone.value = null;
+}
+
 function openGenerateLots(zone) {
   if (!canGenerateLotsInZone(zone)) {
     toast.warning(generateLotsBlockedReason(zone));
@@ -2698,6 +2911,9 @@ function openGenerateLots(zone) {
   }
 
   generateLotsZone.value = zone;
+  genMode.value = 'simple';
+  previewLots.value = [];
+  blockEdges.value = [];
   generateForm.value = {
     quantity: 10,
     start_from: 1,
@@ -2705,6 +2921,50 @@ function openGenerateLots(zone) {
     total_value: 0,
     pattern: '',
   };
+  geoForm.value = {
+    lotWidth: 20,
+    lotDepth: 30,
+    frontEdgeIndex: null,
+    total_value: 0,
+    start_from: 1,
+    pattern: '',
+  };
+}
+
+async function doGenerateGeometricLots() {
+  if (!previewLots.value.length) {
+    toast.warning('Gere o preview antes de salvar.');
+    return;
+  }
+  generating.value = true;
+  try {
+    const { data } = await api.post(
+      `/developments/${route.params.id}/zones/${generateLotsZone.value.id}/generate-lots-geometric`,
+      {
+        start_from: parseInt(geoForm.value.start_from, 10) || 1,
+        total_value: geoForm.value.total_value || null,
+        pattern: geoForm.value.pattern || null,
+        lot_width: Number(geoForm.value.lotWidth),
+        lot_depth: Number(geoForm.value.lotDepth),
+        lots: previewLots.value.map((l) => ({
+          coordinates: l.coordinates,
+          area_computed: l.area,
+        })),
+      },
+    );
+    toast.success(`${data.created} lotes gerados com polígonos!`);
+    clearPreviewLayer();
+    previewLots.value = [];
+    generateLotsZone.value = null;
+    genMode.value = 'simple';
+    await loadZones();
+    await loadLots();
+    drawLotsOnMap();
+  } catch (err) {
+    toast.error(err?.response?.data?.message ?? 'Erro ao gerar lotes.');
+  } finally {
+    generating.value = false;
+  }
 }
 
 async function doGenerateLots() {

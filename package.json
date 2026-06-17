@@ -11,6 +11,7 @@
         "@headlessui/vue": "^1.7.23",
         "@heroicons/vue": "^2.2.0",
         "@lucide/vue": "^1.16.0",
+        "@turf/turf": "^7.3.5",
         "@vueform/multiselect": "^2.6.11",
         "axios": "^1.13.2",
         "currency.js": "^2.0.4",

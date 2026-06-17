@@ -8,7 +8,6 @@ use App\Models\Installment;
 use App\Models\InstallmentInteraction;
 use App\Models\Setting;
 use App\Support\DocumentHelper;
-use App\Support\WhatsappBotMessageFooter;
 use App\Support\WppconnectConfig;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -131,7 +130,7 @@ class WhatsappService
         array $meta = [],
         ?array $wppconnectOptions = null,
     ): bool {
-        $options = $wppconnectOptions ?? WhatsappBotMessageFooter::wppconnectOptions();
+        $options = $wppconnectOptions;
         $textSent = $this->send($phone, $message, $options);
 
         $imageSent = null;
@@ -307,7 +306,7 @@ class WhatsappService
         ?string $fileCaption = null,
         array $meta = [],
     ): array {
-        $textSent = $this->send($phone, $message, WhatsappBotMessageFooter::wppconnectOptions());
+        $textSent = $this->send($phone, $message);
 
         $fileSent = null;
         $hasPdf = ($pdfUrl !== null && trim($pdfUrl) !== '')

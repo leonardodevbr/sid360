@@ -192,7 +192,7 @@ class WhatsappBotService
             type: InstallmentInteraction::TYPE_BOT_RESPONSE,
             clientId: $client->id,
             meta: ['command' => self::COMMAND_MENU, 'interactive' => 'list'],
-            footer: WhatsappBotMessageFooter::text(),
+            footer: WhatsappBotMessageFooter::botSession(),
         );
 
         if ($sent) {
@@ -218,7 +218,14 @@ class WhatsappBotService
             'portal_url' => $this->portalUrl(),
         ]);
 
-        $this->sendBotResponse($client, $phone, $message, self::COMMAND_MENU, state: $state);
+        $this->sendBotResponse(
+            $client,
+            $phone,
+            $message,
+            self::COMMAND_MENU,
+            state: $state,
+            wppconnectOptions: WhatsappBotMessageFooter::botSessionOptions(),
+        );
     }
 
     private function handlePayment(Client $client, string $phone, WhatsappConversationState $state): void
@@ -521,7 +528,6 @@ class WhatsappBotService
             saleId: $sale->id,
             clientId: $client->id,
             meta: ['command' => $command, 'step' => 'document_intro'],
-            wppconnectOptions: WhatsappBotMessageFooter::wppconnectOptions(),
         );
 
         $this->conversationState->touchOutbound($state);
@@ -769,6 +775,7 @@ class WhatsappBotService
         ?int $saleId = null,
         ?int $installmentId = null,
         ?WhatsappConversationState $state = null,
+        ?array $wppconnectOptions = null,
     ): void {
         $state ??= $this->conversationState->findOrCreate($phone, $client->id);
 
@@ -780,7 +787,7 @@ class WhatsappBotService
             saleId: $saleId,
             clientId: $client->id,
             meta: ['command' => $command],
-            wppconnectOptions: WhatsappBotMessageFooter::wppconnectOptions(),
+            wppconnectOptions: $wppconnectOptions,
         );
 
         $this->conversationState->touchOutbound($state);

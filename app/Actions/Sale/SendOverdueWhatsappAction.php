@@ -130,7 +130,7 @@ class SendOverdueWhatsappAction
                 'manual' => $forceResend,
                 'resent' => $forceResend,
             ],
-            footer: WhatsappBotMessageFooter::text(),
+            footer: WhatsappBotMessageFooter::automatic(),
         );
 
         if (! $sent) {
