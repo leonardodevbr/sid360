@@ -31,6 +31,7 @@ import {
   MAP_SNAP_PIXEL_RADIUS,
   resolveSnapToleranceMeters,
   resolveSnappedCoordinate,
+  findNearestPolygonEdgeInsert,
 } from '@/utils/mapVertexSnap';
 import {
   captureHighAccuracyPosition,
@@ -883,13 +884,14 @@ export function useMapDrawing(options) {
     const zoneInvalid = boundary
       && getInvalidPointsInsidePolygon(drawingPoints.value, boundary).length > 0;
     const strokeColor = zoneInvalid ? '#DC2626' : getDrawingBaseColor();
+    const edgeInsertEnabled = canInsertVerticesOnEdge();
 
     const layerOptions = {
       color: strokeColor,
-      weight: 2,
+      weight: edgeInsertEnabled ? 10 : 2,
       dashArray: '4',
-      interactive: false,
-      className: 'map-lot-path',
+      interactive: edgeInsertEnabled,
+      className: edgeInsertEnabled ? 'map-temp-shape-editable map-lot-path' : 'map-lot-path',
     };
 
     if ((closed || startedFromExistingPolygon.value) && drawingPoints.value.length >= 3) {
@@ -901,6 +903,10 @@ export function useMapDrawing(options) {
       bindFeatureLabel(map._tempLine);
     } else {
       map._tempLine = L.polyline(drawingPoints.value, layerOptions).addTo(map);
+    }
+
+    if (edgeInsertEnabled) {
+      bindTempShapeEdgeHandlers(map._tempLine);
     }
 
     refreshEdgeLabels();
@@ -1488,6 +1494,100 @@ export function useMapDrawing(options) {
           ? 'Demarcação registrada no formulário. Clique em Salvar para persistir o lote.'
           : 'Demarcação salva.',
       );
+    }
+  }
+
+  function canInsertVerticesOnEdge() {
+    if (!drawingMode.value || drawingPoints.value.length < 2) {
+      return false;
+    }
+
+    return startedFromExistingPolygon.value || drawingPoints.value.length >= 3;
+  }
+
+  function bindTempShapeEdgeHandlers(layer) {
+    if (!layer || !L) {
+      return;
+    }
+
+    layer.off('dblclick', onTempShapeDblClickInsertVertex);
+    layer.on('dblclick', onTempShapeDblClickInsertVertex);
+  }
+
+  function onTempShapeDblClickInsertVertex(event) {
+    L.DomEvent.stopPropagation(event);
+    L.DomEvent.preventDefault(event);
+    clearFirstVertexCloseTimer();
+
+    const latLng = event.latlng ?? eventToMapLatLng(map, event);
+    if (!latLng) {
+      return;
+    }
+
+    insertVertexOnNearestEdge(latLng.lat, latLng.lng);
+  }
+
+  function insertVertexOnNearestEdge(lat, lng) {
+    if (!canInsertVerticesOnEdge()) {
+      return;
+    }
+
+    const closed = startedFromExistingPolygon.value || drawingPoints.value.length >= 3;
+    const snapped = applyDrawingSnap(lat, lng, {
+      includeDrawingPoints: !startedFromExistingPolygon.value,
+      includeDrawingSegments: !startedFromExistingPolygon.value,
+    });
+    const toleranceMeters = resolveSnapToleranceMeters(map, snapped.lat, snapped.lng, {
+      pixelRadius: MAP_SEGMENT_SNAP_PIXEL_RADIUS,
+    });
+    const nearestEdge = findNearestPolygonEdgeInsert(
+      snapped.lat,
+      snapped.lng,
+      drawingPoints.value,
+      { closed, toleranceMeters },
+    );
+
+    if (!nearestEdge) {
+      toast.info('Clique mais perto de uma aresta para adicionar um ponto.');
+      return;
+    }
+
+    insertVertexAtIndex(nearestEdge.insertIndex, nearestEdge.lat, nearestEdge.lng);
+  }
+
+  function insertVertexAtIndex(insertIndex, lat, lng) {
+    if (!drawingMode.value) {
+      return;
+    }
+
+    drawingPoints.value.splice(insertIndex, 0, [lat, lng]);
+
+    if (drawingPoints.value.length >= 3) {
+      startedFromExistingPolygon.value = true;
+    }
+
+    tempMarkers.forEach((marker) => map?.removeLayer(marker));
+    tempMarkers = [];
+
+    if (map?._tempLine) {
+      map.removeLayer(map._tempLine);
+      delete map._tempLine;
+    }
+
+    const baseColor = getDrawingBaseColor();
+    drawingPoints.value.forEach((coord, pointIndex) => {
+      addDrawingMarker(coord, baseColor, pointIndex);
+    });
+
+    refreshTempPolyline(startedFromExistingPolygon.value && drawingPoints.value.length >= 3);
+    refreshVertexMarkerStyles();
+    bringVertexMarkersToFront();
+    syncDrawingCursorPreview();
+    ensureMapDraggingEnabled();
+
+    const boundary = getBoundary();
+    if (boundary && !isPointInsideOrOnPolygon([lat, lng], boundary)) {
+      toast.warning('Vértice fora da área permitida.');
     }
   }
 

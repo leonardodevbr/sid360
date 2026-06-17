@@ -1299,6 +1299,7 @@ import {
   rectangleFromOppositeCorners,
   resolveSnapToleranceMeters,
   resolveSnappedCoordinate,
+  findNearestPolygonEdgeInsert,
 } from '@/utils/mapVertexSnap';
 import {
   subdivideBlockIntoLots,
@@ -2520,6 +2521,111 @@ function preloadDrawingPoints(coords, color) {
   syncDrawingCursorPreview();
 }
 
+function canInsertVerticesOnEdge() {
+  if (!drawingMode.value || perimeterPoints.value.length < 2) {
+    return false;
+  }
+
+  if (drawingMode.value === 'street-axis') {
+    return true;
+  }
+
+  return startedFromExistingPolygon.value || perimeterPoints.value.length >= 3;
+}
+
+function bindTempShapeEdgeHandlers(layer) {
+  if (!layer || !L) {
+    return;
+  }
+
+  layer.off('dblclick', onTempShapeDblClickInsertVertex);
+  layer.on('dblclick', onTempShapeDblClickInsertVertex);
+}
+
+function onTempShapeDblClickInsertVertex(event) {
+  L.DomEvent.stopPropagation(event);
+  L.DomEvent.preventDefault(event);
+  clearFirstVertexCloseTimer();
+
+  const latLng = event.latlng ?? eventToMapLatLng(map, event);
+  if (!latLng) {
+    return;
+  }
+
+  insertVertexOnNearestEdge(latLng.lat, latLng.lng);
+}
+
+function insertVertexOnNearestEdge(lat, lng) {
+  if (!canInsertVerticesOnEdge()) {
+    return;
+  }
+
+  const closed = drawingMode.value !== 'street-axis'
+    && (startedFromExistingPolygon.value || perimeterPoints.value.length >= 3);
+
+  const snapped = applyDrawingSnap(lat, lng, {
+    includeDrawingPoints: !startedFromExistingPolygon.value,
+    includeDrawingSegments: !startedFromExistingPolygon.value,
+  });
+
+  const toleranceMeters = resolveSnapToleranceMeters(map, snapped.lat, snapped.lng, {
+    pixelRadius: MAP_SEGMENT_SNAP_PIXEL_RADIUS,
+  });
+
+  const nearestEdge = findNearestPolygonEdgeInsert(
+    snapped.lat,
+    snapped.lng,
+    perimeterPoints.value,
+    { closed, toleranceMeters },
+  );
+
+  if (!nearestEdge) {
+    toast.info('Clique mais perto de uma aresta para adicionar um ponto.');
+    return;
+  }
+
+  insertVertexAtIndex(nearestEdge.insertIndex, nearestEdge.lat, nearestEdge.lng);
+}
+
+function insertVertexAtIndex(insertIndex, lat, lng) {
+  if (!drawingMode.value) {
+    return;
+  }
+
+  perimeterPoints.value.splice(insertIndex, 0, [lat, lng]);
+
+  const minimumPoints = getMinimumPolygonPoints(drawingMode.value);
+  if (drawingMode.value !== 'street-axis' && perimeterPoints.value.length >= minimumPoints) {
+    startedFromExistingPolygon.value = true;
+  }
+
+  tempMarkers.forEach((marker) => map?.removeLayer(marker));
+  tempMarkers = [];
+
+  if (map?._tempLine) {
+    map.removeLayer(map._tempLine);
+    delete map._tempLine;
+  }
+
+  const color = getDrawingBaseColor();
+  perimeterPoints.value.forEach((coord, pointIndex) => {
+    addDrawingMarker(coord, color, pointIndex);
+  });
+
+  refreshTempPolyline(startedFromExistingPolygon.value && perimeterPoints.value.length >= 3);
+  refreshVertexMarkerStyles();
+  bringVertexMarkersToFront();
+  syncDrawingCursorPreview();
+
+  if (drawingMode.value === 'street-axis') {
+    updateAxisPreviewFromPoints();
+  }
+
+  if (drawingMode.value === 'zone' && !canPlaceZonePoint([lat, lng])) {
+    toast.warning('Vértice fora do perímetro do empreendimento.');
+  }
+}
+
 function removeVertexAtIndex(index) {
   if (!drawingMode.value || index < 0 || index >= perimeterPoints.value.length) {
     return;
@@ -2768,13 +2874,15 @@ function refreshTempPolyline(closed = false, options = {}) {
     && getDevelopmentPerimeter()
     && getInvalidPointsInsidePolygon(perimeterPoints.value, getDevelopmentPerimeter()).length > 0;
   const strokeColor = zoneInvalid ? '#DC2626' : lineColor;
+  const edgeInsertEnabled = canInsertVerticesOnEdge();
 
   const layerOptions = {
     color: strokeColor,
-    weight: drawingMode.value === 'street-axis' ? 1 : 2,
+    weight: edgeInsertEnabled ? 10 : (drawingMode.value === 'street-axis' ? 1 : 2),
     dashArray: drawingMode.value === 'street-axis' ? '5 4' : '4',
     opacity: drawingMode.value === 'street-axis' ? 0.9 : 1,
-    interactive: false,
+    interactive: edgeInsertEnabled,
+    className: edgeInsertEnabled ? 'map-temp-shape-editable' : '',
   };
 
   const shouldRenderClosed = drawingMode.value === 'street-axis'
@@ -2789,6 +2897,10 @@ function refreshTempPolyline(closed = false, options = {}) {
     }).addTo(map);
   } else {
     map._tempLine = L.polyline(perimeterPoints.value, layerOptions).addTo(map);
+  }
+
+  if (edgeInsertEnabled) {
+    bindTempShapeEdgeHandlers(map._tempLine);
   }
 
   if (livePreview) {
@@ -3016,12 +3128,12 @@ function startDrawZone(zone) {
       delete zoneLayers[zone.id];
     }
     preloadDrawingPoints(zone.coordinates, zone.color ?? '#10B981');
-    toast.info(`Área de "${zone.name}" carregada. Arraste os vértices ou adicione novos pontos no mapa.`);
+    toast.info(`Área de "${zone.name}" carregada. Arraste vértices; duplo clique na linha adiciona ponto.`);
   } else {
     perimeterPoints.value = [];
     startedFromExistingPolygon.value = false;
     resetDrawingShapeMode();
-    toast.info(`Desenhando área de "${zone.name}". Clique no mapa para marcar os vértices.`);
+    toast.info(`Desenhando área de "${zone.name}". Clique para marcar; duplo clique na linha adiciona ponto.`);
   }
 
   map?.getContainer()?.style.setProperty('cursor', 'crosshair');

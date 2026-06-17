@@ -323,6 +323,58 @@ export function findNearestSegmentSnap(lat, lng, segments, toleranceMeters = MAP
   return best;
 }
 
+/**
+ * Encontra a aresta mais próxima para inserir um novo vértice.
+ * @returns {{ lat: number, lng: number, insertIndex: number, distanceMeters: number } | null}
+ */
+export function findNearestPolygonEdgeInsert(lat, lng, coords, {
+  closed = true,
+  toleranceMeters = MAP_VERTEX_SNAP_TOLERANCE_METERS,
+} = {}) {
+  if (!Array.isArray(coords) || coords.length < 2) {
+    return null;
+  }
+
+  const segmentCount = closed && coords.length >= 3
+    ? coords.length
+    : coords.length - 1;
+
+  if (segmentCount <= 0) {
+    return null;
+  }
+
+  const segments = [];
+
+  for (let edgeIndex = 0; edgeIndex < segmentCount; edgeIndex += 1) {
+    segments.push({
+      coords: [
+        coords[edgeIndex],
+        coords[(edgeIndex + 1) % coords.length],
+      ],
+      edgeIndex,
+    });
+  }
+
+  let best = null;
+
+  segments.forEach((segment) => {
+    const snap = findNearestSegmentSnap(lat, lng, [segment], toleranceMeters);
+
+    if (!snap || (best && snap.distanceMeters >= best.distanceMeters)) {
+      return;
+    }
+
+    best = {
+      lat: snap.lat,
+      lng: snap.lng,
+      insertIndex: segment.edgeIndex + 1,
+      distanceMeters: snap.distanceMeters,
+    };
+  });
+
+  return best;
+}
+
 export function resolveSnappedCoordinate(
   lat,
   lng,

@@ -455,6 +455,10 @@
   box-shadow: none !important;
 }
 
+.leaflet-interactive.map-temp-shape-editable {
+  cursor: copy;
+}
+
 .leaflet-container .map-lot-path,
 .leaflet-container .map-lot-path:focus,
 .leaflet-container .map-lot-path:focus-visible {
