@@ -3005,10 +3005,20 @@ function startDrawZone(zone) {
     perimeterPoints.value = [];
     startedFromExistingPolygon.value = false;
     resetDrawingShapeMode();
+    toast.info(`Desenhando área de "${zone.name}". Clique no mapa para marcar os vértices.`);
   }
 
   map?.getContainer()?.style.setProperty('cursor', 'crosshair');
   syncDrawingCursorPreview();
+  focusMapForDrawing();
+
+  if (zone.coordinates?.length >= 3) {
+    try {
+      map.fitBounds(L.polygon(zone.coordinates).getBounds(), { padding: [48, 48], maxZoom: 19 });
+    } catch {
+      /* geometria inválida */
+    }
+  }
 }
 
 function toggleZoneMapPicker() {
@@ -3023,10 +3033,6 @@ function pickZoneForMapping(zone) {
   }
 
   startDrawZone(zone);
-
-  if (!zone.coordinates?.length || zone.coordinates.length < 3) {
-    toast.info(`Desenhando área de "${zone.name}". Clique no mapa para marcar os vértices.`);
-  }
 }
 
 function openNewZoneFromMapPicker() {
