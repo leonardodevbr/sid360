@@ -346,6 +346,73 @@ export function collectMapSnapIntersectionTargets(segments) {
   return targets;
 }
 
+/**
+ * Todos os pontos de referência para snap (vértices + interseções), para exibir no mapa durante o desenho.
+ */
+export function collectMapSnapHintPoints({
+  perimeterCoordinates = [],
+  zones = [],
+  streets = [],
+  lots = [],
+  excludeZoneId = null,
+  excludeStreetId = null,
+  excludeLotId = null,
+} = {}) {
+  const segmentTargets = collectMapSnapSegmentTargets({
+    perimeterCoordinates,
+    zones,
+    streets,
+    lots,
+    currentDrawingPoints: [],
+    excludeZoneId,
+    excludeStreetId,
+    excludeLotId,
+    includeDrawingSegments: false,
+  });
+  const vertexTargets = collectMapSnapTargets({
+    perimeterCoordinates,
+    zones,
+    streets,
+    lots,
+    currentDrawingPoints: [],
+    excludeZoneId,
+    excludeStreetId,
+    excludeLotId,
+    includeDrawingPoints: false,
+  });
+  const intersectionTargets = collectMapSnapIntersectionTargets(segmentTargets);
+
+  const seen = new Set();
+  const hints = [];
+
+  const addHint = (coord, kind, source = null) => {
+    const normalized = normalizeCoord(coord);
+
+    if (!normalized) {
+      return;
+    }
+
+    const key = coordKey(normalized);
+
+    if (seen.has(key)) {
+      return;
+    }
+
+    seen.add(key);
+    hints.push({ coord: normalized, kind, source });
+  };
+
+  vertexTargets.forEach((target) => {
+    addHint(target.coord, 'vertex', target.source);
+  });
+
+  intersectionTargets.forEach((target) => {
+    addHint(target.coord, 'intersection', target.source);
+  });
+
+  return hints;
+}
+
 export function findNearestVertexSnap(lat, lng, targets, toleranceMeters = MAP_VERTEX_SNAP_TOLERANCE_METERS) {
   let best = null;
 

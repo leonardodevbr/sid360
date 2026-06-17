@@ -813,6 +813,29 @@
   pointer-events: none;
 }
 
+.map-snap-hint-icon {
+  background: transparent;
+  border: none;
+}
+
+.map-snap-hint-indicator {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--gold, #c9a84c);
+  border-radius: 50%;
+  background: rgba(201, 168, 76, 0.5);
+  pointer-events: none;
+}
+
+.map-snap-hint-indicator--intersection {
+  width: 12px;
+  height: 12px;
+  border-color: #1a3a28;
+  background: rgba(201, 168, 76, 0.85);
+  box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.45);
+}
+
 .map-cursor-preview-polygon {
   pointer-events: none !important;
 }

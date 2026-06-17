@@ -1294,6 +1294,7 @@ import {
 } from '@/utils/zone';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import {
+  collectMapSnapHintPoints,
   collectMapSnapIntersectionTargets,
   collectMapSnapSegmentTargets,
   collectMapSnapTargets,
@@ -1381,6 +1382,7 @@ let streetUnionVisualLayer = null;
 let lotLayersMap = {};
 let previewLayerGroup = null;
 let blockEdgeLayerGroup = null;
+let snapHintLayerGroup = null;
 let axisPreviewLayer = null;
 let measureTempLayerGroup = null;
 const savedMeasureLayerGroups = [];
@@ -1474,6 +1476,63 @@ function applyDrawingSnap(lat, lng, {
   });
 }
 
+function clearSnapHintMarkers() {
+  if (snapHintLayerGroup && map) {
+    map.removeLayer(snapHintLayerGroup);
+    snapHintLayerGroup = null;
+  }
+}
+
+function syncSnapHintMarkers() {
+  if (!map || !L) {
+    return;
+  }
+
+  clearSnapHintMarkers();
+
+  if (drawingMode.value !== 'zone' && drawingMode.value !== 'perimeter') {
+    return;
+  }
+
+  const context = getDrawingSnapContext();
+  const hints = collectMapSnapHintPoints(context);
+
+  if (!hints.length) {
+    return;
+  }
+
+  const bounds = map.getBounds();
+  snapHintLayerGroup = L.featureGroup();
+
+  hints.forEach((hint) => {
+    const [lat, lng] = hint.coord;
+
+    if (!bounds.contains([lat, lng])) {
+      return;
+    }
+
+    const isIntersection = hint.kind === 'intersection';
+
+    snapHintLayerGroup.addLayer(L.marker([lat, lng], {
+      interactive: false,
+      keyboard: false,
+      zIndexOffset: isIntersection ? 1250 : 1150,
+      icon: L.divIcon({
+        className: 'map-snap-hint-icon',
+        html: `<span class="map-snap-hint-indicator${isIntersection ? ' map-snap-hint-indicator--intersection' : ''}"></span>`,
+        iconSize: isIntersection ? [12, 12] : [10, 10],
+        iconAnchor: isIntersection ? [6, 6] : [5, 5],
+      }),
+    }));
+  });
+
+  if (snapHintLayerGroup.getLayers().length) {
+    snapHintLayerGroup.addTo(map);
+  } else {
+    clearSnapHintMarkers();
+  }
+}
+
 function clearRectangleDrawingState() {
   rectangleAnchor.value = null;
 
@@ -1551,6 +1610,7 @@ function syncDrawingCursorPreview() {
     if (!measureMode.value) {
       cursorPreview.unbind();
     }
+    clearSnapHintMarkers();
     return;
   }
 
@@ -1574,6 +1634,7 @@ function syncDrawingCursorPreview() {
       getInvalid: () => false,
       isCursorInvalid: () => false,
     });
+    syncSnapHintMarkers();
     return;
   }
 
@@ -1629,6 +1690,7 @@ function syncDrawingCursorPreview() {
       return !isPointInsideOrOnPolygon([latLng.lat, latLng.lng], perimeter);
     },
   });
+  syncSnapHintMarkers();
 }
 
 function syncMeasureCursorPreview() {
@@ -1783,6 +1845,11 @@ async function initMap() {
   }
 
   map.on('click', onMapClick);
+  map.on('moveend zoomend', () => {
+    if (drawingMode.value === 'zone' || drawingMode.value === 'perimeter') {
+      syncSnapHintMarkers();
+    }
+  });
   map.on('popupopen', (e) => {
     bindPopupActionButtons(e.popup);
     window.requestAnimationFrame(() => bindPopupActionButtons(e.popup));
@@ -3081,6 +3148,7 @@ function clearTempLayers() {
   }
 
   cursorPreview.clear();
+  clearSnapHintMarkers();
 }
 
 function drawPerimeterOnMap(coords) {
