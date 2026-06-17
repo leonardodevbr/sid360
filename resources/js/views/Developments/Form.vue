@@ -346,7 +346,29 @@
                   Desfazer
                 </button>
                 <button
-                  v-if="drawingMode && perimeterPoints.length"
+                  v-if="drawingMode && showAreaShapeTools"
+                  type="button"
+                  class="map-toolbar-action-btn flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:justify-start sm:px-3 sm:text-xs"
+                  :class="drawingShapeMode === 'free'
+                    ? 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                    : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-white'"
+                  @click="setDrawingShapeMode('free')"
+                >
+                  Livre
+                </button>
+                <button
+                  v-if="drawingMode && showAreaShapeTools"
+                  type="button"
+                  class="map-toolbar-action-btn flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:justify-start sm:px-3 sm:text-xs"
+                  :class="drawingShapeMode === 'rectangle'
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                    : 'border-slate-200 bg-slate-50 text-slate-500 hover:bg-white'"
+                  @click="setDrawingShapeMode('rectangle')"
+                >
+                  Retângulo
+                </button>
+                <button
+                  v-if="drawingMode && (perimeterPoints.length || rectangleAnchor)"
                   type="button"
                   class="map-toolbar-action-btn flex items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-amber-600 hover:bg-amber-50 sm:justify-start sm:px-3 sm:text-xs"
                   @click="undoLastPoint"
@@ -429,14 +451,20 @@
                   class="hidden text-xs text-slate-500 sm:inline"
                 >
                   Perímetro
-                  <span v-if="perimeterPoints.length" class="text-slate-400"> · {{ perimeterPoints.length }} pts</span>
+                  <span v-if="drawingShapeMode === 'rectangle' && !perimeterPoints.length" class="text-slate-400">
+                    · {{ rectangleAnchor ? 'Canto oposto' : 'Primeiro canto' }}
+                  </span>
+                  <span v-else-if="perimeterPoints.length" class="text-slate-400"> · {{ perimeterPoints.length }} pts</span>
                 </span>
                 <span
                   v-else-if="drawingMode === 'zone'"
                   class="hidden text-xs text-slate-500 sm:inline"
                 >
                   {{ drawingZone?.name }}
-                  <span v-if="perimeterPoints.length" class="text-slate-400"> · {{ perimeterPoints.length }} pts</span>
+                  <span v-if="drawingShapeMode === 'rectangle' && !perimeterPoints.length" class="text-slate-400">
+                    · {{ rectangleAnchor ? 'Canto oposto' : 'Primeiro canto' }}
+                  </span>
+                  <span v-else-if="perimeterPoints.length" class="text-slate-400"> · {{ perimeterPoints.length }} pts</span>
                 </span>
                 <span
                   v-else-if="drawingMode === 'street-axis'"
@@ -953,6 +981,12 @@ import {
   zoneTypeLabel as zoneTypeLabelHelper,
 } from '@/utils/zone';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
+import {
+  collectMapSnapSegmentTargets,
+  collectMapSnapTargets,
+  rectangleFromOppositeCorners,
+  resolveSnappedCoordinate,
+} from '@/utils/mapVertexSnap';
 import { subdivideBlockIntoLots, enrichBlockEdgesWithStreets } from '@/utils/lotSubdivision';
 import { buildStreetPolygon, centerlineLengthMeters, buildStreetNetworkVisualRings, normalizeStreetEndCap } from '@/utils/streetGeometry';
 import Input from '@/components/Common/Input.vue';
@@ -1042,6 +1076,9 @@ const savedMeasuresCount = ref(0);
 const locatingUser = ref(false);
 const mapReady = ref(false);
 const startedFromExistingPolygon = ref(false);
+const drawingShapeMode = ref('free');
+const rectangleAnchor = ref(null);
+let rectangleAnchorMarker = null;
 let firstVertexCloseTimer = null;
 const cursorPreview = createCursorPreviewController();
 
@@ -1064,6 +1101,103 @@ function isDrawingStrokeInvalid() {
     && getInvalidPointsInsidePolygon(perimeterPoints.value, getDevelopmentPerimeter()).length > 0;
 }
 
+function getDrawingSnapContext() {
+  return {
+    perimeterCoordinates: form.value.coordinates ?? [],
+    zones: zones.value,
+    streets: streets.value,
+    lots: lots.value,
+    currentDrawingPoints: perimeterPoints.value,
+    excludeZoneId: drawingMode.value === 'zone' ? drawingZone.value?.id : null,
+    excludeStreetId: drawingMode.value === 'street-axis' ? drawingStreet.value?.id : null,
+  };
+}
+
+function applyDrawingSnap(lat, lng) {
+  const context = getDrawingSnapContext();
+  const targets = collectMapSnapTargets(context);
+  const segmentTargets = drawingMode.value === 'street-axis'
+    ? collectMapSnapSegmentTargets({
+      streets: streets.value,
+      excludeStreetId: drawingStreet.value?.id ?? null,
+    })
+    : [];
+
+  return resolveSnappedCoordinate(lat, lng, { targets, segmentTargets });
+}
+
+function clearRectangleDrawingState() {
+  rectangleAnchor.value = null;
+
+  if (rectangleAnchorMarker && map) {
+    map.removeLayer(rectangleAnchorMarker);
+    rectangleAnchorMarker = null;
+  }
+}
+
+function resetDrawingShapeMode() {
+  drawingShapeMode.value = 'free';
+  clearRectangleDrawingState();
+}
+
+function setDrawingShapeMode(mode) {
+  if (drawingShapeMode.value === mode) {
+    return;
+  }
+
+  if (mode === 'rectangle' && (startedFromExistingPolygon.value || perimeterPoints.value.length > 0)) {
+    return;
+  }
+
+  drawingShapeMode.value = mode;
+  clearRectangleDrawingState();
+  syncDrawingCursorPreview();
+}
+
+function showRectangleAnchorMarker(coord, color) {
+  if (!map || !L) {
+    return;
+  }
+
+  if (rectangleAnchorMarker) {
+    map.removeLayer(rectangleAnchorMarker);
+    rectangleAnchorMarker = null;
+  }
+
+  rectangleAnchorMarker = L.marker(coord, {
+    draggable: false,
+    icon: buildVertexIcon(color, false, { drawOnly: true, interactive: false }),
+    zIndexOffset: 1500,
+  }).addTo(map);
+}
+
+function handleRectangleMapClick(lat, lng) {
+  const color = getDrawingBaseColor();
+
+  if (!rectangleAnchor.value) {
+    rectangleAnchor.value = [lat, lng];
+    showRectangleAnchorMarker([lat, lng], color);
+    toast.info('Clique no canto oposto para formar o retângulo.');
+    syncDrawingCursorPreview();
+    return true;
+  }
+
+  const rectangle = rectangleFromOppositeCorners(rectangleAnchor.value, [lat, lng]);
+  clearRectangleDrawingState();
+  drawingShapeMode.value = 'free';
+  preloadDrawingPoints(rectangle, color);
+  toast.info('Retângulo criado. Arraste os vértices para ajustar ao terreno.');
+  return true;
+}
+
+function canUseAreaShapeTools() {
+  return (drawingMode.value === 'perimeter' || drawingMode.value === 'zone')
+    && !startedFromExistingPolygon.value
+    && perimeterPoints.value.length === 0;
+}
+
+const showAreaShapeTools = computed(() => canUseAreaShapeTools());
+
 function syncDrawingCursorPreview() {
   if (!map || !L || !drawingMode.value) {
     if (!measureMode.value) {
@@ -1072,16 +1206,49 @@ function syncDrawingCursorPreview() {
     return;
   }
 
-  if (startedFromExistingPolygon.value) {
+  const rectanglePreviewActive = drawingShapeMode.value === 'rectangle' && Boolean(rectangleAnchor.value);
+
+  if (startedFromExistingPolygon.value && !rectanglePreviewActive) {
     cursorPreview.unbind();
     return;
   }
 
   cursorPreview.bind(map, L, {
-    isActive: () => Boolean(drawingMode.value) && perimeterPoints.value.length >= 1,
+    isActive: () => {
+      if (rectanglePreviewActive) {
+        return true;
+      }
+
+      if (startedFromExistingPolygon.value) {
+        return false;
+      }
+
+      return Boolean(drawingMode.value);
+    },
     getLastPoint: () => {
+      if (rectanglePreviewActive) {
+        return rectangleAnchor.value;
+      }
+
       const points = perimeterPoints.value;
       return points.length ? points[points.length - 1] : null;
+    },
+    getPreviewPolygon: (cursorLatLng) => {
+      if (!rectanglePreviewActive || !rectangleAnchor.value || !cursorLatLng) {
+        return null;
+      }
+
+      return rectangleFromOppositeCorners(
+        rectangleAnchor.value,
+        [cursorLatLng.lat, cursorLatLng.lng],
+      );
+    },
+    resolveCursorLatLng: (cursorLatLng) => {
+      if (!cursorLatLng) {
+        return cursorLatLng;
+      }
+
+      return applyDrawingSnap(cursorLatLng.lat, cursorLatLng.lng);
     },
     getStrokeColor: getDrawingStrokeColor,
     getInvalid: isDrawingStrokeInvalid,
@@ -1741,8 +1908,11 @@ function bindVertexMarkerDrag(marker) {
       return;
     }
 
-    marker.setLatLng(latLng);
-    perimeterPoints.value[marker._vertexIndex] = [latLng.lat, latLng.lng];
+    const snapped = applyDrawingSnap(latLng.lat, latLng.lng);
+    const nextLatLng = { lat: snapped.lat, lng: snapped.lng };
+
+    marker.setLatLng(nextLatLng);
+    perimeterPoints.value[marker._vertexIndex] = [snapped.lat, snapped.lng];
     refreshTempPolyline(
       startedFromExistingPolygon.value && perimeterPoints.value.length >= 3,
       { livePreview: true },
@@ -1947,6 +2117,12 @@ function removeVertexAtIndex(index) {
 }
 
 function undoLastPoint() {
+  if (rectangleAnchor.value) {
+    clearRectangleDrawingState();
+    syncDrawingCursorPreview();
+    return;
+  }
+
   if (!perimeterPoints.value.length) return;
 
   perimeterPoints.value.pop();
@@ -2001,6 +2177,12 @@ function handleMapInteractionEscape(event) {
     event.preventDefault();
     event.stopImmediatePropagation();
 
+    if (rectangleAnchor.value) {
+      clearRectangleDrawingState();
+      syncDrawingCursorPreview();
+      return;
+    }
+
     if (perimeterPoints.value.length > 0) {
       undoLastPoint();
     } else {
@@ -2017,7 +2199,21 @@ function onMapClick(e) {
 
   if (!drawingMode.value || !L) return;
 
-  const { lat, lng } = e.latlng;
+  const snapped = applyDrawingSnap(e.latlng.lat, e.latlng.lng);
+  const lat = snapped.lat;
+  const lng = snapped.lng;
+  const clickLatLng = L.latLng(lat, lng);
+
+  if (
+    (drawingMode.value === 'zone' || drawingMode.value === 'perimeter')
+    && drawingShapeMode.value === 'rectangle'
+    && !startedFromExistingPolygon.value
+    && perimeterPoints.value.length === 0
+  ) {
+    handleRectangleMapClick(lat, lng);
+    return;
+  }
+
   const minPointsToClose = getMinimumPointsToClose(drawingMode.value);
 
   perimeterPoints.value.push([lat, lng]);
@@ -2033,7 +2229,7 @@ function onMapClick(e) {
   if (
     drawingMode.value !== 'street-axis'
     && perimeterPoints.value.length >= minPointsToClose
-    && isNearFirst(e.latlng)
+    && isNearFirst(clickLatLng)
   ) {
     finishDrawing({ closedExplicitly: true });
     return;
@@ -2194,6 +2390,7 @@ async function finishDrawing({ closedExplicitly = false } = {}) {
 
   cursorPreview.unbind();
   clearTempLayers();
+  resetDrawingShapeMode();
   resetMapCursor();
   perimeterPoints.value = [];
   startedFromExistingPolygon.value = false;
@@ -2236,6 +2433,7 @@ function clearTempLayers() {
   tempMarkers.forEach((m) => map?.removeLayer(m));
   tempMarkers = [];
   clearEdgeLabelMarkers();
+  clearRectangleDrawingState();
   if (map?._tempLine) {
     map.removeLayer(map._tempLine);
     delete map._tempLine;
@@ -2339,6 +2537,7 @@ function startDrawPerimeter() {
   } else {
     perimeterPoints.value = [];
     startedFromExistingPolygon.value = false;
+    resetDrawingShapeMode();
   }
 
   map?.getContainer()?.style.setProperty('cursor', 'crosshair');
@@ -2369,6 +2568,7 @@ function startDrawZone(zone) {
   } else {
     perimeterPoints.value = [];
     startedFromExistingPolygon.value = false;
+    resetDrawingShapeMode();
   }
 
   map?.getContainer()?.style.setProperty('cursor', 'crosshair');
@@ -2402,6 +2602,7 @@ function cancelDrawing() {
   clearFirstVertexCloseTimer();
   cursorPreview.unbind();
   clearTempLayers();
+  resetDrawingShapeMode();
   teardownStreetAxisDrawing();
   resetMapCursor();
   perimeterPoints.value = [];

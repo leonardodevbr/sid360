@@ -749,3 +749,23 @@
   cursor: grabbing;
 }
 
+.map-snap-target-icon {
+  background: transparent;
+  border: none;
+}
+
+.map-snap-target-indicator {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--gold, #c9a84c);
+  border-radius: 50%;
+  background: rgba(201, 168, 76, 0.28);
+  box-shadow: 0 0 0 2px rgba(26, 58, 40, 0.35);
+  pointer-events: none;
+}
+
+.map-cursor-preview-polygon {
+  pointer-events: none !important;
+}
+

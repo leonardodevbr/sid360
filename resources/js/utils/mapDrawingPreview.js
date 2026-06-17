@@ -32,12 +32,14 @@ export function createCursorPreviewController() {
   let map = null;
   let L = null;
   let lineLayer = null;
+  let polygonLayer = null;
   let labelMarker = null;
+  let snapMarker = null;
   let onMove = null;
   let onLeave = null;
   let config = {};
 
-  function clear() {
+  function clearLineAndLabel() {
     if (map && lineLayer) {
       map.removeLayer(lineLayer);
       lineLayer = null;
@@ -49,25 +51,134 @@ export function createCursorPreviewController() {
     }
   }
 
+  function clearPolygonLayer() {
+    if (map && polygonLayer) {
+      map.removeLayer(polygonLayer);
+      polygonLayer = null;
+    }
+  }
+
+  function clearSnapMarker() {
+    if (map && snapMarker) {
+      map.removeLayer(snapMarker);
+      snapMarker = null;
+    }
+  }
+
+  function clear() {
+    clearLineAndLabel();
+    clearPolygonLayer();
+    clearSnapMarker();
+  }
+
+  function updateSnapMarker(to, snapped) {
+    if (!map || !L || !to || !snapped) {
+      clearSnapMarker();
+      return;
+    }
+
+    const icon = L.divIcon({
+      className: 'map-snap-target-icon',
+      html: '<span class="map-snap-target-indicator"></span>',
+      iconSize: [14, 14],
+      iconAnchor: [7, 7],
+    });
+
+    if (snapMarker) {
+      snapMarker.setLatLng([to.lat, to.lng]);
+      snapMarker.setIcon(icon);
+    } else {
+      snapMarker = L.marker([to.lat, to.lng], {
+        interactive: false,
+        keyboard: false,
+        zIndexOffset: 1400,
+        icon,
+      }).addTo(map);
+    }
+
+    snapMarker.bringToFront?.();
+  }
+
+  function updatePolygonPreview(points, color, invalid) {
+    clearLineAndLabel();
+
+    if (!map || !L || !Array.isArray(points) || points.length < 3) {
+      clearPolygonLayer();
+      return;
+    }
+
+    const path = points.map((point) => {
+      const normalized = normalizeLatLng(point);
+      return normalized ? [normalized.lat, normalized.lng] : null;
+    }).filter(Boolean);
+
+    if (path.length < 3) {
+      clearPolygonLayer();
+      return;
+    }
+
+    if (polygonLayer) {
+      polygonLayer.setLatLngs(path);
+      polygonLayer.setStyle({
+        color,
+        fillColor: color,
+      });
+    } else {
+      polygonLayer = L.polygon(path, {
+        color,
+        weight: 2,
+        dashArray: '6 6',
+        fillColor: color,
+        fillOpacity: invalid ? 0.08 : 0.12,
+        interactive: false,
+        className: 'map-cursor-preview-polygon',
+      }).addTo(map);
+    }
+
+    polygonLayer.bringToFront?.();
+  }
+
   function update(cursorLatLng) {
     if (!map || !L || !config.isActive?.()) {
       clear();
       return;
     }
 
-    const lastPoint = config.getLastPoint?.();
-    const from = normalizeLatLng(lastPoint);
-    const to = normalizeLatLng(cursorLatLng);
+    const resolved = config.resolveCursorLatLng?.(cursorLatLng) ?? cursorLatLng;
+    const to = normalizeLatLng(
+      typeof resolved.lat === 'number' && typeof resolved.lng === 'number'
+        ? resolved
+        : cursorLatLng,
+    );
 
-    if (!from || !to) {
+    if (!to) {
       clear();
       return;
     }
+
+    updateSnapMarker(to, Boolean(resolved.snapped));
 
     const strokeColor = config.getStrokeColor?.() ?? '#1E5F8E';
     const cursorInvalid = config.isCursorInvalid?.(to) ?? false;
     const invalid = cursorInvalid || (config.getInvalid?.() ?? false);
     const color = invalid ? '#DC2626' : strokeColor;
+    const previewPolygon = config.getPreviewPolygon?.(to);
+
+    if (Array.isArray(previewPolygon) && previewPolygon.length >= 3) {
+      updatePolygonPreview(previewPolygon, color, invalid);
+      return;
+    }
+
+    clearPolygonLayer();
+
+    const lastPoint = config.getLastPoint?.();
+    const from = normalizeLatLng(lastPoint);
+
+    if (!from) {
+      clearLineAndLabel();
+      return;
+    }
+
     const path = [[from.lat, from.lng], [to.lat, to.lng]];
     const edge = getLiveSegmentEdge([from.lat, from.lng], [to.lat, to.lng]);
 
