@@ -27,6 +27,9 @@ import { createGpsPreviewController, isCoarsePointerDevice } from '@/utils/mapGp
 import {
   collectMapSnapSegmentTargets,
   collectMapSnapTargets,
+  MAP_SEGMENT_SNAP_PIXEL_RADIUS,
+  MAP_SNAP_PIXEL_RADIUS,
+  resolveSnapToleranceMeters,
   resolveSnappedCoordinate,
 } from '@/utils/mapVertexSnap';
 import {
@@ -469,8 +472,19 @@ export function useMapDrawing(options) {
       ...context,
       includeDrawingSegments,
     });
+    const vertexToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
+      pixelRadius: MAP_SNAP_PIXEL_RADIUS,
+    });
+    const segmentToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
+      pixelRadius: MAP_SEGMENT_SNAP_PIXEL_RADIUS,
+    });
 
-    return resolveSnappedCoordinate(lat, lng, { targets, segmentTargets });
+    return resolveSnappedCoordinate(lat, lng, {
+      targets,
+      segmentTargets,
+      vertexToleranceMeters,
+      segmentToleranceMeters,
+    });
   }
 
   function bindVertexMarkerDrag(marker) {

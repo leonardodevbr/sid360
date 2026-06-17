@@ -3,6 +3,34 @@ import * as turf from '@turf/turf';
 import { distanceBetweenPointsMeters } from '@/utils/mapGeometry';
 
 export const MAP_VERTEX_SNAP_TOLERANCE_METERS = 12;
+export const MAP_SNAP_PIXEL_RADIUS = 20;
+export const MAP_SEGMENT_SNAP_PIXEL_RADIUS = 32;
+export const MAP_SNAP_MIN_METERS = 5;
+export const MAP_SNAP_MAX_METERS = 28;
+
+export function metersPerPixelAtLatLng(lat, zoom) {
+  const clampedLat = Math.max(Math.min(Number(lat), 85), -85);
+  const clampedZoom = Number(zoom);
+
+  return (156543.03392 * Math.cos((clampedLat * Math.PI) / 180)) / (2 ** clampedZoom);
+}
+
+export function resolveSnapToleranceMeters(map, lat, lng, {
+  pixelRadius = MAP_SNAP_PIXEL_RADIUS,
+  minMeters = MAP_SNAP_MIN_METERS,
+  maxMeters = MAP_SNAP_MAX_METERS,
+  fallbackMeters = MAP_VERTEX_SNAP_TOLERANCE_METERS,
+} = {}) {
+  const zoom = typeof map?.getZoom === 'function' ? map.getZoom() : null;
+
+  if (!Number.isFinite(zoom) || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) {
+    return fallbackMeters;
+  }
+
+  const meters = metersPerPixelAtLatLng(lat, zoom) * pixelRadius;
+
+  return Math.min(maxMeters, Math.max(minMeters, meters));
+}
 
 function normalizeCoord(point) {
   if (!point) {
@@ -96,6 +124,8 @@ export function collectMapSnapTargets({
     if (Array.isArray(centerline)) {
       centerline.forEach((coord) => addTarget(coord, 'street'));
     }
+
+    street.coordinates?.forEach((coord) => addTarget(coord, 'street-polygon'));
   });
 
   lots.forEach((lot) => {
@@ -299,12 +329,13 @@ export function resolveSnappedCoordinate(
   {
     targets = [],
     segmentTargets = [],
-    toleranceMeters = MAP_VERTEX_SNAP_TOLERANCE_METERS,
+    vertexToleranceMeters = MAP_VERTEX_SNAP_TOLERANCE_METERS,
+    segmentToleranceMeters = MAP_VERTEX_SNAP_TOLERANCE_METERS,
   } = {},
 ) {
-  const vertexSnap = findNearestVertexSnap(lat, lng, targets, toleranceMeters);
+  const vertexSnap = findNearestVertexSnap(lat, lng, targets, vertexToleranceMeters);
   const segmentSnap = segmentTargets.length
-    ? findNearestSegmentSnap(lat, lng, segmentTargets, toleranceMeters)
+    ? findNearestSegmentSnap(lat, lng, segmentTargets, segmentToleranceMeters)
     : null;
 
   if (!vertexSnap && !segmentSnap) {
@@ -317,6 +348,7 @@ export function resolveSnappedCoordinate(
       lng: vertexSnap.lng,
       snapped: true,
       source: vertexSnap.source,
+      snapKind: 'vertex',
     };
   }
 
@@ -325,6 +357,7 @@ export function resolveSnappedCoordinate(
     lng: segmentSnap.lng,
     snapped: true,
     source: segmentSnap.source,
+    snapKind: 'segment',
   };
 }
 

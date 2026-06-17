@@ -1294,7 +1294,10 @@ import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import {
   collectMapSnapSegmentTargets,
   collectMapSnapTargets,
+  MAP_SEGMENT_SNAP_PIXEL_RADIUS,
+  MAP_SNAP_PIXEL_RADIUS,
   rectangleFromOppositeCorners,
+  resolveSnapToleranceMeters,
   resolveSnappedCoordinate,
 } from '@/utils/mapVertexSnap';
 import {
@@ -1417,8 +1420,10 @@ function isDrawingStrokeInvalid() {
 }
 
 function getDrawingSnapContext() {
+  const isEditingPerimeter = drawingMode.value === 'perimeter' && startedFromExistingPolygon.value;
+
   return {
-    perimeterCoordinates: form.value.coordinates ?? [],
+    perimeterCoordinates: isEditingPerimeter ? [] : (form.value.coordinates ?? []),
     zones: zones.value,
     streets: streets.value,
     lots: lots.value,
@@ -1443,8 +1448,19 @@ function applyDrawingSnap(lat, lng, {
     ...context,
     includeDrawingSegments,
   });
+  const vertexToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
+    pixelRadius: MAP_SNAP_PIXEL_RADIUS,
+  });
+  const segmentToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
+    pixelRadius: MAP_SEGMENT_SNAP_PIXEL_RADIUS,
+  });
 
-  return resolveSnappedCoordinate(lat, lng, { targets, segmentTargets });
+  return resolveSnappedCoordinate(lat, lng, {
+    targets,
+    segmentTargets,
+    vertexToleranceMeters,
+    segmentToleranceMeters,
+  });
 }
 
 function clearRectangleDrawingState() {
