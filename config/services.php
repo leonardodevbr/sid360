@@ -51,8 +51,8 @@ return [
     ],
 
     'wppconnect' => [
-        'base_url' => env('WPPCONNECT_BASE_URL', 'https://wppconnect-server-production-9aa6.up.railway.app'),
-        'session' => env('WPPCONNECT_SESSION', 'Sid360'),
+        'base_url' => env('WPPCONNECT_BASE_URL', 'https://wpp.leoontech.com'),
+        'session' => env('WPPCONNECT_SESSION', 'sid360'),
         'token' => env('WPPCONNECT_TOKEN', ''),
         'webhook_key' => env('WHATSAPP_WEBHOOK_KEY', ''),
         'timeout' => (int) env('WPPCONNECT_TIMEOUT', 30),
