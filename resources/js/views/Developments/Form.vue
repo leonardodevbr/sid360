@@ -490,6 +490,18 @@
                   Exibir nomes
                 </button>
                 <button
+                  v-if="!drawingMode && !measureMode"
+                  type="button"
+                  class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn col-span-2 flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:col-span-1 sm:justify-start sm:px-3 sm:text-xs"
+                  :class="hasCustomMapLayerSelection
+                    ? 'border-sky-300 bg-sky-50 text-sky-700'
+                    : ''"
+                  @click="openMapLayerPicker"
+                >
+                  <Squares2X2Icon class="h-3.5 w-3.5 shrink-0" />
+                  Exibir camadas
+                </button>
+                <button
                   v-if="isEdit && !drawingMode"
                   type="button"
                   class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn col-span-2 flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:col-span-1 sm:justify-start sm:px-3 sm:text-xs"
@@ -882,6 +894,68 @@
     </Modal>
 
     <Modal
+      :is-open="showMapLayerPicker"
+      title="Exibir camadas no mapa"
+      @close="closeMapLayerPicker"
+    >
+      <p class="text-xs text-slate-500">
+        Escolha quais camadas devem aparecer no mapa.
+      </p>
+
+      <div class="mt-3 flex gap-2">
+        <button
+          type="button"
+          class="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+          @click="selectAllMapLayersInDraft"
+        >
+          Marcar todos
+        </button>
+        <button
+          type="button"
+          class="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+          @click="clearAllMapLayersInDraft"
+        >
+          Limpar seleção
+        </button>
+      </div>
+
+      <div class="mt-3 space-y-2">
+        <button
+          v-for="option in mapLayerOptions"
+          :key="option.id"
+          type="button"
+          class="flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left transition-colors"
+          :class="mapLayerPickerDraft.includes(option.id)
+            ? 'border-sky-300 bg-sky-50'
+            : 'border-slate-200 bg-white hover:bg-slate-50'"
+          @click="toggleMapLayerDraft(option.id)"
+        >
+          <span>
+            <span class="block text-sm font-medium text-slate-800">{{ option.label }}</span>
+            <span class="block text-xs text-slate-400">
+              {{ mapLayerItemCount(option.id) }} no mapa
+            </span>
+          </span>
+          <span
+            class="flex h-5 w-5 shrink-0 items-center justify-center rounded border"
+            :class="mapLayerPickerDraft.includes(option.id)
+              ? 'border-sky-600 bg-sky-600 text-white'
+              : 'border-slate-300 bg-white text-transparent'"
+          >
+            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+            </svg>
+          </span>
+        </button>
+      </div>
+
+      <div class="mt-4 flex justify-end gap-2">
+        <Button variant="outline" @click="closeMapLayerPicker">Cancelar</Button>
+        <Button variant="primary" @click="applyMapLayerPicker">Aplicar</Button>
+      </div>
+    </Modal>
+
+    <Modal
       :is-open="!!generateLotsZone && genMode === 'simple'"
       :title="generateLotsZone ? `Gerar lotes — ${generateLotsZone.name}` : 'Gerar lotes'"
       @close="closeGenerateLotsModal"
@@ -974,6 +1048,16 @@ import {
 } from '@/utils/mapGeometry';
 import { lotStatusLabel } from '@/utils/status';
 import {
+  ALL_MAP_LAYER_IDS,
+  getZoneMapLayerId,
+  isMapLayerVisible,
+  MAP_LAYER_LOTS,
+  MAP_LAYER_OPTIONS,
+  MAP_LAYER_PERIMETER,
+  MAP_LAYER_STREETS,
+  setLeafletLayerVisibility,
+} from '@/utils/mapLayerVisibility';
+import {
   buildZoneMetaLabel,
   buildZoneTitleLabel,
   canGenerateLotsInZone,
@@ -995,7 +1079,7 @@ import Button from '@/components/Common/Button.vue';
 import Modal from '@/components/Common/Modal.vue';
 import CurrencyInput from '@/components/Common/CurrencyInput.vue';
 import MediaGallery from '@/components/Common/MediaGallery.vue';
-import { ArrowLeftIcon, ArrowUturnLeftIcon, ArrowsPointingInIcon, ArrowsPointingOutIcon, MapIcon, MapPinIcon, PlusIcon, RectangleGroupIcon, TagIcon, XMarkIcon } from '@heroicons/vue/24/outline';
+import { ArrowLeftIcon, ArrowUturnLeftIcon, ArrowsPointingInIcon, ArrowsPointingOutIcon, MapIcon, MapPinIcon, PlusIcon, RectangleGroupIcon, Squares2X2Icon, TagIcon, XMarkIcon } from '@heroicons/vue/24/outline';
 
 const route = useRoute();
 const router = useRouter();
@@ -1729,6 +1813,115 @@ function applyZoneNamePicker() {
   visibleZoneNameTypes.value = [...zoneNamePickerDraft.value];
   closeZoneNamePicker();
   syncZoneNameLabels();
+}
+
+function mappedStreetsCount() {
+  return streets.value.filter(
+    (street) => hasValidStreetPolygon(street.coordinates?.length ?? 0),
+  ).length;
+}
+
+function mappedLotsCount() {
+  return lots.value.filter((lot) => {
+    const coords = normalizePolygonCoordinates(lot.coordinates);
+    return coords && coords.length >= 3;
+  }).length;
+}
+
+function mapLayerItemCount(layerId) {
+  if (layerId === MAP_LAYER_PERIMETER) {
+    return form.value.coordinates?.length >= 3 ? 1 : 0;
+  }
+
+  if (layerId === MAP_LAYER_STREETS) {
+    return mappedStreetsCount();
+  }
+
+  if (layerId === MAP_LAYER_LOTS) {
+    return mappedLotsCount();
+  }
+
+  if (layerId.startsWith('zone:')) {
+    return mappedZonesCountByType(layerId.replace('zone:', ''));
+  }
+
+  return 0;
+}
+
+function syncMapLayerVisibility() {
+  if (!map) {
+    return;
+  }
+
+  setLeafletLayerVisibility(
+    map,
+    perimeterLayer,
+    isMapLayerVisible(visibleMapLayers.value, MAP_LAYER_PERIMETER),
+  );
+
+  Object.entries(zoneLayers).forEach(([zoneId, layer]) => {
+    const zone = zones.value.find((item) => String(item.id) === String(zoneId));
+    const layerId = zone ? getZoneMapLayerId(zone.type) : null;
+    const visible = layerId
+      ? isMapLayerVisible(visibleMapLayers.value, layerId)
+      : true;
+
+    setLeafletLayerVisibility(map, layer, visible);
+  });
+
+  const streetsVisible = isMapLayerVisible(visibleMapLayers.value, MAP_LAYER_STREETS);
+  setLeafletLayerVisibility(map, streetUnionVisualLayer, streetsVisible);
+
+  Object.values(streetLayersMap).forEach((layer) => {
+    setLeafletLayerVisibility(map, layer, streetsVisible);
+  });
+
+  const lotsVisible = isMapLayerVisible(visibleMapLayers.value, MAP_LAYER_LOTS);
+  Object.values(lotLayersMap).forEach((layer) => {
+    setLeafletLayerVisibility(map, layer, lotsVisible);
+  });
+
+  if (streetsVisible || lotsVisible) {
+    bringZoneLayersToFront();
+  }
+
+  if (lotsVisible) {
+    bringLotLayersToFront();
+  }
+}
+
+function openMapLayerPicker() {
+  mapLayerPickerDraft.value = [...visibleMapLayers.value];
+  showMapLayerPicker.value = true;
+}
+
+function closeMapLayerPicker() {
+  showMapLayerPicker.value = false;
+}
+
+function toggleMapLayerDraft(layerId) {
+  const index = mapLayerPickerDraft.value.indexOf(layerId);
+
+  if (index >= 0) {
+    mapLayerPickerDraft.value.splice(index, 1);
+    return;
+  }
+
+  mapLayerPickerDraft.value.push(layerId);
+}
+
+function selectAllMapLayersInDraft() {
+  mapLayerPickerDraft.value = [...ALL_MAP_LAYER_IDS];
+}
+
+function clearAllMapLayersInDraft() {
+  mapLayerPickerDraft.value = [];
+}
+
+function applyMapLayerPicker() {
+  visibleMapLayers.value = [...mapLayerPickerDraft.value];
+  closeMapLayerPicker();
+  syncMapLayerVisibility();
 }
 
 function getDevelopmentPerimeter() {
@@ -2473,6 +2666,7 @@ function drawPerimeterOnMap(coords) {
 
   bringZoneLayersToFront();
   map.fitBounds(perimeterLayer.getBounds(), { padding: [20, 20] });
+  syncMapLayerVisibility();
 }
 
 function drawZonesOnMap() {
@@ -2511,6 +2705,7 @@ function drawZonesOnMap() {
 
   bringZoneLayersToFront();
   bringLotLayersToFront();
+  syncMapLayerVisibility();
 }
 
 function startDrawPerimeter() {
@@ -2772,6 +2967,13 @@ const lots = ref([]);
 const visibleZoneNameTypes = ref([]);
 const showZoneNamePicker = ref(false);
 const zoneNamePickerDraft = ref([]);
+const visibleMapLayers = ref([...ALL_MAP_LAYER_IDS]);
+const showMapLayerPicker = ref(false);
+const mapLayerPickerDraft = ref([]);
+const mapLayerOptions = MAP_LAYER_OPTIONS;
+const hasCustomMapLayerSelection = computed(() =>
+  visibleMapLayers.value.length !== ALL_MAP_LAYER_IDS.length,
+);
 const showZoneForm = ref(false);
 const showStreetForm = ref(false);
 const showZoneMapPicker = ref(false);
@@ -3088,6 +3290,7 @@ function drawLotsOnMap() {
   });
 
   bringLotLayersToFront();
+  syncMapLayerVisibility();
 }
 
 function getStreetUnionVisualStyle(mappedStreets) {
@@ -3125,6 +3328,7 @@ function drawStreetsOnMap(options = {}) {
   );
 
   if (!mappedStreets.length) {
+    syncMapLayerVisibility();
     return;
   }
 
@@ -3178,6 +3382,8 @@ function drawStreetsOnMap(options = {}) {
 
     streetLayersMap[street.id] = layer;
   });
+
+  syncMapLayerVisibility();
 }
 
 function openStreetForm() {
