@@ -171,95 +171,97 @@
                 </button>
               </div>
 
-              <div v-if="!blockEdges.length" class="mt-2 rounded-lg bg-amber-50 p-3 text-xs text-amber-700">
-                Esta quadra precisa ter a área desenhada no mapa.
+              <div class="map-lot-gen-panel-body">
+                <div v-if="!blockEdges.length" class="rounded-lg bg-amber-50 p-3 text-xs text-amber-700">
+                  Esta quadra precisa ter a área desenhada no mapa.
+                </div>
+
+                <template v-else>
+                  <div class="grid grid-cols-2 gap-2">
+                    <Input v-model.number="geoForm.lotWidth" type="number" label="Largura (m)" />
+                    <Input v-model.number="geoForm.lotDepth" type="number" label="Profundidade (m)" />
+                  </div>
+
+                  <div class="mt-3">
+                    <p class="text-xs font-semibold text-slate-700">Qual lado dá para a rua?</p>
+                    <p class="mt-0.5 text-[11px] leading-snug text-slate-400">
+                      Clique no lado numerado no mapa ou escolha abaixo. A rua próxima é sugerida automaticamente.
+                    </p>
+                    <div class="mt-2 space-y-1.5">
+                      <button
+                        v-for="edge in blockEdges"
+                        :key="edge.index"
+                        type="button"
+                        class="flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors"
+                        :class="geoForm.frontEdgeIndex === edge.index
+                          ? 'border-[#c9a84c] bg-amber-50 ring-1 ring-[#c9a84c]/40'
+                          : 'border-slate-200 bg-white hover:bg-slate-50'"
+                        @click="selectFrontEdge(edge.index)"
+                        @mouseenter="hoverFrontEdge(edge.index)"
+                        @mouseleave="hoverFrontEdge(null)"
+                      >
+                        <span
+                          class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+                          :class="geoForm.frontEdgeIndex === edge.index
+                            ? 'bg-[#c9a84c] text-[#1a3a28]'
+                            : 'bg-slate-200 text-slate-600'"
+                        >
+                          {{ edge.index + 1 }}
+                        </span>
+                        <span class="min-w-0 flex-1">
+                          <span class="block text-xs font-medium text-slate-800">{{ edge.lengthMeters }}m</span>
+                          <span
+                            v-if="edge.nearestStreet"
+                            class="block truncate text-[11px] text-emerald-600"
+                          >
+                            Rua: {{ edge.nearestStreet }}
+                            <span v-if="edge.nearestStreetDistance != null" class="text-slate-400">
+                              (~{{ edge.nearestStreetDistance }}m)
+                            </span>
+                          </span>
+                          <span v-else class="block text-[11px] text-slate-400">Sem rua cadastrada próxima</span>
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="mt-3 grid grid-cols-2 gap-2">
+                    <Input v-model.number="geoForm.start_from" type="number" label="Nº inicial" />
+                    <CurrencyInput v-model="geoForm.total_value" label="Valor/lote" />
+                  </div>
+
+                  <div
+                    v-if="previewLots.length"
+                    class="mt-3 rounded-lg bg-emerald-50 px-2.5 py-2 text-xs text-emerald-700"
+                  >
+                    {{ previewLots.length }} lote(s) no preview
+                    <span v-if="previewLots.some((l) => l.clipped)"> · alguns recortados nas bordas</span>
+                  </div>
+                  <p
+                    v-else-if="geoForm.frontEdgeIndex == null"
+                    class="mt-3 text-[11px] text-amber-600"
+                  >
+                    Selecione o lado da rua para ver o preview dos lotes
+                  </p>
+                  <p v-else-if="previewing" class="mt-3 text-[11px] text-slate-500">
+                    Calculando preview...
+                  </p>
+                </template>
               </div>
 
-              <template v-else>
-                <div class="mt-3 grid grid-cols-2 gap-2">
-                  <Input v-model.number="geoForm.lotWidth" type="number" label="Largura (m)" />
-                  <Input v-model.number="geoForm.lotDepth" type="number" label="Profundidade (m)" />
-                </div>
-
-                <div class="mt-3">
-                  <p class="text-xs font-semibold text-slate-700">Qual lado dá para a rua?</p>
-                  <p class="mt-0.5 text-[11px] leading-snug text-slate-400">
-                    Clique no lado numerado no mapa ou escolha abaixo. A rua próxima é sugerida automaticamente.
-                  </p>
-                  <div class="mt-2 max-h-36 space-y-1.5 overflow-y-auto">
-                    <button
-                      v-for="edge in blockEdges"
-                      :key="edge.index"
-                      type="button"
-                      class="flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors"
-                      :class="geoForm.frontEdgeIndex === edge.index
-                        ? 'border-[#c9a84c] bg-amber-50 ring-1 ring-[#c9a84c]/40'
-                        : 'border-slate-200 bg-white hover:bg-slate-50'"
-                      @click="selectFrontEdge(edge.index)"
-                      @mouseenter="hoverFrontEdge(edge.index)"
-                      @mouseleave="hoverFrontEdge(null)"
-                    >
-                      <span
-                        class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
-                        :class="geoForm.frontEdgeIndex === edge.index
-                          ? 'bg-[#c9a84c] text-[#1a3a28]'
-                          : 'bg-slate-200 text-slate-600'"
-                      >
-                        {{ edge.index + 1 }}
-                      </span>
-                      <span class="min-w-0 flex-1">
-                        <span class="block text-xs font-medium text-slate-800">{{ edge.lengthMeters }}m</span>
-                        <span
-                          v-if="edge.nearestStreet"
-                          class="block truncate text-[11px] text-emerald-600"
-                        >
-                          Rua: {{ edge.nearestStreet }}
-                          <span v-if="edge.nearestStreetDistance != null" class="text-slate-400">
-                            (~{{ edge.nearestStreetDistance }}m)
-                          </span>
-                        </span>
-                        <span v-else class="block text-[11px] text-slate-400">Sem rua cadastrada próxima</span>
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                <div class="mt-3 grid grid-cols-2 gap-2">
-                  <Input v-model.number="geoForm.start_from" type="number" label="Nº inicial" />
-                  <CurrencyInput v-model="geoForm.total_value" label="Valor/lote" />
-                </div>
-
-                <div
-                  v-if="previewLots.length"
-                  class="mt-3 rounded-lg bg-emerald-50 px-2.5 py-2 text-xs text-emerald-700"
+              <div v-if="blockEdges.length" class="map-lot-gen-panel-footer">
+                <Button variant="outline" @click="switchGenMode('simple')">
+                  Modo simples
+                </Button>
+                <Button
+                  variant="primary"
+                  class="flex-1"
+                  :disabled="generating || !previewLots.length"
+                  @click="doGenerateGeometricLots()"
                 >
-                  {{ previewLots.length }} lote(s) no preview
-                  <span v-if="previewLots.some((l) => l.clipped)"> · alguns recortados nas bordas</span>
-                </div>
-                <p
-                  v-else-if="geoForm.frontEdgeIndex == null"
-                  class="mt-3 text-[11px] text-amber-600"
-                >
-                  Selecione o lado da rua para ver o preview dos lotes
-                </p>
-                <p v-else-if="previewing" class="mt-3 text-[11px] text-slate-500">
-                  Calculando preview...
-                </p>
-
-                <div class="mt-3 flex flex-wrap gap-2">
-                  <Button variant="outline" @click="switchGenMode('simple')">
-                    Modo simples
-                  </Button>
-                  <Button
-                    variant="primary"
-                    class="flex-1"
-                    :disabled="generating || !previewLots.length"
-                    @click="doGenerateGeometricLots()"
-                  >
-                    {{ generating ? 'Gerando...' : `Gerar ${previewLots.length || 0} lotes` }}
-                  </Button>
-                </div>
-              </template>
+                  {{ generating ? 'Gerando...' : `Gerar ${previewLots.length || 0} lotes` }}
+                </Button>
+              </div>
             </div>
           </div>
 
