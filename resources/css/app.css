@@ -146,6 +146,7 @@
 
 .leaflet-container.map-overlays-inactive .map-feature-polygon,
 .leaflet-container.map-overlays-inactive .map-lot-context-path,
+.leaflet-container.map-overlays-inactive .map-street-feature,
 .leaflet-container.map-overlays-inactive .map-street-axis-preview,
 .leaflet-container.map-overlays-inactive .map-lot-preview-path,
 .leaflet-container.map-overlays-inactive .map-block-edge-picker,
@@ -697,14 +698,16 @@
 
 .leaflet-marker-icon.map-vertex-handle-icon.map-vertex-handle-icon--interactive {
   pointer-events: auto !important;
+  cursor: grab;
 }
 
 .map-vertex-handle-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
+  pointer-events: auto;
 }
 
 .map-vertex-handle {

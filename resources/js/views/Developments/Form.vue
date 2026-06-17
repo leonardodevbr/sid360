@@ -426,26 +426,25 @@
                 </button>
                 <span
                   v-if="drawingMode === 'perimeter'"
-                  class="w-full self-center text-[11px] font-medium leading-snug text-blue-600 sm:text-xs"
+                  class="hidden text-xs text-slate-500 sm:inline"
                 >
-                  Clique no mapa para adicionar pontos. Duplo clique na bolinha remove um ponto. Com 3+ pontos, use Salvar demarcação ou clique no primeiro vértice
-                  {{ perimeterPoints.length ? ` (${perimeterPoints.length} pontos)` : '' }}
+                  Perímetro
+                  <span v-if="perimeterPoints.length" class="text-slate-400"> · {{ perimeterPoints.length }} pts</span>
                 </span>
                 <span
                   v-else-if="drawingMode === 'zone'"
-                  class="w-full self-center text-[11px] font-medium leading-snug text-emerald-600 sm:text-xs"
+                  class="hidden text-xs text-slate-500 sm:inline"
                 >
-                  Editando {{ drawingZone?.name }} — arraste os vértices, duplo clique remove um ponto. Com pontos suficientes, use Salvar demarcação ou clique no primeiro vértice
-                  {{ perimeterPoints.length ? ` (${perimeterPoints.length} pontos)` : '' }}
+                  {{ drawingZone?.name }}
+                  <span v-if="perimeterPoints.length" class="text-slate-400"> · {{ perimeterPoints.length }} pts</span>
                 </span>
                 <span
                   v-else-if="drawingMode === 'street-axis'"
-                  class="w-full self-center text-[11px] font-medium leading-snug text-sky-600 sm:text-xs"
+                  class="hidden text-xs text-slate-500 sm:inline"
                 >
-                  Traçando eixo de {{ drawingStreet?.name }} ({{ drawingStreet?.width || 10 }}m de largura)
-                  {{ streetAxisDrawingHint ? ` · ${streetAxisDrawingHint}` : '' }}
-                  {{ axisPreviewLength ? ` · ${axisPreviewLength}m de extensão` : '' }}
-                  {{ perimeterPoints.length ? ` (${perimeterPoints.length} pontos)` : '' }}
+                  {{ drawingStreet?.name }}
+                  <span v-if="axisPreviewLength" class="text-slate-400"> · {{ axisPreviewLength }} m</span>
+                  <span v-if="perimeterPoints.length" class="text-slate-400"> · {{ perimeterPoints.length }} pts</span>
                 </span>
               </div>
 
@@ -752,6 +751,17 @@
         </p>
       </div>
       <div class="mt-3">
+        <SelectInput
+          v-model="streetForm.end_cap"
+          label="Extremidades do eixo"
+          :options="streetEndCapOptions"
+          :searchable="false"
+        />
+        <p class="mt-1 text-xs text-slate-400">
+          Define se as pontas da faixa da rua ficam arredondadas ou quadradas.
+        </p>
+      </div>
+      <div class="mt-3">
         <label class="mb-1 block text-xs font-medium text-slate-600">Cor no mapa</label>
         <div class="flex flex-wrap gap-2">
           <button
@@ -942,7 +952,7 @@ import {
 } from '@/utils/zone';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import { subdivideBlockIntoLots, enrichBlockEdgesWithStreets } from '@/utils/lotSubdivision';
-import { buildStreetPolygon, centerlineLengthMeters } from '@/utils/streetGeometry';
+import { buildStreetPolygon, centerlineLengthMeters, normalizeStreetEndCap } from '@/utils/streetGeometry';
 import Input from '@/components/Common/Input.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
 import Button from '@/components/Common/Button.vue';
@@ -1056,6 +1066,11 @@ function syncDrawingCursorPreview() {
     if (!measureMode.value) {
       cursorPreview.unbind();
     }
+    return;
+  }
+
+  if (startedFromExistingPolygon.value) {
+    cursorPreview.unbind();
     return;
   }
 
@@ -1176,18 +1191,6 @@ const zoneInvalidHint = computed(() => {
   }
 
   return '';
-});
-
-const streetAxisDrawingHint = computed(() => {
-  if (drawingMode.value !== 'street-axis') {
-    return '';
-  }
-
-  if (perimeterPoints.value.length < 2) {
-    return 'clique para adicionar pontos ao eixo — mínimo 2';
-  }
-
-  return 'duplo clique no mapa ou use Concluir traçado para finalizar';
 });
 
 const canSaveDrawing = computed(() => {
@@ -1577,6 +1580,34 @@ function getStreetColor(street) {
   return street?.color || defaultStreetColor;
 }
 
+function lightenHexColor(hex, amount = 0.22) {
+  const normalized = String(hex || '').replace('#', '');
+  if (normalized.length !== 6) {
+    return hex || defaultStreetColor;
+  }
+
+  const channels = normalized.match(/.{2}/g)?.map((part) => parseInt(part, 16)) ?? [];
+  if (channels.length !== 3) {
+    return hex || defaultStreetColor;
+  }
+
+  const mix = (channel) => Math.min(255, Math.round(channel + (255 - channel) * amount));
+
+  return `#${channels.map((channel) => mix(channel).toString(16).padStart(2, '0')).join('')}`;
+}
+
+function getStreetLayerStyle(street, { preview = false } = {}) {
+  const color = getStreetColor(street);
+
+  return {
+    color,
+    weight: preview ? 1.5 : 2,
+    fillColor: lightenHexColor(color),
+    fillOpacity: preview ? 0.48 : 0.42,
+    opacity: 0.95,
+  };
+}
+
 function getDrawingBaseColor() {
   if (drawingMode.value === 'perimeter') {
     return getPerimeterColor();
@@ -1590,7 +1621,7 @@ function getDrawingBaseColor() {
 }
 
 function canDragVertexMarkers() {
-  return startedFromExistingPolygon.value;
+  return Boolean(drawingMode.value) && perimeterPoints.value.length >= 1;
 }
 
 function isFirstVertexClosable(marker) {
@@ -1602,13 +1633,13 @@ function isFirstVertexClosable(marker) {
 }
 
 function buildVertexIcon(color, invalid = false, options = {}) {
-  const { closeTarget = false, drawOnly = false } = options;
+  const { closeTarget = false, drawOnly = false, interactive = false } = options;
 
   return L.divIcon({
-    className: 'map-vertex-handle-icon',
+    className: `map-vertex-handle-icon${interactive ? ' map-vertex-handle-icon--interactive' : ''}`,
     html: `<span class="map-vertex-handle-wrap"><span class="map-vertex-handle${invalid ? ' map-vertex-handle--invalid' : ''}${closeTarget ? ' map-vertex-handle--close-target' : ''}${drawOnly ? ' map-vertex-handle--draw-only' : ''}" style="--vertex-color:${color}"></span></span>`,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
   });
 }
 
@@ -1628,12 +1659,22 @@ function updateVertexHandleStyle(marker) {
   handle.classList.toggle('map-vertex-handle--close-target', isFirstVertexClosable(marker));
   handle.classList.toggle('map-vertex-handle--draw-only', !canDragVertexMarkers());
   handle.style.setProperty('--vertex-color', color);
+
+  const iconElement = marker.getElement?.();
+  if (iconElement) {
+    const interactive = canDragVertexMarkers() || isFirstVertexClosable(marker);
+    iconElement.classList.toggle('map-vertex-handle-icon--interactive', interactive);
+    iconElement.style.pointerEvents = interactive ? 'auto' : 'none';
+  }
 }
 
 function getVertexIconOptions(marker) {
+  const interactive = canDragVertexMarkers() || isFirstVertexClosable(marker);
+
   return {
     closeTarget: isFirstVertexClosable(marker),
     drawOnly: !canDragVertexMarkers(),
+    interactive,
   };
 }
 
@@ -1649,6 +1690,7 @@ function refreshVertexMarkerStyles() {
     const invalid = isVertexInvalid(coord);
     const color = invalid ? '#DC2626' : baseColor;
     marker.setIcon(buildVertexIcon(color, invalid, getVertexIconOptions(marker)));
+    updateVertexHandleStyle(marker);
   });
 }
 
@@ -1691,8 +1733,15 @@ function bindVertexMarkerDrag(marker) {
 
     marker.setLatLng(latLng);
     perimeterPoints.value[marker._vertexIndex] = [latLng.lat, latLng.lng];
-    refreshTempPolyline(perimeterPoints.value.length >= 3, { livePreview: true });
+    refreshTempPolyline(
+      startedFromExistingPolygon.value && perimeterPoints.value.length >= 3,
+      { livePreview: true },
+    );
     updateVertexHandleStyle(marker);
+
+    if (drawingMode.value === 'street-axis') {
+      updateAxisPreviewFromPoints();
+    }
   };
 
   const onEnd = (endEvent) => {
@@ -1714,10 +1763,18 @@ function bindVertexMarkerDrag(marker) {
       return;
     }
 
-    refreshTempPolyline(perimeterPoints.value.length >= 3);
+    refreshTempPolyline(
+      startedFromExistingPolygon.value && perimeterPoints.value.length >= 3,
+    );
     refreshVertexMarkerStyles();
     bringVertexMarkersToFront();
     bringEdgeLabelMarkersToFront();
+
+    if (drawingMode.value === 'street-axis') {
+      updateAxisPreviewFromPoints();
+    }
+
+    syncDrawingCursorPreview();
 
     if (drawingMode.value === 'zone' && !canPlaceZonePoint(marker.getLatLng())) {
       toast.warning('Vértice fora do perímetro do empreendimento.');
@@ -1734,6 +1791,7 @@ function bindVertexMarkerDrag(marker) {
       return;
     }
 
+    cursorPreview.clear();
     marker._wasDragged = false;
 
     if (!map._vertexDragActiveCount) {
@@ -1785,12 +1843,13 @@ function addDrawingMarker(coord, color, index) {
   const marker = L.marker(coord, {
     draggable: false,
     autoPan: false,
-    zIndexOffset: 1000,
+    zIndexOffset: 2500,
     icon: buildVertexIcon(markerColor, invalid),
   }).addTo(map);
 
   marker._vertexIndex = index;
   marker.setIcon(buildVertexIcon(markerColor, invalid, getVertexIconOptions(marker)));
+  updateVertexHandleStyle(marker);
   bindVertexMarkerDrag(marker);
 
   marker.on('click', (e) => {
@@ -1827,6 +1886,7 @@ function preloadDrawingPoints(coords, color) {
 
   perimeterPoints.value.forEach((coord, index) => addDrawingMarker(coord, color, index));
   refreshTempPolyline(perimeterPoints.value.length >= 3);
+  refreshVertexMarkerStyles();
   syncDrawingCursorPreview();
 }
 
@@ -1835,7 +1895,7 @@ function removeVertexAtIndex(index) {
     return;
   }
 
-  const minPoints = 1;
+  const minPoints = drawingMode.value === 'street-axis' ? 2 : 1;
   if (perimeterPoints.value.length <= minPoints) {
     toast.warning('Não é possível remover este ponto.');
     return;
@@ -1862,7 +1922,7 @@ function removeVertexAtIndex(index) {
   });
 
   if (perimeterPoints.value.length >= 2) {
-    refreshTempPolyline(perimeterPoints.value.length >= 3);
+    refreshTempPolyline(startedFromExistingPolygon.value && perimeterPoints.value.length >= 3);
   } else {
     clearEdgeLabelMarkers();
   }
@@ -1871,7 +1931,9 @@ function removeVertexAtIndex(index) {
     updateAxisPreviewFromPoints();
   }
 
-  toast.info('Ponto removido.');
+  refreshVertexMarkerStyles();
+  bringVertexMarkersToFront();
+  syncDrawingCursorPreview();
 }
 
 function undoLastPoint() {
@@ -1896,7 +1958,7 @@ function undoLastPoint() {
   }
 
   if (perimeterPoints.value.length >= 2) {
-    refreshTempPolyline(perimeterPoints.value.length >= 3);
+    refreshTempPolyline(startedFromExistingPolygon.value && perimeterPoints.value.length >= 3);
   } else {
     clearEdgeLabelMarkers();
   }
@@ -1967,8 +2029,9 @@ function onMapClick(e) {
     return;
   }
 
-  refreshTempPolyline(false);
+  refreshTempPolyline(startedFromExistingPolygon.value && perimeterPoints.value.length >= 3);
   refreshVertexMarkerStyles();
+  bringVertexMarkersToFront();
   syncDrawingCursorPreview();
 
   if (drawingMode.value === 'street-axis') {
@@ -2052,14 +2115,15 @@ function refreshTempPolyline(closed = false, options = {}) {
 
   const layerOptions = {
     color: strokeColor,
-    weight: drawingMode.value === 'street-axis' ? 2 : 2,
-    dashArray: drawingMode.value === 'street-axis' ? undefined : '4',
+    weight: drawingMode.value === 'street-axis' ? 1 : 2,
+    dashArray: drawingMode.value === 'street-axis' ? '5 4' : '4',
+    opacity: drawingMode.value === 'street-axis' ? 0.9 : 1,
     interactive: false,
   };
 
   const shouldRenderClosed = drawingMode.value === 'street-axis'
     ? false
-    : closed && perimeterPoints.value.length >= 3;
+    : perimeterPoints.value.length >= 3 && (startedFromExistingPolygon.value || closed);
 
   if (shouldRenderClosed) {
     map._tempLine = L.polygon(perimeterPoints.value, {
@@ -2538,7 +2602,12 @@ const zoneTypeOptions = [
 
 const zoneForm = reactive({ name: '', type: 'quadra', color: '#3B82F6', parent_zone_id: '' });
 const zoneFormErrors = reactive({ name: '', type: '' });
-const streetForm = ref({ name: '', color: defaultStreetColor, width: 10 });
+const streetForm = ref({ name: '', color: defaultStreetColor, width: 10, end_cap: 'round' });
+
+const streetEndCapOptions = [
+  { value: 'round', label: 'Extremidades arredondadas' },
+  { value: 'square', label: 'Extremidades quadradas' },
+];
 
 const streetWidthPresetOptions = [
   { value: 5, label: '5 m — rua estreita' },
@@ -2574,7 +2643,14 @@ function buildStreetWidthSelectOptions(currentWidth) {
 
 async function promptStreetAxisWidth(street) {
   const currentWidth = Number(street.width) || 10;
+  const currentEndCap = normalizeStreetEndCap(street.end_cap);
   const optionsHtml = buildStreetWidthSelectOptions(currentWidth);
+  const endCapOptionsHtml = streetEndCapOptions
+    .map((option) => {
+      const selected = option.value === currentEndCap ? ' selected' : '';
+      return `<option value="${option.value}"${selected}>${escapeHtml(option.label)}</option>`;
+    })
+    .join('');
 
   const result = await Swal.fire({
     ...swalDefaultConfig,
@@ -2589,9 +2665,18 @@ async function promptStreetAxisWidth(street) {
       </label>
       <select
         id="street-width-select"
-        class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-700/20"
+        class="mb-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-700/20"
       >
         ${optionsHtml}
+      </select>
+      <label for="street-end-cap-select" class="mb-1 block text-left text-xs font-medium text-slate-600">
+        Extremidades do eixo
+      </label>
+      <select
+        id="street-end-cap-select"
+        class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-700/20"
+      >
+        ${endCapOptionsHtml}
       </select>
     `,
     icon: 'question',
@@ -2605,6 +2690,7 @@ async function promptStreetAxisWidth(street) {
     },
     preConfirm: () => {
       const select = document.getElementById('street-width-select');
+      const endCapSelect = document.getElementById('street-end-cap-select');
       const width = Number(select?.value);
 
       if (!(width > 0)) {
@@ -2612,11 +2698,14 @@ async function promptStreetAxisWidth(street) {
         return false;
       }
 
-      return width;
+      return {
+        width,
+        endCap: normalizeStreetEndCap(endCapSelect?.value),
+      };
     },
   });
 
-  return result.isConfirmed ? Number(result.value) : null;
+  return result.isConfirmed ? result.value : null;
 }
 
 function clearAxisPreviewLayer() {
@@ -2635,15 +2724,15 @@ function updateAxisPreviewFromPoints() {
 
   if (perimeterPoints.value.length < 2) return;
 
-  const polygon = buildStreetPolygon(perimeterPoints.value, Number(street.width) || 10);
+  const polygon = buildStreetPolygon(
+    perimeterPoints.value,
+    Number(street.width) || 10,
+    street.end_cap,
+  );
   if (!polygon) return;
 
   axisPreviewLayer = L.polygon(polygon, {
-    color: getStreetColor(street),
-    weight: 1,
-    fillColor: getStreetColor(street),
-    fillOpacity: 0.35,
-    dashArray: '4 3',
+    ...getStreetLayerStyle(street, { preview: true }),
     interactive: false,
     className: 'map-street-axis-preview',
   }).addTo(map);
@@ -2670,10 +2759,15 @@ function buildStreetFormPayload() {
     name: streetForm.value.name.trim(),
     color: streetForm.value.color,
     width: Number(streetForm.value.width) || 10,
+    end_cap: normalizeStreetEndCap(streetForm.value.end_cap),
   };
 
   if (editingStreet.value?.centerline?.length >= 2) {
-    const polygon = buildStreetPolygon(editingStreet.value.centerline, payload.width);
+    const polygon = buildStreetPolygon(
+      editingStreet.value.centerline,
+      payload.width,
+      payload.end_cap,
+    );
     if (polygon) {
       payload.centerline = editingStreet.value.centerline;
       payload.coordinates = polygon;
@@ -2794,13 +2888,9 @@ function drawStreetsOnMap() {
   streets.value.forEach((street) => {
     if (!hasValidStreetPolygon(street.coordinates?.length ?? 0)) return;
 
-    const color = getStreetColor(street);
     const layer = L.polygon(street.coordinates, {
-      color,
-      weight: 2,
-      fillColor: color,
-      fillOpacity: 0.15,
-      className: 'map-feature-polygon',
+      ...getStreetLayerStyle(street),
+      className: 'map-feature-polygon map-street-feature',
     })
       .bindTooltip(street.name, { sticky: true })
       .addTo(map);
@@ -2822,7 +2912,7 @@ function drawStreetsOnMap() {
 
 function openStreetForm() {
   editingStreet.value = null;
-  streetForm.value = { name: '', color: defaultStreetColor, width: 10 };
+  streetForm.value = { name: '', color: defaultStreetColor, width: 10, end_cap: 'round' };
   showStreetForm.value = true;
 }
 
@@ -2832,6 +2922,7 @@ function editStreet(street) {
     name: street.name,
     color: street.color || defaultStreetColor,
     width: street.width ?? 10,
+    end_cap: normalizeStreetEndCap(street.end_cap),
   };
   showStreetForm.value = true;
 }
@@ -2839,7 +2930,7 @@ function editStreet(street) {
 function closeStreetForm() {
   showStreetForm.value = false;
   editingStreet.value = null;
-  streetForm.value = { name: '', color: defaultStreetColor, width: 10 };
+  streetForm.value = { name: '', color: defaultStreetColor, width: 10, end_cap: 'round' };
 }
 
 async function recalcStreetWidthFromForm() {
@@ -2850,7 +2941,8 @@ async function recalcStreetWidthFromForm() {
   }
 
   const width = Number(streetForm.value.width) || 10;
-  const polygon = buildStreetPolygon(street.centerline, width);
+  const endCap = normalizeStreetEndCap(streetForm.value.end_cap);
+  const polygon = buildStreetPolygon(street.centerline, width, endCap);
   if (!polygon) {
     toast.error('Não foi possível recalcular a faixa da rua.');
     return;
@@ -2863,6 +2955,7 @@ async function recalcStreetWidthFromForm() {
       name: streetForm.value.name.trim(),
       color: streetForm.value.color,
       width,
+      end_cap: endCap,
       centerline: street.centerline,
       coordinates: polygon,
       order: street.order != null ? Number(street.order) : null,
@@ -3137,16 +3230,17 @@ function clearAllMeasures() {
 }
 
 async function startDrawStreetAxis(street) {
-  const width = await promptStreetAxisWidth(street);
-  if (width == null) {
+  const options = await promptStreetAxisWidth(street);
+  if (options == null) {
     return;
   }
 
-  beginStreetAxisDrawing(street, width);
+  beginStreetAxisDrawing(street, options);
 }
 
-function beginStreetAxisDrawing(street, width) {
+function beginStreetAxisDrawing(street, { width, endCap }) {
   street.width = width;
+  street.end_cap = endCap;
 
   if (drawingMode.value) {
     cancelDrawing();
@@ -3176,7 +3270,9 @@ function beginStreetAxisDrawing(street, width) {
   if (street.centerline?.length >= 2) {
     preloadDrawingPoints(street.centerline, getStreetColor(street));
     updateAxisPreviewFromPoints();
-    toast.info(`Eixo de "${street.name}" carregado. Continue traçando ou conclua para salvar.`);
+    refreshVertexMarkerStyles();
+    bringVertexMarkersToFront();
+    toast.info(`Eixo de "${street.name}" carregado. Arraste os vértices ou adicione novos pontos.`);
   } else {
     perimeterPoints.value = [];
     startedFromExistingPolygon.value = false;
@@ -3196,7 +3292,8 @@ async function finalizeStreetAxis(street, points) {
     return;
   }
 
-  const polygon = buildStreetPolygon(points, Number(street.width) || 10);
+  const polygon = buildStreetPolygon(points, Number(street.width) || 10, street.end_cap);
+
   if (!polygon) {
     toast.error('Não foi possível gerar a faixa da rua.');
     return;
@@ -3207,6 +3304,7 @@ async function finalizeStreetAxis(street, points) {
       name: street.name,
       color: street.color,
       width: Number(street.width) || 10,
+      end_cap: normalizeStreetEndCap(street.end_cap),
       order: street.order != null ? Number(street.order) : null,
       centerline: points,
       coordinates: polygon,

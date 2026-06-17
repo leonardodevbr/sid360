@@ -352,15 +352,7 @@ export function useMapDrawing(options) {
   }
 
   function canDragVertexMarkers() {
-    if (!drawingMode.value) {
-      return false;
-    }
-
-    if (startedFromExistingPolygon.value) {
-      return true;
-    }
-
-    return isLotMode.value && drawingMode.value === 'lot';
+    return Boolean(drawingMode.value) && drawingPoints.value.length >= 1;
   }
 
   function isFirstVertexClosable(marker) {
@@ -370,20 +362,23 @@ export function useMapDrawing(options) {
   }
 
   function buildVertexIcon(color, invalid = false, options = {}) {
-    const { closeTarget = false, drawOnly = false } = options;
+    const { closeTarget = false, drawOnly = false, interactive = false } = options;
 
     return L.divIcon({
-      className: 'map-vertex-handle-icon',
+      className: `map-vertex-handle-icon${interactive ? ' map-vertex-handle-icon--interactive' : ''}`,
       html: `<span class="map-vertex-handle-wrap"><span class="map-vertex-handle${invalid ? ' map-vertex-handle--invalid' : ''}${closeTarget ? ' map-vertex-handle--close-target' : ''}${drawOnly ? ' map-vertex-handle--draw-only' : ''}" style="--vertex-color:${color}"></span></span>`,
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
     });
   }
 
   function getVertexIconOptions(marker) {
+    const interactive = canDragVertexMarkers() || isFirstVertexClosable(marker);
+
     return {
       closeTarget: isFirstVertexClosable(marker),
       drawOnly: !canDragVertexMarkers(),
+      interactive,
     };
   }
 
@@ -449,7 +444,10 @@ export function useMapDrawing(options) {
 
       marker.setLatLng(latLng);
       drawingPoints.value[marker._vertexIndex] = [latLng.lat, latLng.lng];
-      refreshTempPolyline(drawingPoints.value.length >= 3, { livePreview: true });
+      refreshTempPolyline(
+        startedFromExistingPolygon.value && drawingPoints.value.length >= 3,
+        { livePreview: true },
+      );
       updateVertexHandleStyle(marker);
     };
 
@@ -472,10 +470,13 @@ export function useMapDrawing(options) {
         return;
       }
 
-      refreshTempPolyline(drawingPoints.value.length >= 3);
+      refreshTempPolyline(
+        startedFromExistingPolygon.value && drawingPoints.value.length >= 3,
+      );
       refreshVertexMarkerStyles();
       bringVertexMarkersToFront();
       bringEdgeLabelMarkersToFront();
+      syncDrawingCursorPreview();
 
       if (isLotMode.value && !isPointInsideOrOnPolygon(marker.getLatLng(), getBoundary())) {
         toast.warning('Vértice fora da área permitida.');
@@ -490,6 +491,7 @@ export function useMapDrawing(options) {
       L.DomEvent.stopPropagation(startEvent);
       L.DomEvent.preventDefault(startEvent);
 
+      cursorPreview.clear();
       marker._wasDragged = false;
 
       if (!map._vertexDragActiveCount) {
@@ -553,7 +555,7 @@ export function useMapDrawing(options) {
     const marker = L.marker(coord, {
       draggable: false,
       autoPan: false,
-      zIndexOffset: 1000,
+      zIndexOffset: 2500,
       icon: buildVertexIcon(markerColor, invalid),
     }).addTo(map);
 
@@ -822,7 +824,7 @@ export function useMapDrawing(options) {
       className: 'map-lot-path',
     };
 
-    if (closed && drawingPoints.value.length >= 3) {
+    if ((closed || startedFromExistingPolygon.value) && drawingPoints.value.length >= 3) {
       map._tempLine = L.polygon(drawingPoints.value, {
         ...layerOptions,
         fillColor: strokeColor,
@@ -1248,7 +1250,7 @@ export function useMapDrawing(options) {
     drawingPoints.value.push([lat, lng]);
     addDrawingMarker([lat, lng], getDrawingBaseColor(), drawingPoints.value.length - 1);
 
-    refreshTempPolyline(false);
+    refreshTempPolyline(startedFromExistingPolygon.value && drawingPoints.value.length >= 3);
     syncDrawingCursorPreview();
     ensureMapDraggingEnabled();
 
@@ -1408,14 +1410,15 @@ export function useMapDrawing(options) {
     });
 
     if (drawingPoints.value.length >= 2) {
-      refreshTempPolyline(drawingPoints.value.length >= 3);
+      refreshTempPolyline(startedFromExistingPolygon.value && drawingPoints.value.length >= 3);
     } else {
       clearEdgeLabelMarkers();
     }
 
+    refreshVertexMarkerStyles();
+    bringVertexMarkersToFront();
     syncDrawingCursorPreview();
     ensureMapDraggingEnabled();
-    toast.info('Ponto removido.');
   }
 
   function undoLastPoint() {
@@ -1435,7 +1438,7 @@ export function useMapDrawing(options) {
     }
 
     if (drawingPoints.value.length >= 2) {
-      refreshTempPolyline(drawingPoints.value.length >= 3);
+      refreshTempPolyline(startedFromExistingPolygon.value && drawingPoints.value.length >= 3);
     } else {
       clearEdgeLabelMarkers();
     }

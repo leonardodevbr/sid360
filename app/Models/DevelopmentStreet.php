@@ -18,6 +18,7 @@ class DevelopmentStreet extends Model
         'name',
         'color',
         'width',
+        'end_cap',
         'coordinates',
         'centerline',
         'order',
