@@ -182,6 +182,35 @@
                     <Input v-model.number="geoForm.lotDepth" type="number" label="Profundidade (m)" />
                   </div>
 
+                  <div class="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      class="rounded-lg border px-2.5 py-2 text-left text-xs transition-colors"
+                      :class="geoForm.invertDepth
+                        ? 'border-[#c9a84c] bg-amber-50 text-[#1a3a28] ring-1 ring-[#c9a84c]/40'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
+                      @click="toggleGeoInvertDepth"
+                    >
+                      <span class="block font-semibold">Inverter profundidade</span>
+                      <span class="mt-0.5 block text-[11px] text-slate-400">
+                        Lotes para o outro lado da frente
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      class="rounded-lg border px-2.5 py-2 text-left text-xs transition-colors"
+                      :class="geoForm.reverseFrontEdge
+                        ? 'border-[#c9a84c] bg-amber-50 text-[#1a3a28] ring-1 ring-[#c9a84c]/40'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
+                      @click="toggleGeoReverseFrontEdge"
+                    >
+                      <span class="block font-semibold">Inverter sentido</span>
+                      <span class="mt-0.5 block text-[11px] text-slate-400">
+                        Ordem dos lotes na frente
+                      </span>
+                    </button>
+                  </div>
+
                   <div class="mt-3">
                     <p class="text-xs font-semibold text-slate-700">Qual lado dá para a rua?</p>
                     <p class="mt-0.5 text-[11px] leading-snug text-slate-400">
@@ -3934,6 +3963,8 @@ const geoForm = ref({
   lotWidth: 20,
   lotDepth: 30,
   frontEdgeIndex: null,
+  invertDepth: false,
+  reverseFrontEdge: false,
   total_value: 0,
   start_from: 1,
   pattern: '',
@@ -3958,7 +3989,12 @@ const previewLotNumber = computed(() => {
 });
 
 watch(
-  () => [geoForm.value.lotWidth, geoForm.value.lotDepth],
+  () => [
+    geoForm.value.lotWidth,
+    geoForm.value.lotDepth,
+    geoForm.value.invertDepth,
+    geoForm.value.reverseFrontEdge,
+  ],
   () => {
     if (genMode.value === 'geometric' && geoForm.value.frontEdgeIndex != null) {
       scheduleGeoPreview();
@@ -4076,6 +4112,20 @@ function selectFrontEdge(index) {
   scheduleGeoPreview();
 }
 
+function toggleGeoInvertDepth() {
+  geoForm.value.invertDepth = !geoForm.value.invertDepth;
+  if (geoForm.value.frontEdgeIndex != null) {
+    scheduleGeoPreview();
+  }
+}
+
+function toggleGeoReverseFrontEdge() {
+  geoForm.value.reverseFrontEdge = !geoForm.value.reverseFrontEdge;
+  if (geoForm.value.frontEdgeIndex != null) {
+    scheduleGeoPreview();
+  }
+}
+
 function hoverFrontEdge(index) {
   hoveredEdgeIndex.value = index;
   drawBlockEdgesOnMap();
@@ -4166,6 +4216,8 @@ function buildPreview({ silent = false } = {}) {
       frontEdgeIndex: geoForm.value.frontEdgeIndex,
       lotWidth: Number(geoForm.value.lotWidth),
       lotDepth: Number(geoForm.value.lotDepth),
+      invertDepth: geoForm.value.invertDepth,
+      reverseFrontEdge: geoForm.value.reverseFrontEdge,
     });
     if (!previewLots.value.length && !silent) {
       toast.warning('Nenhum lote gerado. Verifique as dimensões e o lado selecionado.');
@@ -4227,6 +4279,8 @@ function openGenerateLots(zone) {
     lotWidth: 20,
     lotDepth: 30,
     frontEdgeIndex: null,
+    invertDepth: false,
+    reverseFrontEdge: false,
     total_value: 0,
     start_from: 1,
     pattern: '',

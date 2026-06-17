@@ -98,6 +98,8 @@ export function subdivideBlockIntoLots({
   lotWidth,
   lotDepth,
   maxLots = 200,
+  invertDepth = false,
+  reverseFrontEdge = false,
 }) {
   if (!Array.isArray(blockLatLng) || blockLatLng.length < 3) {
     return [];
@@ -111,8 +113,14 @@ export function subdivideBlockIntoLots({
 
   const aIdx = frontEdgeIndex;
   const bIdx = frontEdgeIndex + 1;
-  const frontStart = ring[aIdx];
-  const frontEnd = ring[bIdx];
+  let frontStart = ring[aIdx];
+  let frontEnd = ring[bIdx];
+
+  if (reverseFrontEdge) {
+    frontStart = ring[bIdx];
+    frontEnd = ring[aIdx];
+  }
+
   const frontLine = turf.lineString([frontStart, frontEnd]);
   const frontLengthM = turf.length(frontLine, { units: 'meters' });
 
@@ -125,6 +133,7 @@ export function subdivideBlockIntoLots({
       sliceWidth: frontLengthM,
       lotDepth,
       maxLots: 1,
+      invertDepth,
     });
   }
 
@@ -136,7 +145,40 @@ export function subdivideBlockIntoLots({
     sliceWidth: lotWidth,
     lotDepth,
     maxLots,
+    invertDepth,
   });
+}
+
+function resolveInsideBearing(frontBearing, blockPolygon, frontMid, lotDepth, invertDepth = false) {
+  const normalA = frontBearing + 90;
+  const normalB = frontBearing - 90;
+  const probeDistance = Math.max(lotDepth / 2, 1);
+  const probeA = turf.destination(frontMid, probeDistance, normalA, { units: 'meters' });
+  const probeB = turf.destination(frontMid, probeDistance, normalB, { units: 'meters' });
+  const aInside = turf.booleanPointInPolygon(probeA, blockPolygon);
+  const bInside = turf.booleanPointInPolygon(probeB, blockPolygon);
+
+  let chosen = normalA;
+
+  if (aInside && !bInside) {
+    chosen = normalA;
+  } else if (bInside && !aInside) {
+    chosen = normalB;
+  } else if (aInside && bInside) {
+    chosen = normalA;
+  } else {
+    chosen = normalB;
+  }
+
+  if (!invertDepth) {
+    return chosen;
+  }
+
+  if (chosen === normalA) {
+    return normalB;
+  }
+
+  return normalA;
 }
 
 function buildLotsFromSlices({
@@ -147,19 +189,21 @@ function buildLotsFromSlices({
   sliceWidth,
   lotDepth,
   maxLots,
+  invertDepth = false,
 }) {
   const lots = [];
 
   const startPt = turf.point(frontStart);
   const endPt = turf.point(frontEnd);
   const frontBearing = turf.bearing(startPt, endPt);
-
-  const testNormal = frontBearing + 90;
   const frontMid = turf.midpoint(startPt, endPt);
-  const probe = turf.destination(frontMid, lotDepth / 2, testNormal, { units: 'meters' });
-  const insideBearing = turf.booleanPointInPolygon(probe, blockPolygon)
-    ? testNormal
-    : frontBearing - 90;
+  const insideBearing = resolveInsideBearing(
+    frontBearing,
+    blockPolygon,
+    frontMid,
+    lotDepth,
+    invertDepth,
+  );
 
   const sliceCount = Math.min(maxLots, Math.ceil(frontLengthM / sliceWidth));
 
