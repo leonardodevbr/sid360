@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Support\WppconnectConfig;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -15,8 +16,7 @@ class WhatsappWebhookKeyMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // $expected = (string) config('services.wppconnect.webhook_key');
-        $expected = '13d20efe60baa341cc8fcdfbb5ce0be69ca94894a8a37cde40d11325a8a7a97f';
+        $expected = WppconnectConfig::webhookKey();
 
         if ($expected === '') {
             return response()->json([

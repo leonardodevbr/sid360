@@ -17,7 +17,10 @@ class Setting extends Model
      *
      * @var list<string>
      */
-    public const MASKED_KEYS = [];
+    public const MASKED_KEYS = [
+        'wppconnect_token',
+        'whatsapp_webhook_key',
+    ];
 
     /**
      * Chaves legadas/removidas — não exibir nem aceitar na API de configurações.

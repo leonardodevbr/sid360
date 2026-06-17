@@ -54,7 +54,11 @@ export const useSettingsStore = defineStore('settings', {
         Object.keys(grouped).forEach((group) => {
           (grouped[group] || []).forEach((setting) => {
             flatSettings[setting.key] = setting.value;
-            meta[setting.key] = { masked: !!setting.masked };
+            meta[setting.key] = {
+              masked: !!setting.masked,
+              source: setting.source || null,
+              configured: !!setting.configured,
+            };
           });
         });
         this.settings = flatSettings;

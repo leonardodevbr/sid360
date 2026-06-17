@@ -31,4 +31,51 @@ class UpdateSettingRequest extends FormRequest
             'settings.*.type' => ['nullable', 'string', 'in:string,boolean,integer,json'],
         ];
     }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'settings.*.value.url' => 'Informe uma URL válida para o servidor WPPConnect.',
+            'settings.*.value.min' => 'O valor informado é inválido.',
+            'settings.*.value.max' => 'O valor informado é inválido.',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator): void {
+            $settings = $this->input('settings', []);
+
+            if (! is_array($settings)) {
+                return;
+            }
+
+            foreach ($settings as $index => $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $key = $item['key'] ?? null;
+                $value = $item['value'] ?? null;
+
+                if ($key === 'wppconnect_base_url' && is_string($value) && trim($value) !== '') {
+                    if (! filter_var($value, FILTER_VALIDATE_URL)) {
+                        $validator->errors()->add("settings.{$index}.value", 'Informe uma URL válida para o servidor WPPConnect.');
+                    }
+                }
+
+                if (in_array($key, ['wppconnect_timeout', 'wppconnect_media_timeout'], true) && $value !== null && $value !== '') {
+                    if (! is_numeric($value) || (int) $value < 1 || (int) $value > 600) {
+                        $validator->errors()->add("settings.{$index}.value", 'O timeout deve estar entre 1 e 600 segundos.');
+                    }
+                }
+            }
+        });
+    }
 }

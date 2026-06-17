@@ -8,6 +8,7 @@ use App\Models\Installment;
 use App\Models\InstallmentInteraction;
 use App\Models\Setting;
 use App\Support\DocumentHelper;
+use App\Support\WppconnectConfig;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -28,7 +29,7 @@ class WhatsappService
         }
 
         try {
-            $response = Http::timeout((int) config('services.wppconnect.timeout', 30))
+            $response = Http::timeout(WppconnectConfig::timeout())
                 ->withToken($config['token'])
                 ->post("{$config['base_url']}/api/{$config['session']}/send-message", [
                     'phone' => $recipient,
@@ -91,7 +92,7 @@ class WhatsappService
         }
 
         try {
-            $response = Http::timeout((int) config('services.wppconnect.media_timeout', 90))
+            $response = Http::timeout(WppconnectConfig::mediaTimeout())
                 ->withToken($config['token'])
                 ->post("{$config['base_url']}/api/{$config['session']}/send-image", $payload);
 
@@ -254,7 +255,7 @@ class WhatsappService
     private function postWppconnect(array $config, string $endpoint, array $payload): bool
     {
         try {
-            $response = Http::timeout((int) config('services.wppconnect.media_timeout', 90))
+            $response = Http::timeout(WppconnectConfig::mediaTimeout())
                 ->withToken($config['token'])
                 ->post("{$config['base_url']}/api/{$config['session']}/{$endpoint}", $payload);
 
@@ -484,17 +485,15 @@ class WhatsappService
         }
 
         $numero = strlen($digits) >= 11 ? "55{$digits}" : "559{$digits}";
-        $baseUrl = rtrim((string) config('services.wppconnect.base_url'), '/');
-        $session = (string) config('services.wppconnect.session');
-        $tokenFull = (string) config('services.wppconnect.token');
+        $config = WppconnectConfig::resolved();
 
-        if ($tokenFull === '') {
+        if ($config === null) {
             return false;
         }
 
-        $token = str_contains($tokenFull, ':')
-            ? substr($tokenFull, strpos($tokenFull, ':') + 1)
-            : $tokenFull;
+        $baseUrl = $config['base_url'];
+        $session = $config['session'];
+        $token = $config['token'];
 
         try {
             $response = Http::timeout(10)
@@ -687,23 +686,7 @@ class WhatsappService
      */
     private function wppconnectConfig(): ?array
     {
-        $baseUrl = rtrim((string) config('services.wppconnect.base_url'), '/');
-        $session = (string) config('services.wppconnect.session');
-        $tokenFull = (string) config('services.wppconnect.token');
-
-        if ($tokenFull === '' || $baseUrl === '' || $session === '') {
-            return null;
-        }
-
-        $token = str_contains($tokenFull, ':')
-            ? substr($tokenFull, strpos($tokenFull, ':') + 1)
-            : $tokenFull;
-
-        return [
-            'base_url' => $baseUrl,
-            'session' => $session,
-            'token' => $token,
-        ];
+        return WppconnectConfig::resolved();
     }
 
     private function formatRecipient(string $phoneOrJid): ?string

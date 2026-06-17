@@ -14,20 +14,26 @@
 
     <div v-else class="space-y-6">
       <div
-        v-for="(items, group) in groupedSettings"
+        v-for="(items, group) in sortedGroupedSettings"
         :key="group"
         class="border border-slate-200 rounded-lg p-6"
       >
-        <h2 class="text-base font-semibold text-slate-800 mb-4">
+        <h2
+          class="text-base font-semibold text-slate-800"
+          :class="group === 'whatsapp_integration' ? 'mb-1' : 'mb-4'"
+        >
           {{ groupLabel(group) }}
         </h2>
+        <p v-if="group === 'whatsapp_integration'" class="text-xs text-slate-500 mb-4">
+          Credenciais do WPPConnect. Campos vazios usam o fallback do arquivo <code class="bg-slate-100 px-1 rounded">.env</code>.
+        </p>
         <div class="space-y-4">
           <div
             v-for="item in items"
             :key="item.key"
-            class="flex flex-col sm:flex-row sm:items-center gap-2"
+            class="flex flex-col sm:flex-row sm:items-start gap-2"
           >
-            <label class="text-sm font-medium text-slate-700 sm:w-48 shrink-0">
+            <label class="text-sm font-medium text-slate-700 sm:w-48 shrink-0 sm:pt-2">
               {{ keyLabel(item.key) }}
             </label>
             <div
@@ -110,14 +116,31 @@
               v-model.number="form[item.key]"
               type="number"
               min="1"
+              max="600"
               class="input-base flex-1 max-w-md"
             />
-            <input
-              v-else-if="item.type !== 'boolean'"
-              v-model="form[item.key]"
-              type="text"
-              class="input-base flex-1 max-w-md"
-            />
+            <div v-else-if="item.masked" class="flex-1 max-w-md space-y-1">
+              <input
+                v-model="form[item.key]"
+                type="password"
+                autocomplete="new-password"
+                class="input-base w-full"
+                :placeholder="maskedPlaceholder(item.key)"
+              />
+              <p class="text-xs text-slate-500">
+                {{ maskedHint(item.key) }}
+              </p>
+            </div>
+            <div v-else-if="item.type !== 'boolean'" class="flex-1 max-w-md space-y-1">
+              <input
+                v-model="form[item.key]"
+                type="text"
+                class="input-base w-full"
+              />
+              <p v-if="envFallbackLabel(item.key)" class="text-xs text-amber-700">
+                {{ envFallbackLabel(item.key) }}
+              </p>
+            </div>
             <div v-else class="flex items-center gap-2">
               <input
                 :id="'setting-' + item.key"
@@ -178,6 +201,12 @@ const KEY_LABELS = {
   whatsapp_sid_phone: 'WhatsApp do corretor (notificações)',
   whatsapp_bot_enabled: 'Bot WhatsApp ativo',
   whatsapp_bot_menu_message: 'Mensagem do menu do bot',
+  wppconnect_base_url: 'URL do servidor WPPConnect',
+  wppconnect_session: 'Nome da sessão WPPConnect',
+  wppconnect_token: 'Token de acesso WPPConnect',
+  whatsapp_webhook_key: 'Chave do webhook WhatsApp',
+  wppconnect_timeout: 'Timeout padrão (segundos)',
+  wppconnect_media_timeout: 'Timeout de mídia (segundos)',
   email_notifications_enabled: 'Notificações por e-mail ativas',
   email_welcome_enabled: 'E-mail de boas-vindas',
   email_reminder_enabled: 'E-mail de lembrete de vencimento',
@@ -188,9 +217,19 @@ const GROUP_LABELS = {
   general: 'Geral',
   auth: 'Login / Autenticação',
   municipality: 'Município',
-  whatsapp: 'WhatsApp — Notificações',
+  whatsapp_integration: 'WhatsApp — Integração (WPPConnect)',
+  whatsapp: 'WhatsApp — Mensagens e notificações',
   email: 'Notificações por E-mail',
 };
+
+const GROUP_ORDER = [
+  'general',
+  'auth',
+  'municipality',
+  'whatsapp_integration',
+  'whatsapp',
+  'email',
+];
 
 const LOGIN_METHOD_OPTIONS = [
   { value: 'email', label: 'E-mail' },
@@ -214,10 +253,24 @@ export default {
           key: s.key,
           type: s.type || 'string',
           masked: !!s.masked,
+          source: s.source || null,
+          configured: !!s.configured,
         }));
         if (items.length) result[group] = items;
       }
       return result;
+    });
+
+    const sortedGroupedSettings = computed(() => {
+      const raw = groupedSettings.value;
+      const ordered = {};
+      GROUP_ORDER.forEach((group) => {
+        if (raw[group]) ordered[group] = raw[group];
+      });
+      Object.keys(raw).forEach((group) => {
+        if (!ordered[group]) ordered[group] = raw[group];
+      });
+      return ordered;
     });
 
     const isEmpty = computed(() => Object.keys(groupedSettings.value).length === 0);
@@ -234,7 +287,9 @@ export default {
       const f = {};
       Object.keys(data || {}).forEach((group) => {
         (Array.isArray(data[group]) ? data[group] : []).forEach((s) => {
-          if (s.key === 'allowed_login_methods' && s.type === 'json') {
+          if (s.masked) {
+            f[s.key] = '';
+          } else if (s.key === 'allowed_login_methods' && s.type === 'json') {
             f[s.key] = Array.isArray(s.value)
               ? s.value.filter((m) => m === 'email' || m === 'username')
               : ['email', 'username'];
@@ -242,12 +297,38 @@ export default {
             f[s.key] = s.type === 'boolean'
               ? !!s.value
               : s.type === 'integer'
-                ? Number(s.value ?? 0)
+                ? (s.value ?? '')
                 : (s.value ?? '');
           }
         });
       });
       form.value = f;
+    }
+
+    function maskedPlaceholder(key) {
+      const meta = settingsStore.getSettingMeta(key);
+      if (meta?.configured && meta?.source === 'env') return 'Configurado via .env';
+      if (meta?.configured && meta?.source === 'database') return 'Configurado — digite para alterar';
+      return 'Informe o valor';
+    }
+
+    function maskedHint(key) {
+      const meta = settingsStore.getSettingMeta(key);
+      if (meta?.configured && meta?.source === 'env') {
+        return 'Valor ativo vem do .env. Preencha apenas se quiser sobrescrever.';
+      }
+      if (meta?.configured && meta?.source === 'database') {
+        return 'Deixe em branco para manter o valor atual.';
+      }
+      return 'Obrigatório se não estiver configurado no .env.';
+    }
+
+    function envFallbackLabel(key) {
+      const meta = settingsStore.getSettingMeta(key);
+      if (meta?.source === 'env' && meta?.configured) {
+        return 'Usando valor do .env. Limpe o campo e salve para continuar com o fallback.';
+      }
+      return '';
     }
 
     const loadSettings = async () => {
@@ -266,11 +347,14 @@ export default {
       saving.value = true;
       try {
         const settingsArray = [];
-        for (const [groupName, list] of Object.entries(groupedSettings.value)) {
+        for (const [groupName, list] of Object.entries(sortedGroupedSettings.value)) {
           for (const item of list || []) {
             const key = item.key;
             const type = item.type || 'string';
             let value = form.value[key];
+            if (item.masked && (value === null || value === undefined || value === '')) {
+              continue;
+            }
             if (key === 'allowed_login_methods' && type === 'json') {
               value = Array.isArray(value)
                 ? value.filter((m) => m === 'email' || m === 'username')
@@ -278,7 +362,11 @@ export default {
             } else if (type === 'boolean') {
               value = !!value;
             } else if (type === 'integer') {
-              value = parseInt(value, 10) || 0;
+              if (value === '' || value === null || value === undefined) {
+                value = '';
+              } else {
+                value = parseInt(value, 10) || 0;
+              }
             }
             settingsArray.push({
               key,
@@ -305,9 +393,13 @@ export default {
       saving,
       form,
       groupedSettings,
+      sortedGroupedSettings,
       isEmpty,
       keyLabel,
       groupLabel,
+      maskedPlaceholder,
+      maskedHint,
+      envFallbackLabel,
       loginMethodOptions: LOGIN_METHOD_OPTIONS,
       handleSave,
     };

@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\SendWhatsappOtpRequest;
 use App\Http\Requests\VerifyWhatsappOtpRequest;
+use App\Support\WppconnectConfig;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -23,9 +24,9 @@ class WhatsappController extends Controller
 
         $numero = $this->formatBrazilNumber($digits);
 
-        $baseUrl = rtrim((string) config('services.wppconnect.base_url'), '/');
-        $session = (string) config('services.wppconnect.session');
-        $token = (string) config('services.wppconnect.token');
+        $baseUrl = WppconnectConfig::baseUrl();
+        $session = WppconnectConfig::session();
+        $token = WppconnectConfig::token();
 
         if ($token === '') {
             return response()->json(['error' => 'Serviço não configurado'], 503);
@@ -87,9 +88,9 @@ class WhatsappController extends Controller
 
         Cache::put($cacheKey, $code, now()->addMinutes(10));
 
-        $baseUrl = rtrim((string) config('services.wppconnect.base_url'), '/');
-        $session = (string) config('services.wppconnect.session');
-        $token = $this->wppconnectMessageToken();
+        $baseUrl = WppconnectConfig::baseUrl();
+        $session = WppconnectConfig::session();
+        $token = WppconnectConfig::messageToken();
 
         if ($token === '') {
             return response()->json(['error' => 'Serviço não configurado'], 503);
@@ -151,20 +152,5 @@ class WhatsappController extends Controller
     private function formatBrazilNumber(string $digits): string
     {
         return strlen($digits) >= 11 ? "55{$digits}" : "559{$digits}";
-    }
-
-    private function wppconnectMessageToken(): string
-    {
-        $tokenFull = (string) config('services.wppconnect.token');
-
-        if ($tokenFull === '') {
-            return '';
-        }
-
-        if (str_contains($tokenFull, ':')) {
-            return substr($tokenFull, strpos($tokenFull, ':') + 1);
-        }
-
-        return $tokenFull;
     }
 }

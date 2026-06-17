@@ -49,6 +49,11 @@ class SettingSeeder extends Seeder
             'string', 'whatsapp'
         );
 
+        Settings::setDefault('wppconnect_base_url', '', 'string', 'whatsapp_integration');
+        Settings::setDefault('wppconnect_session', '', 'string', 'whatsapp_integration');
+        Settings::setDefault('wppconnect_token', '', 'string', 'whatsapp_integration');
+        Settings::setDefault('whatsapp_webhook_key', '', 'string', 'whatsapp_integration');
+
         Settings::setDefault('email_notifications_enabled', '1', 'boolean', 'email');
         Settings::setDefault('email_welcome_enabled', '1', 'boolean', 'email');
         Settings::setDefault('email_reminder_enabled', '1', 'boolean', 'email');

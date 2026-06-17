@@ -16,7 +16,14 @@ class WhatsappWebhookBotTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const WEBHOOK_KEY = '13d20efe60baa341cc8fcdfbb5ce0be69ca94894a8a37cde40d11325a8a7a97f';
+    private const WEBHOOK_KEY = 'test-webhook-key-for-sid360';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config(['services.wppconnect.webhook_key' => self::WEBHOOK_KEY]);
+    }
 
     protected function tearDown(): void
     {
