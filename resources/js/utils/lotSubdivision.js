@@ -289,36 +289,143 @@ export function subdivideBlockIntoLots({
   });
 }
 
-function resolveInsideBearing(frontBearing, blockPolygon, frontMid, lotDepth, invertDepth = false) {
-  const normalA = frontBearing + 90;
-  const normalB = frontBearing - 90;
-  const probeDistance = Math.max(lotDepth / 2, 1);
+function normalizeBearingDifference(bearingA, bearingB) {
+  let diff = (bearingB - bearingA) % 360;
+  if (diff > 180) {
+    diff -= 360;
+  }
+  if (diff < -180) {
+    diff += 360;
+  }
+
+  return Math.abs(diff);
+}
+
+function measureRayDepthInsideBlock(origin, bearing, blockPolygon) {
+  const originCoord = origin.geometry.coordinates;
+  const farPoint = turf.destination(origin, 2000, bearing, { units: 'meters' });
+  const ray = turf.lineString([originCoord, farPoint.geometry.coordinates]);
+
+  let boundary;
+  try {
+    boundary = turf.polygonToLine(blockPolygon);
+  } catch {
+    return 0;
+  }
+
+  const intersections = turf.lineIntersect(ray, boundary);
+  let maxDepth = 0;
+
+  intersections.features.forEach((feature) => {
+    const hit = turf.point(feature.geometry.coordinates);
+    const distance = turf.distance(origin, hit, { units: 'meters' });
+
+    if (distance <= 0.5) {
+      return;
+    }
+
+    const hitBearing = turf.bearing(origin, hit);
+    if (normalizeBearingDifference(bearing, hitBearing) > 2) {
+      return;
+    }
+
+    if (distance > maxDepth) {
+      maxDepth = distance;
+    }
+  });
+
+  return maxDepth;
+}
+
+function measureMaxInwardDepth(blockPolygon, frontStart, frontEnd, insideBearing) {
+  const frontLine = turf.lineString([frontStart, frontEnd]);
+  const frontLengthM = turf.length(frontLine, { units: 'meters' });
+
+  if (!(frontLengthM > 0)) {
+    return 0;
+  }
+
+  const sampleCount = Math.max(3, Math.ceil(frontLengthM / 3));
+  const endpointInset = Math.min(0.75, frontLengthM * 0.04);
+  let minDepth = Infinity;
+
+  for (let i = 0; i <= sampleCount; i += 1) {
+    let distanceAlong = (frontLengthM * i) / sampleCount;
+
+    if (i === 0) {
+      distanceAlong = endpointInset;
+    } else if (i === sampleCount) {
+      distanceAlong = Math.max(endpointInset, frontLengthM - endpointInset);
+    }
+
+    const point = turf.along(frontLine, distanceAlong, { units: 'meters' });
+    const depth = measureRayDepthInsideBlock(point, insideBearing, blockPolygon);
+
+    if (depth > 0.5 && depth < minDepth) {
+      minDepth = depth;
+    }
+  }
+
+  return Number.isFinite(minDepth) ? minDepth : 0;
+}
+
+function pickInsideBearing(normalA, normalB, blockPolygon, frontStart, frontEnd, frontMid) {
+  const probeDistance = 1;
   const probeA = turf.destination(frontMid, probeDistance, normalA, { units: 'meters' });
   const probeB = turf.destination(frontMid, probeDistance, normalB, { units: 'meters' });
   const aInside = turf.booleanPointInPolygon(probeA, blockPolygon);
   const bInside = turf.booleanPointInPolygon(probeB, blockPolygon);
 
-  let chosen = normalA;
-
   if (aInside && !bInside) {
-    chosen = normalA;
-  } else if (bInside && !aInside) {
-    chosen = normalB;
-  } else if (aInside && bInside) {
-    chosen = normalA;
-  } else {
-    chosen = normalB;
+    return normalA;
   }
 
-  if (!invertDepth) {
-    return chosen;
-  }
-
-  if (chosen === normalA) {
+  if (bInside && !aInside) {
     return normalB;
   }
 
-  return normalA;
+  const depthA = measureMaxInwardDepth(blockPolygon, frontStart, frontEnd, normalA);
+  const depthB = measureMaxInwardDepth(blockPolygon, frontStart, frontEnd, normalB);
+
+  return depthA >= depthB ? normalA : normalB;
+}
+
+function resolveDepthExtrusion({
+  frontBearing,
+  blockPolygon,
+  frontStart,
+  frontEnd,
+  frontMid,
+  lotDepth,
+  invertDepth = false,
+}) {
+  const normalA = frontBearing + 90;
+  const normalB = frontBearing - 90;
+  const insideBearing = pickInsideBearing(
+    normalA,
+    normalB,
+    blockPolygon,
+    frontStart,
+    frontEnd,
+    frontMid,
+  );
+
+  if (!invertDepth) {
+    return { bearing: insideBearing, depthOffset: 0 };
+  }
+
+  const outsideBearing = insideBearing + 180;
+  const probeDistance = Math.max(lotDepth / 2, 1);
+  const invertedProbe = turf.destination(frontMid, probeDistance, outsideBearing, { units: 'meters' });
+
+  if (turf.booleanPointInPolygon(invertedProbe, blockPolygon)) {
+    return { bearing: outsideBearing, depthOffset: 0 };
+  }
+
+  const maxDepth = measureMaxInwardDepth(blockPolygon, frontStart, frontEnd, insideBearing);
+  const depthOffset = Math.max(0, maxDepth - lotDepth);
+
+  return { bearing: insideBearing, depthOffset };
 }
 
 function buildLotsFromSlices({
@@ -336,13 +443,15 @@ function buildLotsFromSlices({
   const endPt = turf.point(frontEnd);
   const frontBearing = turf.bearing(startPt, endPt);
   const frontMid = turf.midpoint(startPt, endPt);
-  const insideBearing = resolveInsideBearing(
+  const { bearing: insideBearing, depthOffset } = resolveDepthExtrusion({
     frontBearing,
     blockPolygon,
+    frontStart,
+    frontEnd,
     frontMid,
     lotDepth,
     invertDepth,
-  );
+  });
 
   let distCursor = 0;
 
@@ -357,15 +466,21 @@ function buildLotsFromSlices({
 
     const p1 = turf.destination(startPt, distStart, frontBearing, { units: 'meters' });
     const p2 = turf.destination(startPt, distEnd, frontBearing, { units: 'meters' });
-    const p3 = turf.destination(p2, lotDepth, insideBearing, { units: 'meters' });
-    const p4 = turf.destination(p1, lotDepth, insideBearing, { units: 'meters' });
+    const p1Inner = depthOffset > 0
+      ? turf.destination(p1, depthOffset, insideBearing, { units: 'meters' })
+      : p1;
+    const p2Inner = depthOffset > 0
+      ? turf.destination(p2, depthOffset, insideBearing, { units: 'meters' })
+      : p2;
+    const p3 = turf.destination(p2Inner, lotDepth, insideBearing, { units: 'meters' });
+    const p4 = turf.destination(p1Inner, lotDepth, insideBearing, { units: 'meters' });
 
     const rawLot = turf.polygon([[
-      p1.geometry.coordinates,
-      p2.geometry.coordinates,
+      p1Inner.geometry.coordinates,
+      p2Inner.geometry.coordinates,
       p3.geometry.coordinates,
       p4.geometry.coordinates,
-      p1.geometry.coordinates,
+      p1Inner.geometry.coordinates,
     ]]);
 
     let finalLot = rawLot;
