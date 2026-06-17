@@ -227,7 +227,7 @@ function resolveCustomSliceWidths(frontLengthM, customWidths, remainderSide) {
  * @param {number} params.lotWidth - largura do lote em metros (modo igual)
  * @param {number[]} [params.customWidths] - larguras individuais (modo personalizado)
  * @param {'start'|'end'} [params.remainderSide] - onde aplicar a sobra
- * @param {number} params.lotDepth - profundidade do lote em metros (perpendicular)
+ * @param {number} params.lotDepth - profundidade do lote em metros (paralela às laterais da quadra)
  * @param {number} [params.maxLots] - limite de lotes (segurança)
  * @returns {Array<{ index, coordinates, area, widthMeters, depthMeters, clipped }>}
  */
@@ -240,7 +240,6 @@ export function subdivideBlockIntoLots({
   customWidths = [],
   remainderSide = 'end',
   maxLots = 200,
-  invertDepth = false,
   reverseFrontEdge = false,
 }) {
   if (!Array.isArray(blockLatLng) || blockLatLng.length < 3) {
@@ -285,8 +284,68 @@ export function subdivideBlockIntoLots({
     frontLengthM,
     sliceWidths,
     lotDepth,
-    invertDepth,
+    frontEdgeIndex,
+    ring,
   });
+}
+
+function getEdgeBearingFromRing(ring, edgeIndex) {
+  const start = turf.point(ring[edgeIndex]);
+  const end = turf.point(ring[edgeIndex + 1]);
+
+  return turf.bearing(start, end);
+}
+
+/**
+ * Direção de profundidade paralela às laterais da quadra (arestas adjacentes à frente).
+ */
+function pickParallelDepthBearing(ring, frontEdgeIndex, blockPolygon, frontStart, frontEnd, frontMid) {
+  const vertexCount = ring.length - 1;
+  const prevEdgeIndex = (frontEdgeIndex - 1 + vertexCount) % vertexCount;
+  const nextEdgeIndex = (frontEdgeIndex + 1) % vertexCount;
+
+  const prevBearing = getEdgeBearingFromRing(ring, prevEdgeIndex);
+  const nextBearing = getEdgeBearingFromRing(ring, nextEdgeIndex);
+
+  const prevInside = pickInsideBearing(
+    prevBearing,
+    prevBearing + 180,
+    blockPolygon,
+    frontStart,
+    frontEnd,
+    frontMid,
+  );
+  const nextInside = pickInsideBearing(
+    nextBearing,
+    nextBearing + 180,
+    blockPolygon,
+    frontStart,
+    frontEnd,
+    frontMid,
+  );
+
+  const prevDepth = measureTypicalInwardDepth(blockPolygon, frontStart, frontEnd, prevInside);
+  const nextDepth = measureTypicalInwardDepth(blockPolygon, frontStart, frontEnd, nextInside);
+
+  return prevDepth >= nextDepth ? prevInside : nextInside;
+}
+
+function resolveDepthBearing({
+  blockPolygon,
+  frontStart,
+  frontEnd,
+  frontMid,
+  frontEdgeIndex,
+  ring,
+}) {
+  return pickParallelDepthBearing(
+    ring,
+    frontEdgeIndex,
+    blockPolygon,
+    frontStart,
+    frontEnd,
+    frontMid,
+  );
 }
 
 function normalizeBearingDifference(bearingA, bearingB) {
@@ -409,46 +468,6 @@ function pickInsideBearing(normalA, normalB, blockPolygon, frontStart, frontEnd,
   return depthA >= depthB ? normalA : normalB;
 }
 
-function resolveDepthExtrusion({
-  frontBearing,
-  blockPolygon,
-  frontStart,
-  frontEnd,
-  frontMid,
-  lotDepth,
-  invertDepth = false,
-}) {
-  const normalA = frontBearing + 90;
-  const normalB = frontBearing - 90;
-  const insideBearing = pickInsideBearing(
-    normalA,
-    normalB,
-    blockPolygon,
-    frontStart,
-    frontEnd,
-    frontMid,
-  );
-
-  if (!invertDepth) {
-    return { bearing: insideBearing, depthOffset: 0 };
-  }
-
-  const outsideBearing = insideBearing + 180;
-  const probeDistance = Math.max(lotDepth / 2, 1);
-  const invertedProbe = turf.destination(frontMid, probeDistance, outsideBearing, { units: 'meters' });
-
-  if (turf.booleanPointInPolygon(invertedProbe, blockPolygon)) {
-    return { bearing: outsideBearing, depthOffset: 0 };
-  }
-
-  const safeDepth = measureMaxInwardDepth(blockPolygon, frontStart, frontEnd, insideBearing);
-  const typicalDepth = measureTypicalInwardDepth(blockPolygon, frontStart, frontEnd, insideBearing);
-  const blockDepth = Math.max(safeDepth, typicalDepth);
-  const depthOffset = Math.max(0, blockDepth - lotDepth);
-
-  return { bearing: insideBearing, depthOffset };
-}
-
 function buildLotsFromSlices({
   blockPolygon,
   frontStart,
@@ -456,7 +475,8 @@ function buildLotsFromSlices({
   frontLengthM,
   sliceWidths,
   lotDepth,
-  invertDepth = false,
+  frontEdgeIndex = 0,
+  ring = [],
 }) {
   const lots = [];
 
@@ -464,14 +484,13 @@ function buildLotsFromSlices({
   const endPt = turf.point(frontEnd);
   const frontBearing = turf.bearing(startPt, endPt);
   const frontMid = turf.midpoint(startPt, endPt);
-  const { bearing: insideBearing, depthOffset } = resolveDepthExtrusion({
-    frontBearing,
+  const depthBearing = resolveDepthBearing({
     blockPolygon,
     frontStart,
     frontEnd,
     frontMid,
-    lotDepth,
-    invertDepth,
+    frontEdgeIndex,
+    ring,
   });
 
   let distCursor = 0;
@@ -487,21 +506,15 @@ function buildLotsFromSlices({
 
     const p1 = turf.destination(startPt, distStart, frontBearing, { units: 'meters' });
     const p2 = turf.destination(startPt, distEnd, frontBearing, { units: 'meters' });
-    const p1Inner = depthOffset > 0
-      ? turf.destination(p1, depthOffset, insideBearing, { units: 'meters' })
-      : p1;
-    const p2Inner = depthOffset > 0
-      ? turf.destination(p2, depthOffset, insideBearing, { units: 'meters' })
-      : p2;
-    const p3 = turf.destination(p2Inner, lotDepth, insideBearing, { units: 'meters' });
-    const p4 = turf.destination(p1Inner, lotDepth, insideBearing, { units: 'meters' });
+    const p3 = turf.destination(p2, lotDepth, depthBearing, { units: 'meters' });
+    const p4 = turf.destination(p1, lotDepth, depthBearing, { units: 'meters' });
 
     const rawLot = turf.polygon([[
-      p1Inner.geometry.coordinates,
-      p2Inner.geometry.coordinates,
+      p1.geometry.coordinates,
+      p2.geometry.coordinates,
       p3.geometry.coordinates,
       p4.geometry.coordinates,
-      p1Inner.geometry.coordinates,
+      p1.geometry.coordinates,
     ]]);
 
     let finalLot = rawLot;

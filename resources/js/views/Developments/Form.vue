@@ -337,23 +337,10 @@
                     </div>
                   </div>
 
-                  <div class="mt-3 grid grid-cols-2 gap-2">
+                  <div class="mt-3">
                     <button
                       type="button"
-                      class="rounded-lg border px-2.5 py-2 text-left text-xs transition-colors"
-                      :class="geoForm.invertDepth
-                        ? 'border-[#c9a84c] bg-amber-50 text-[#1a3a28] ring-1 ring-[#c9a84c]/40'
-                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
-                      @click="toggleGeoInvertDepth"
-                    >
-                      <span class="block font-semibold">Inverter profundidade</span>
-                      <span class="mt-0.5 block text-[11px] text-slate-400">
-                        Recua os lotes para o fundo da quadra
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      class="rounded-lg border px-2.5 py-2 text-left text-xs transition-colors"
+                      class="w-full rounded-lg border px-2.5 py-2 text-left text-xs transition-colors"
                       :class="geoForm.reverseFrontEdge
                         ? 'border-[#c9a84c] bg-amber-50 text-[#1a3a28] ring-1 ring-[#c9a84c]/40'
                         : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
@@ -4473,7 +4460,6 @@ const geoForm = ref({
   customWidths: [20, 20],
   remainderSide: 'end',
   frontEdgeIndex: null,
-  invertDepth: false,
   reverseFrontEdge: false,
   total_value: 0,
   start_from: 1,
@@ -4534,7 +4520,6 @@ watch(
     geoForm.value.widthMode,
     geoForm.value.customWidths,
     geoForm.value.remainderSide,
-    geoForm.value.invertDepth,
     geoForm.value.reverseFrontEdge,
   ],
   () => {
@@ -4743,17 +4728,6 @@ function removeCustomWidthRow(index) {
   }
 }
 
-function toggleGeoInvertDepth() {
-  geoForm.value.invertDepth = !geoForm.value.invertDepth;
-  if (geoForm.value.frontEdgeIndex != null) {
-    if (geoPreviewTimer) {
-      clearTimeout(geoPreviewTimer);
-      geoPreviewTimer = null;
-    }
-    buildPreview({ silent: true });
-  }
-}
-
 function toggleGeoReverseFrontEdge() {
   geoForm.value.reverseFrontEdge = !geoForm.value.reverseFrontEdge;
   if (geoForm.value.frontEdgeIndex != null) {
@@ -4863,7 +4837,6 @@ function buildPreview({ silent = false } = {}) {
       widthMode: geoForm.value.widthMode,
       customWidths: geoForm.value.customWidths,
       remainderSide: geoForm.value.remainderSide,
-      invertDepth: geoForm.value.invertDepth,
       reverseFrontEdge: geoForm.value.reverseFrontEdge,
     });
     if (!previewLots.value.length && !silent) {
@@ -4931,7 +4904,6 @@ function openGenerateLots(zone, { preferGeometric = false } = {}) {
     customWidths: [20, 20],
     remainderSide: 'end',
     frontEdgeIndex: null,
-    invertDepth: false,
     reverseFrontEdge: false,
     total_value: 0,
     start_from: 1,
