@@ -147,10 +147,7 @@ class WhatsappBotConversationStateTest extends TestCase
         ]);
 
         $whatsapp = Mockery::mock(WhatsappService::class);
-        $whatsapp->shouldReceive('sendAndRecord')->once()->andReturn(true);
-        $whatsapp->shouldReceive('interpolate')->andReturnUsing(
-            fn (string $template, array $vars): string => str_replace('{nome}', $vars['nome'] ?? '', $template),
-        );
+        $whatsapp->shouldReceive('sendListAndRecord')->once()->andReturn(true);
         $this->app->instance(WhatsappService::class, $whatsapp);
 
         $this->postWebhook($client, 'INICIAR')->assertOk();
@@ -215,15 +212,33 @@ class WhatsappBotConversationStateTest extends TestCase
         ]);
 
         $whatsapp = Mockery::mock(WhatsappService::class);
-        $whatsapp->shouldReceive('sendAndRecord')
+        $whatsapp->shouldReceive('sendListAndRecord')
             ->once()
-            ->withArgs(fn (string $phone, string $message): bool => str_contains($message, 'Não entendi'));
-        $whatsapp->shouldReceive('interpolate')->andReturnUsing(
-            fn (string $template): string => $template,
-        );
+            ->withArgs(fn (string $phone, string $description): bool => str_contains($description, 'Não entendi'))
+            ->andReturn(true);
         $this->app->instance(WhatsappService::class, $whatsapp);
 
         $this->postWebhook($client, 'xyzabc')->assertOk();
+    }
+
+    public function test_menu_falls_back_to_text_when_list_send_fails(): void
+    {
+        $client = $this->createEligibleClient();
+
+        Setting::query()->create([
+            'key' => 'whatsapp_bot_menu_message',
+            'value' => 'Menu texto {nome}',
+            'type' => 'string',
+            'group' => 'whatsapp',
+        ]);
+
+        $whatsapp = Mockery::mock(WhatsappService::class);
+        $whatsapp->shouldReceive('sendListAndRecord')->once()->andReturn(false);
+        $whatsapp->shouldReceive('interpolate')->andReturn('Menu texto Cliente');
+        $whatsapp->shouldReceive('sendAndRecord')->once()->andReturn(true);
+        $this->app->instance(WhatsappService::class, $whatsapp);
+
+        $this->postWebhook($client, 'menu')->assertOk();
     }
 
     public function test_existing_saldo_command_still_works_for_active_client(): void

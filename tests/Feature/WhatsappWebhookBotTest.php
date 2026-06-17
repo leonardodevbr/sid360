@@ -48,21 +48,14 @@ class WhatsappWebhookBotTest extends TestCase
         ]);
 
         $whatsapp = Mockery::mock(WhatsappService::class);
-        $whatsapp->shouldReceive('sendAndRecord')
+        $whatsapp->shouldReceive('sendListAndRecord')
             ->once()
-            ->withArgs(function (string $phone, string $message): bool {
+            ->withArgs(function (string $phone, string $description): bool {
                 return str_contains($phone, '74988230151')
-                    && str_contains($message, 'Sid360')
-                    && str_contains($message, '2ª via');
+                    && str_contains($description, 'Sid360')
+                    && str_contains($description, 'Toque no botão');
             })
             ->andReturn(true);
-        $whatsapp->shouldReceive('interpolate')->andReturnUsing(
-            fn (string $template, array $vars): string => str_replace(
-                array_map(fn (string $key): string => '{'.$key.'}', array_keys($vars)),
-                array_values($vars),
-                $template,
-            ),
-        );
         $this->app->instance(WhatsappService::class, $whatsapp);
 
         $response = $this->postJson('/api/whatsapp/webhook?key='.self::WEBHOOK_KEY, [
@@ -99,10 +92,7 @@ class WhatsappWebhookBotTest extends TestCase
         ]);
 
         $whatsapp = Mockery::mock(WhatsappService::class);
-        $whatsapp->shouldReceive('sendAndRecord')->once()->andReturn(true);
-        $whatsapp->shouldReceive('interpolate')->andReturnUsing(
-            fn (string $template): string => $template,
-        );
+        $whatsapp->shouldReceive('sendListAndRecord')->once()->andReturn(true);
         $this->app->instance(WhatsappService::class, $whatsapp);
 
         $response = $this->postJson('/api/whatsapp/webhook?key='.self::WEBHOOK_KEY, [
@@ -131,10 +121,7 @@ class WhatsappWebhookBotTest extends TestCase
         ]);
 
         $whatsapp = Mockery::mock(WhatsappService::class);
-        $whatsapp->shouldReceive('sendAndRecord')->once()->andReturn(true);
-        $whatsapp->shouldReceive('interpolate')->andReturnUsing(
-            fn (string $template): string => $template,
-        );
+        $whatsapp->shouldReceive('sendListAndRecord')->once()->andReturn(true);
         $this->app->instance(WhatsappService::class, $whatsapp);
 
         $this->postJson('/api/whatsapp/webhook?key='.self::WEBHOOK_KEY, [
@@ -143,5 +130,60 @@ class WhatsappWebhookBotTest extends TestCase
             'content' => 'menu',
             'fromMe' => false,
         ])->assertOk();
+    }
+
+    public function test_webhook_routes_bot_menu_list_reply_to_command(): void
+    {
+        Setting::query()->create([
+            'key' => 'whatsapp_bot_enabled',
+            'value' => '1',
+            'type' => 'boolean',
+            'group' => 'whatsapp',
+        ]);
+
+        $client = Client::query()->create([
+            'name' => 'Leonardo Nunes Oliveira',
+            'cpf' => '52998224725',
+            'phone' => '74988230151',
+            'whatsapp_status' => Client::WHATSAPP_STATUS_CONFIRMED,
+        ]);
+
+        InstallmentInteraction::query()->create([
+            'client_id' => $client->id,
+            'phone' => '74988230151',
+            'direction' => InstallmentInteraction::DIR_OUTBOUND,
+            'type' => InstallmentInteraction::TYPE_BOT_RESPONSE,
+            'message' => 'Menu interativo',
+            'meta' => [
+                'format' => 'list',
+                'command' => 'menu',
+                'sent' => true,
+            ],
+        ]);
+
+        $whatsapp = Mockery::mock(WhatsappService::class);
+        $whatsapp->shouldReceive('sendAndRecord')
+            ->once()
+            ->withArgs(fn (string $phone, string $message): bool => str_contains($message, 'contratos'));
+        $this->app->instance(WhatsappService::class, $whatsapp);
+
+        $this->postJson('/api/whatsapp/webhook?key='.self::WEBHOOK_KEY, [
+            'event' => 'onmessage',
+            'from' => '5574988230151@c.us',
+            'body' => '',
+            'fromMe' => false,
+            'type' => 'list_response',
+            'listResponse' => [
+                'singleSelectReply' => [
+                    'selectedRowId' => 'bot_balance',
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertDatabaseHas('installment_interactions', [
+            'client_id' => $client->id,
+            'type' => InstallmentInteraction::TYPE_BOT_COMMAND,
+            'message' => 'saldo',
+        ]);
     }
 }

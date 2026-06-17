@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Actions\Installment\SendInstallmentBoletoWhatsappAction;
 use App\Actions\Installment\SendInstallmentPixWhatsappAction;
 use App\Actions\Whatsapp\ProcessWhatsappBotMessageAction;
+use App\Support\WhatsappBotMenuButtons;
 use App\Models\Client;
 use App\Models\Installment;
 use App\Models\InstallmentInteraction;
@@ -61,6 +62,17 @@ class WhatsappWebhookController extends Controller
         $option = $this->extractOption($payload, $body);
         $windowHours = (int) Setting::get('whatsapp_reply_window_hours', 48);
         $since = Carbon::now()->subHours($windowHours);
+
+        if ($option !== '' && WhatsappBotMenuButtons::isBotMenuRowId($option)) {
+            $botMenuContext = $this->findLastBotMenuOutbound($payload, $from, $since);
+
+            if ($botMenuContext) {
+                $commandBody = WhatsappBotMenuButtons::commandBodyFromRowId($option) ?? $option;
+                $this->processBotMessage->execute($from, $commandBody, $payload);
+
+                return response()->json(['ok' => true]);
+            }
+        }
 
         if ($option !== '' && in_array($option, ['1', '2', '3'], true)) {
             $lastOutbound = $this->findLastOutbound($payload, $from, $since);
@@ -444,6 +456,43 @@ class WhatsappWebhookController extends Controller
                 return $bySale;
             }
         }
+
+        if ($from !== '') {
+            $byChat = (clone $query)->where('meta->from', $from)->latest()->first();
+
+            if ($byChat) {
+                return $byChat;
+            }
+        }
+
+        $digits = preg_replace('/[^0-9]/', '', $from) ?? '';
+
+        if (strlen($digits) >= 10 && strlen($digits) <= 13) {
+            $normalized = $this->normalizePhone($digits);
+
+            return (clone $query)
+                ->where(function ($phoneQuery) use ($digits, $normalized): void {
+                    $phoneQuery->where('phone', 'like', "%{$normalized}%")
+                        ->orWhere('phone', 'like', "%{$digits}%");
+                })
+                ->latest()
+                ->first();
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function findLastBotMenuOutbound(array $payload, string $from, Carbon $since): ?InstallmentInteraction
+    {
+        $query = InstallmentInteraction::query()
+            ->where('direction', InstallmentInteraction::DIR_OUTBOUND)
+            ->where('type', InstallmentInteraction::TYPE_BOT_RESPONSE)
+            ->where('created_at', '>=', $since)
+            ->where('meta->format', 'list')
+            ->where('meta->command', 'menu');
 
         if ($from !== '') {
             $byChat = (clone $query)->where('meta->from', $from)->latest()->first();

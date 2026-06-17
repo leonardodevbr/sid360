@@ -488,7 +488,8 @@ class WhatsappService
         string $phone,
         string $description,
         string $buttonText,
-        array $sections
+        array $sections,
+        ?string $footer = null,
     ): bool {
         $digits = preg_replace('/\D/', '', $phone) ?? '';
         if (strlen($digits) < 10) {
@@ -507,15 +508,21 @@ class WhatsappService
         $token = $config['token'];
 
         try {
+            $payload = [
+                'phone' => ["{$numero}@c.us"],
+                'isGroup' => false,
+                'description' => $description,
+                'buttonText' => $buttonText,
+                'sections' => $sections,
+            ];
+
+            if ($footer !== null && $footer !== '') {
+                $payload['footer'] = $footer;
+            }
+
             $response = Http::timeout(10)
                 ->withToken($token)
-                ->post("{$baseUrl}/api/{$session}/send-list-message", [
-                    'phone' => ["{$numero}@c.us"],
-                    'isGroup' => false,
-                    'description' => $description,
-                    'buttonText' => $buttonText,
-                    'sections' => $sections,
-                ]);
+                ->post("{$baseUrl}/api/{$session}/send-list-message", $payload);
 
             if (! $response->successful()) {
                 Log::warning('WhatsappService::sendList failed', [
@@ -551,9 +558,10 @@ class WhatsappService
         int|string|null $installmentId = null,
         int|string|null $saleId = null,
         int|string|null $clientId = null,
-        array $meta = []
+        array $meta = [],
+        ?string $footer = null,
     ): bool {
-        $sent = $this->sendList($phone, $description, $buttonText, $sections);
+        $sent = $this->sendList($phone, $description, $buttonText, $sections, $footer);
 
         InstallmentInteraction::create([
             'installment_id' => $installmentId !== null ? (int) $installmentId : null,
@@ -563,10 +571,34 @@ class WhatsappService
             'direction' => InstallmentInteraction::DIR_OUTBOUND,
             'type' => $type,
             'message' => $description,
-            'meta' => array_merge($meta, ['sent' => $sent, 'format' => 'list']),
+            'meta' => array_merge($meta, [
+                'sent' => $sent,
+                'format' => 'list',
+                'footer' => $footer,
+            ]),
         ]);
 
         return $sent;
+    }
+
+    /**
+     * Botões de resposta rápida (máx. 3) via send-message + options.buttons.
+     *
+     * @param  list<array{id: string, text: string}>  $buttons
+     * @param  array<string, mixed>  $extraOptions
+     */
+    public function sendQuickReplyButtons(
+        string $phone,
+        string $message,
+        array $buttons,
+        array $extraOptions = [],
+    ): bool {
+        $options = array_merge($extraOptions, [
+            'useInteractiveMessage' => true,
+            'buttons' => $buttons,
+        ]);
+
+        return $this->send($phone, $message, $options);
     }
 
     /**

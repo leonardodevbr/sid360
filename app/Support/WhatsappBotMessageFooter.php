@@ -10,7 +10,7 @@ namespace App\Support;
  * @see https://wppconnect.io/wppconnect/functions/WAJS.chat.sendTextMessage.html
  * @see POST /api/{session}/send-message — body: { message, options: { footer } }
  *
- * Botões/listas interativas ficam para etapa futura; hoje usamos footer em texto simples.
+ * Botões/listas via send-message (options.buttons) ou send-list-message.
  */
 final class WhatsappBotMessageFooter
 {

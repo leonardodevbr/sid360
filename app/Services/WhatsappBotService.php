@@ -14,6 +14,7 @@ use App\Models\InstallmentInteraction;
 use App\Models\Sale;
 use App\Models\Setting;
 use App\Models\WhatsappConversationState;
+use App\Support\WhatsappBotMenuButtons;
 use App\Support\WhatsappBotMessageFooter;
 use App\Support\WhatsappCommandParser;
 use Carbon\Carbon;
@@ -168,14 +169,41 @@ class WhatsappBotService
         bool $unknown = false,
         ?WhatsappConversationState $state = null,
     ): void {
+        $prefix = $unknown
+            ? "Não entendi sua mensagem.\n\n"
+            : '';
+
+        $description = $prefix.implode("\n", [
+            "Olá, *{$client->name}*! Sou o assistente *Sid360*.",
+            '',
+            'Toque no botão abaixo e escolha o que precisa.',
+            '',
+            "Portal: {$this->portalUrl()}",
+        ]);
+
+        $sent = $this->whatsapp->sendListAndRecord(
+            phone: $phone,
+            description: $description,
+            buttonText: WhatsappBotMenuButtons::BUTTON_TEXT,
+            sections: WhatsappBotMenuButtons::sections(),
+            type: InstallmentInteraction::TYPE_BOT_RESPONSE,
+            clientId: $client->id,
+            meta: ['command' => self::COMMAND_MENU, 'interactive' => 'list'],
+            footer: WhatsappBotMessageFooter::text(),
+        );
+
+        if ($sent) {
+            if ($state !== null) {
+                $this->conversationState->touchOutbound($state);
+            }
+
+            return;
+        }
+
         $template = (string) Setting::get(
             'whatsapp_bot_menu_message',
             "Olá, *{nome}*! Sou o assistente *Sid360*.\n\nDigite um comando:\n\n*2ª via* — receber PIX ou boleto\n*saldo* — parcelas pendentes\n*extrato* — histórico de pagamentos\n*contrato* — PDF do contrato\n*carne* — carnê / promissória\n*atendimento* — falar com o corretor\n\nPortal: {portal_url}",
         );
-
-        $prefix = $unknown
-            ? "Não entendi sua mensagem.\n\n"
-            : '';
 
         $message = $prefix.$this->whatsapp->interpolate($template, [
             'nome' => $client->name,

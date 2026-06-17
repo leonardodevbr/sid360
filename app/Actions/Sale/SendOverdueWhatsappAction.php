@@ -10,6 +10,7 @@ use App\Models\InstallmentInteraction;
 use App\Models\Sale;
 use App\Models\Setting;
 use App\Services\InstallmentPenaltyService;
+use App\Support\WhatsappBotMessageFooter;
 use App\Services\WhatsappService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -129,6 +130,7 @@ class SendOverdueWhatsappAction
                 'manual' => $forceResend,
                 'resent' => $forceResend,
             ],
+            footer: WhatsappBotMessageFooter::text(),
         );
 
         if (! $sent) {
