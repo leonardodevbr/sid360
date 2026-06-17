@@ -69,9 +69,9 @@ export function generateLotsBlockedReason(zone) {
   return '';
 }
 
-import { computeGeodesicArea } from '@/utils/mapGeometry';
+import { formatPolygonAreaM2 } from '@/utils/mapGeometry';
 
-export { computeGeodesicArea };
+export { computeGeodesicArea } from '@/utils/mapGeometry';
 
 export function zoneShowsLotsCount(type) {
   return ZONE_LOT_GENERATION_TYPES.includes(type);
@@ -79,15 +79,14 @@ export function zoneShowsLotsCount(type) {
 
 export function buildZoneMetaLabel(zone, lotsCount = 0) {
   const parts = [];
+  const areaLabel = formatPolygonAreaM2(zone?.coordinates);
 
   if (zoneShowsLotsCount(zone?.type)) {
     parts.push(`${lotsCount} lote(s)`);
-    parts.push(zone?.coordinates?.length >= 3 ? 'área demarcada' : 'sem área');
-  } else if (zone?.coordinates?.length >= 3) {
-    const area = computeGeodesicArea(zone.coordinates);
-    if (area != null) {
-      parts.push(`~${area.toLocaleString('pt-BR')} m²`);
-    }
+  }
+
+  if (areaLabel) {
+    parts.push(areaLabel);
   } else {
     parts.push('sem área');
   }

@@ -121,3 +121,86 @@ export function centerlineLengthMeters(centerlineLatLng) {
   const line = turf.lineString(toGeoJsonLine(centerlineLatLng));
   return Math.round(turf.length(line, { units: 'meters' }));
 }
+
+function latLngRingToTurfPolygon(ringLatLng) {
+  if (!Array.isArray(ringLatLng) || ringLatLng.length < 3) {
+    return null;
+  }
+
+  const coords = ringLatLng.map(([lat, lng]) => [Number(lng), Number(lat)]);
+  const first = coords[0];
+  const last = coords[coords.length - 1];
+
+  if (first[0] !== last[0] || first[1] !== last[1]) {
+    coords.push(first);
+  }
+
+  if (coords.length < 4) {
+    return null;
+  }
+
+  try {
+    return turf.polygon([coords]);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * @param {import('@turf/helpers').Feature<import('@turf/helpers').Polygon | import('@turf/helpers').MultiPolygon>} feature
+ * @returns {Array<Array<[number, number]>>}
+ */
+function turfPolygonFeatureToLatLngRings(feature) {
+  const geometry = feature?.geometry;
+  if (!geometry) {
+    return [];
+  }
+
+  if (geometry.type === 'Polygon') {
+    const ring = geometry.coordinates[0]?.map(([lng, lat]) => [Number(lat), Number(lng)]) ?? [];
+    return ring.length >= 3 ? [ring] : [];
+  }
+
+  if (geometry.type === 'MultiPolygon') {
+    return geometry.coordinates
+      .map((polygon) => polygon[0]?.map(([lng, lat]) => [Number(lat), Number(lng)]) ?? [])
+      .filter((ring) => ring.length >= 3);
+  }
+
+  return [];
+}
+
+/**
+ * Une polígonos de ruas para exibição fluida em cruzamentos (somente visual).
+ *
+ * @param {Array<Array<[number, number]>>} rings - polígonos das ruas em [lat,lng]
+ * @returns {Array<Array<[number, number]>>} anel(is) resultante(s) em [lat,lng]
+ */
+export function mergeStreetPolygons(rings) {
+  const features = (rings ?? [])
+    .map((ring) => latLngRingToTurfPolygon(ring))
+    .filter(Boolean);
+
+  if (!features.length) {
+    return [];
+  }
+
+  if (features.length === 1) {
+    return turfPolygonFeatureToLatLngRings(features[0]);
+  }
+
+  let merged = features[0];
+
+  for (let index = 1; index < features.length; index += 1) {
+    try {
+      const next = turf.union(turf.featureCollection([merged, features[index]]));
+      if (next) {
+        merged = next;
+      }
+    } catch {
+      /* mantém merged anterior se o par falhar */
+    }
+  }
+
+  return turfPolygonFeatureToLatLngRings(merged);
+}

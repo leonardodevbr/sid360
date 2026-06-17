@@ -65,8 +65,8 @@ class PublicController extends Controller
             'lots',
             'lots as lots_available_count' => fn ($query) => $query->where('status', Lot::STATUS_AVAILABLE),
         ]);
-        $development->loadAggregate('lots', 'min', 'total_value');
-        $development->loadAggregate('lots', 'max', 'total_value');
+        $development->loadMin('lots', 'total_value');
+        $development->loadMax('lots', 'total_value');
 
         $lotModels = Lot::query()
             ->where('development_id', $development->id)

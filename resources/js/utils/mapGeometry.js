@@ -253,6 +253,36 @@ export function computeGeodesicArea(coords) {
   return Math.round(Math.abs((area * earthRadius * earthRadius) / 2));
 }
 
+/**
+ * @param {number | string | null | undefined} area
+ * @param {{ approximate?: boolean }} [options]
+ * @returns {string | null}
+ */
+export function formatAreaM2(area, options = {}) {
+  const value = Number(area);
+  if (!Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+
+  const formatted = value.toLocaleString('pt-BR');
+  return options.approximate ? `~${formatted} m²` : `${formatted} m²`;
+}
+
+/**
+ * @param {unknown} coords
+ * @param {{ approximate?: boolean }} [options]
+ * @returns {string | null}
+ */
+export function formatPolygonAreaM2(coords, options = {}) {
+  const normalized = normalizePolygonCoordinates(coords);
+  if (!normalized || normalized.length < 3) {
+    return null;
+  }
+
+  const area = computeGeodesicArea(normalized);
+  return area != null ? formatAreaM2(area, { approximate: options.approximate ?? true }) : null;
+}
+
 export function normalizePolygonCoordinates(coords) {
   if (typeof coords === 'string') {
     try {

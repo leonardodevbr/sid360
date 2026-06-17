@@ -937,6 +937,8 @@ import { setupMapBaseLayers, ensureMapRotation, configureMapRotation, refreshMap
 import {
   arePointsInsideOrOnPolygon,
   formatMeters,
+  formatAreaM2,
+  formatPolygonAreaM2,
   getInvalidPointsInsidePolygon,
   getPolygonEdgesMeters,
   isPointInsideOrOnPolygon,
@@ -952,7 +954,7 @@ import {
 } from '@/utils/zone';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import { subdivideBlockIntoLots, enrichBlockEdgesWithStreets } from '@/utils/lotSubdivision';
-import { buildStreetPolygon, centerlineLengthMeters, normalizeStreetEndCap } from '@/utils/streetGeometry';
+import { buildStreetPolygon, centerlineLengthMeters, mergeStreetPolygons, normalizeStreetEndCap } from '@/utils/streetGeometry';
 import Input from '@/components/Common/Input.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
 import Button from '@/components/Common/Button.vue';
@@ -1018,6 +1020,7 @@ let tempMarkers = [];
 let edgeLabelMarkers = [];
 let zoneLayers = {};
 let streetLayersMap = {};
+let streetUnionVisualLayer = null;
 let lotLayersMap = {};
 let previewLayerGroup = null;
 let blockEdgeLayerGroup = null;
@@ -1396,11 +1399,15 @@ function buildZonePopupHtml(zone) {
   `;
 }
 
-function buildPerimeterPopupHtml() {
+function buildPerimeterPopupHtml(coords) {
+  const areaLabel = formatPolygonAreaM2(coords);
+
   return `
     <div class="map-feature-popup">
       <p class="map-feature-popup-title">Perímetro do empreendimento</p>
-      <p class="map-feature-popup-meta">Limite geral do empreendimento no mapa</p>
+      <p class="map-feature-popup-meta">
+        Limite geral do empreendimento no mapa${areaLabel ? ` · ${areaLabel}` : ''}
+      </p>
       <div class="map-feature-popup-actions">
         <button type="button" class="map-feature-popup-btn" data-map-edit>
           Editar demarcação
@@ -1414,12 +1421,12 @@ function buildPerimeterPopupHtml() {
 }
 
 function buildStreetPopupHtml(street) {
-  const pointCount = street.coordinates?.length ?? 0;
+  const areaLabel = formatPolygonAreaM2(street.coordinates);
 
   return `
     <div class="map-feature-popup">
       <p class="map-feature-popup-title">${escapeHtml(street.name)}</p>
-      <p class="map-feature-popup-meta">Rua · ${pointCount} ponto(s) demarcados</p>
+      <p class="map-feature-popup-meta">Rua${areaLabel ? ` · ${areaLabel}` : ''}</p>
       <div class="map-feature-popup-actions">
         <button type="button" class="map-feature-popup-btn" data-map-edit>
           Editar traçado
@@ -1448,13 +1455,16 @@ function buildLotLabel(lot) {
 }
 
 function buildLotPopupHtml(lot) {
-  const areaLabel = lot.area_computed ?? lot.area;
+  const storedArea = lot.area_computed ?? lot.area;
+  const areaLabel = storedArea != null && storedArea !== ''
+    ? formatAreaM2(storedArea, { approximate: false })
+    : formatPolygonAreaM2(lot.coordinates);
 
   return `
     <div class="map-feature-popup">
       <p class="map-feature-popup-title">${escapeHtml(buildLotLabel(lot))}</p>
       <p class="map-feature-popup-meta">
-        ${escapeHtml(lotStatusLabel(lot.status))}${areaLabel ? ` · ${Number(areaLabel).toLocaleString('pt-BR')} m²` : ''}
+        ${escapeHtml(lotStatusLabel(lot.status))}${areaLabel ? ` · ${areaLabel}` : ''}
       </p>
       <div class="map-feature-popup-actions">
         <button type="button" class="map-feature-popup-btn" data-map-edit>
@@ -2256,7 +2266,7 @@ function drawPerimeterOnMap(coords) {
 
   bindMapFeaturePopup(
     perimeterLayer,
-    buildPerimeterPopupHtml(),
+    buildPerimeterPopupHtml(coords),
     {
       onEdit: () => startDrawPerimeter(),
       onClear: () => confirmClearPerimeter(),
@@ -2879,19 +2889,78 @@ function drawLotsOnMap() {
   bringLotLayersToFront();
 }
 
-function drawStreetsOnMap() {
+function getStreetUnionVisualStyle(mappedStreets) {
+  if (mappedStreets.length === 1) {
+    return getStreetLayerStyle(mappedStreets[0]);
+  }
+
+  const color = defaultStreetColor;
+
+  return {
+    color,
+    weight: 2,
+    fillColor: lightenHexColor(color),
+    fillOpacity: 0.42,
+    opacity: 0.95,
+  };
+}
+
+function drawStreetsOnMap(options = {}) {
   if (!L || !map) return;
+
+  const excludeStreetId = options.excludeStreetId ?? null;
+
+  if (streetUnionVisualLayer) {
+    map.removeLayer(streetUnionVisualLayer);
+    streetUnionVisualLayer = null;
+  }
 
   Object.values(streetLayersMap).forEach((layer) => map.removeLayer(layer));
   streetLayersMap = {};
 
-  streets.value.forEach((street) => {
-    if (!hasValidStreetPolygon(street.coordinates?.length ?? 0)) return;
+  const mappedStreets = streets.value.filter(
+    (street) => hasValidStreetPolygon(street.coordinates?.length ?? 0)
+      && String(street.id) !== String(excludeStreetId),
+  );
 
-    const layer = L.polygon(street.coordinates, {
-      ...getStreetLayerStyle(street),
-      className: 'map-feature-polygon map-street-feature',
-    })
+  if (!mappedStreets.length) {
+    return;
+  }
+
+  const useUnionVisual = mappedStreets.length > 1;
+  let mergedRings = useUnionVisual
+    ? mergeStreetPolygons(mappedStreets.map((street) => street.coordinates))
+    : [];
+  const renderUnionVisual = useUnionVisual && mergedRings.length > 0;
+
+  if (renderUnionVisual) {
+    streetUnionVisualLayer = L.layerGroup();
+
+    mergedRings.forEach((ring) => {
+      L.polygon(ring, {
+        ...getStreetUnionVisualStyle(mappedStreets),
+        interactive: false,
+        className: 'map-street-union-visual',
+      }).addTo(streetUnionVisualLayer);
+    });
+
+    streetUnionVisualLayer.addTo(map);
+  }
+
+  mappedStreets.forEach((street) => {
+    const layer = L.polygon(street.coordinates, renderUnionVisual
+      ? {
+        color: getStreetColor(street),
+        weight: 0,
+        opacity: 0,
+        fillColor: getStreetColor(street),
+        fillOpacity: 0.001,
+        className: 'map-feature-polygon map-street-feature map-street-feature-hit',
+      }
+      : {
+        ...getStreetLayerStyle(street),
+        className: 'map-feature-polygon map-street-feature',
+      })
       .bindTooltip(street.name, { sticky: true })
       .addTo(map);
 
@@ -3262,10 +3331,7 @@ function beginStreetAxisDrawing(street, { width, endCap }) {
   syncMapOverlayInteraction();
   axisPreviewLength.value = 0;
 
-  if (streetLayersMap[street.id]) {
-    map?.removeLayer(streetLayersMap[street.id]);
-    delete streetLayersMap[street.id];
-  }
+  drawStreetsOnMap({ excludeStreetId: street.id });
 
   if (street.centerline?.length >= 2) {
     preloadDrawingPoints(street.centerline, getStreetColor(street));

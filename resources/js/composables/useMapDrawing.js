@@ -20,7 +20,8 @@ import {
 } from '@/utils/mapGeometry';
 import { buildZoneTitleLabel } from '@/utils/zone';
 import { getLotMapStyle, buildLotMapLabel } from '@/utils/mapLots';
-import { getStreetColor, hasValidStreetPolygon } from '@/utils/mapStreets';
+import { getStreetColor, getMappedStreets, hasValidStreetPolygon, DEFAULT_STREET_COLOR } from '@/utils/mapStreets';
+import { mergeStreetPolygons } from '@/utils/streetGeometry';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import { createGpsPreviewController, isCoarsePointerDevice } from '@/utils/mapGpsPreview';
 import {
@@ -64,6 +65,7 @@ export function useMapDrawing(options) {
   let fullscreenResizeHandler = null;
 
   let contextPerimeterLayer = null;
+  let contextStreetUnionLayer = null;
   const contextStreetLayerMap = {};
   const contextZoneLayerMap = {};
   const contextLotLayerMap = {};
@@ -1011,26 +1013,65 @@ export function useMapDrawing(options) {
   function drawContextStreets() {
     if (!L || !map) return;
 
+    if (contextStreetUnionLayer) {
+      map.removeLayer(contextStreetUnionLayer);
+      contextStreetUnionLayer = null;
+    }
+
     Object.values(contextStreetLayerMap).forEach((layer) => map.removeLayer(layer));
     Object.keys(contextStreetLayerMap).forEach((key) => {
       delete contextStreetLayerMap[key];
     });
 
-    const streets = contextStreets?.value ?? [];
-    streets.forEach((street) => {
-      if (!hasValidStreetPolygon(street.coordinates?.length ?? 0)) {
-        return;
-      }
+    const mappedStreets = getMappedStreets(contextStreets?.value ?? []);
+    if (!mappedStreets.length) {
+      return;
+    }
 
+    const useUnionVisual = mappedStreets.length > 1;
+    const mergedRings = useUnionVisual
+      ? mergeStreetPolygons(mappedStreets.map((street) => street.coordinates))
+      : [];
+
+    if (useUnionVisual && mergedRings.length) {
+      contextStreetUnionLayer = L.layerGroup();
+
+      mergedRings.forEach((ring) => {
+        L.polygon(ring, {
+          color: DEFAULT_STREET_COLOR,
+          weight: 2,
+          fillColor: DEFAULT_STREET_COLOR,
+          fillOpacity: 0.15,
+          opacity: 0.95,
+          interactive: false,
+          className: 'map-street-union-visual map-lot-path',
+        }).addTo(contextStreetUnionLayer);
+      });
+
+      contextStreetUnionLayer.addTo(map);
+      configureMapPathLayer(contextStreetUnionLayer);
+    }
+
+    mappedStreets.forEach((street) => {
       const color = getStreetColor(street);
-      const layer = L.polygon(street.coordinates, {
-        color,
-        weight: 2,
-        fillColor: color,
-        fillOpacity: 0.15,
-        interactive: false,
-        className: 'map-lot-path',
-      })
+      const layer = L.polygon(street.coordinates, useUnionVisual
+        ? {
+          color,
+          weight: 0,
+          opacity: 0,
+          fillColor: color,
+          fillOpacity: 0,
+          interactive: false,
+          className: 'map-lot-path',
+        }
+        : {
+          color,
+          weight: 2,
+          fillColor: color,
+          fillOpacity: 0.15,
+          interactive: false,
+          className: 'map-lot-path',
+        })
         .bindTooltip(street.name, { sticky: true })
         .addTo(map);
 

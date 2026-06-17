@@ -147,6 +147,7 @@
 .leaflet-container.map-overlays-inactive .map-feature-polygon,
 .leaflet-container.map-overlays-inactive .map-lot-context-path,
 .leaflet-container.map-overlays-inactive .map-street-feature,
+.leaflet-container.map-overlays-inactive .map-street-feature-hit,
 .leaflet-container.map-overlays-inactive .map-street-axis-preview,
 .leaflet-container.map-overlays-inactive .map-lot-preview-path,
 .leaflet-container.map-overlays-inactive .map-block-edge-picker,
@@ -620,6 +621,10 @@
 
 .leaflet-container .map-feature-popup-btn {
   pointer-events: auto;
+}
+
+.leaflet-container .map-street-union-visual {
+  pointer-events: none !important;
 }
 
 .leaflet-container .leaflet-popup-tip {
