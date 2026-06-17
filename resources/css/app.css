@@ -527,6 +527,19 @@
   color: #991b1b;
 }
 
+.map-feature-popup-btn--accent {
+  border-color: #c9a84c;
+  background: #faf6eb;
+  color: #1a3a28;
+  font-weight: 600;
+}
+
+.map-feature-popup-btn--accent:hover {
+  border-color: #a07a28;
+  background: #f5edd4;
+  color: #1a3a28;
+}
+
 .map-toolbar-btn--map {
   border-color: #d8d2c4;
   background: #f7f4ed;

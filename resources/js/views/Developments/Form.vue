@@ -1854,6 +1854,7 @@ function bindPopupActionButtons(popup) {
 
   bindPopupActionButton(popupElement, '[data-map-edit]', actions.onEdit);
   bindPopupActionButton(popupElement, '[data-map-clear]', actions.onClear);
+  bindPopupActionButton(popupElement, '[data-map-generate-lots]', actions.onGenerateLots);
 }
 
 function bindMapFeaturePopup(layer, html, actions) {
@@ -1886,6 +1887,8 @@ function bindMapFeaturePopup(layer, html, actions) {
 }
 
 function buildZonePopupHtml(zone) {
+  const canGenerate = canGenerateLotsInZone(zone);
+
   return `
     <div class="map-feature-popup">
       <p class="map-feature-popup-title">${escapeHtml(buildZoneTitleLabel(zone))}</p>
@@ -1896,6 +1899,11 @@ function buildZonePopupHtml(zone) {
         <button type="button" class="map-feature-popup-btn" data-map-edit>
           Editar demarcação
         </button>
+        ${canGenerate ? `
+        <button type="button" class="map-feature-popup-btn map-feature-popup-btn--accent" data-map-generate-lots>
+          Gerar lotes
+        </button>
+        ` : ''}
         <button type="button" class="map-feature-popup-btn map-feature-popup-btn--danger" data-map-clear>
           Limpar demarcação
         </button>
@@ -3065,6 +3073,7 @@ function drawZonesOnMap() {
       buildZonePopupHtml(zone),
       {
         onEdit: () => startDrawZone(zone),
+        onGenerateLots: () => openGenerateLots(zone, { preferGeometric: true }),
         onClear: () => confirmClearZone(zone),
       },
     );
@@ -4746,14 +4755,16 @@ function closeGenerateLotsModal() {
   generateLotsZone.value = null;
 }
 
-function openGenerateLots(zone) {
+function openGenerateLots(zone, { preferGeometric = false } = {}) {
   if (!canGenerateLotsInZone(zone)) {
     toast.warning(generateLotsBlockedReason(zone));
     return;
   }
 
+  map?.closePopup();
+
   generateLotsZone.value = zone;
-  genMode.value = 'simple';
+  genMode.value = preferGeometric ? 'geometric' : 'simple';
   previewLots.value = [];
   blockEdges.value = [];
   generateForm.value = {
@@ -4776,6 +4787,14 @@ function openGenerateLots(zone) {
     start_from: 1,
     pattern: '',
   };
+
+  if (preferGeometric) {
+    nextTick(() => {
+      loadBlockEdges();
+      fitMapToGenerateLotsZone();
+      focusMapForDrawing();
+    });
+  }
 }
 
 async function doGenerateGeometricLots() {
