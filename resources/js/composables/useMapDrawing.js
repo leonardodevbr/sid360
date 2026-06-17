@@ -872,6 +872,40 @@ export function useMapDrawing(options) {
     refreshEdgeLabelsForCoords(coords, { closed: coords.length >= 3 });
   }
 
+  function removeTempShapeHitLayer() {
+    if (map?._tempLineHit) {
+      map.removeLayer(map._tempLineHit);
+      delete map._tempLineHit;
+    }
+  }
+
+  function addTempShapeHitLayer(coords, closed) {
+    if (!map || !L || !coords?.length) {
+      return;
+    }
+
+    removeTempShapeHitLayer();
+
+    const hitOptions = {
+      color: '#000000',
+      weight: 16,
+      opacity: 0,
+      fillColor: '#000000',
+      fillOpacity: 0.001,
+      interactive: true,
+      className: 'map-temp-shape-hit',
+    };
+
+    if (closed && coords.length >= 3) {
+      map._tempLineHit = L.polygon(coords, hitOptions).addTo(map);
+    } else {
+      map._tempLineHit = L.polyline(coords, hitOptions).addTo(map);
+    }
+
+    bindTempShapeEdgeHandlers(map._tempLineHit);
+    map._tempLineHit.bringToFront();
+  }
+
   function refreshTempPolyline(closed = false, options = {}) {
     if (isFinishing) return;
 
@@ -879,22 +913,24 @@ export function useMapDrawing(options) {
 
     if (!L || drawingPoints.value.length < 2) return;
     if (map._tempLine) map.removeLayer(map._tempLine);
+    removeTempShapeHitLayer();
 
     const boundary = getBoundary();
     const zoneInvalid = boundary
       && getInvalidPointsInsidePolygon(drawingPoints.value, boundary).length > 0;
     const strokeColor = zoneInvalid ? '#DC2626' : getDrawingBaseColor();
     const edgeInsertEnabled = canInsertVerticesOnEdge();
+    const isClosedShape = (closed || startedFromExistingPolygon.value) && drawingPoints.value.length >= 3;
 
     const layerOptions = {
       color: strokeColor,
-      weight: edgeInsertEnabled ? 10 : 2,
+      weight: 2,
       dashArray: '4',
-      interactive: edgeInsertEnabled,
-      className: edgeInsertEnabled ? 'map-temp-shape-editable map-lot-path' : 'map-lot-path',
+      interactive: false,
+      className: 'map-lot-path',
     };
 
-    if ((closed || startedFromExistingPolygon.value) && drawingPoints.value.length >= 3) {
+    if (isClosedShape) {
       map._tempLine = L.polygon(drawingPoints.value, {
         ...layerOptions,
         fillColor: strokeColor,
@@ -906,7 +942,7 @@ export function useMapDrawing(options) {
     }
 
     if (edgeInsertEnabled) {
-      bindTempShapeEdgeHandlers(map._tempLine);
+      addTempShapeHitLayer(drawingPoints.value, isClosedShape);
     }
 
     refreshEdgeLabels();
@@ -927,6 +963,8 @@ export function useMapDrawing(options) {
       map.removeLayer(map._tempLine);
       delete map._tempLine;
     }
+
+    removeTempShapeHitLayer();
 
     cursorPreview.clear();
   }

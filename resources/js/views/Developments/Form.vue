@@ -2868,6 +2868,7 @@ function refreshTempPolyline(closed = false, options = {}) {
 
   if (!L || perimeterPoints.value.length < 2) return;
   if (map._tempLine) map.removeLayer(map._tempLine);
+  removeTempShapeHitLayer();
   if (map._tempClosingLine) {
     map.removeLayer(map._tempClosingLine);
     delete map._tempClosingLine;
@@ -2886,11 +2887,10 @@ function refreshTempPolyline(closed = false, options = {}) {
 
   const layerOptions = {
     color: strokeColor,
-    weight: edgeInsertEnabled ? 10 : (drawingMode.value === 'street-axis' ? 1 : 2),
+    weight: drawingMode.value === 'street-axis' ? 1 : 2,
     dashArray: drawingMode.value === 'street-axis' ? '5 4' : '4',
     opacity: drawingMode.value === 'street-axis' ? 0.9 : 1,
-    interactive: edgeInsertEnabled,
-    className: edgeInsertEnabled ? 'map-temp-shape-editable' : '',
+    interactive: false,
   };
 
   const shouldRenderClosed = drawingMode.value === 'street-axis'
@@ -2908,7 +2908,10 @@ function refreshTempPolyline(closed = false, options = {}) {
   }
 
   if (edgeInsertEnabled) {
-    bindTempShapeEdgeHandlers(map._tempLine);
+    addTempShapeHitLayer(
+      perimeterPoints.value,
+      shouldRenderClosed,
+    );
   }
 
   if (livePreview) {
@@ -2999,6 +3002,40 @@ async function finishDrawing({ closedExplicitly = false } = {}) {
   }
 }
 
+function removeTempShapeHitLayer() {
+  if (map?._tempLineHit) {
+    map.removeLayer(map._tempLineHit);
+    delete map._tempLineHit;
+  }
+}
+
+function addTempShapeHitLayer(coords, closed) {
+  if (!map || !L || !coords?.length) {
+    return;
+  }
+
+  removeTempShapeHitLayer();
+
+  const hitOptions = {
+    color: '#000000',
+    weight: 16,
+    opacity: 0,
+    fillColor: '#000000',
+    fillOpacity: 0.001,
+    interactive: true,
+    className: 'map-temp-shape-hit',
+  };
+
+  if (closed && coords.length >= 3) {
+    map._tempLineHit = L.polygon(coords, hitOptions).addTo(map);
+  } else {
+    map._tempLineHit = L.polyline(coords, hitOptions).addTo(map);
+  }
+
+  bindTempShapeEdgeHandlers(map._tempLineHit);
+  map._tempLineHit.bringToFront();
+}
+
 function clearTempLayers() {
   tempMarkers.forEach((m) => map?.removeLayer(m));
   tempMarkers = [];
@@ -3008,6 +3045,7 @@ function clearTempLayers() {
     map.removeLayer(map._tempLine);
     delete map._tempLine;
   }
+  removeTempShapeHitLayer();
   if (map?._tempClosingLine) {
     map.removeLayer(map._tempClosingLine);
     delete map._tempClosingLine;

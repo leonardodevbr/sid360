@@ -459,6 +459,14 @@
   cursor: copy;
 }
 
+.leaflet-interactive.map-temp-shape-hit {
+  cursor: copy;
+}
+
+.leaflet-container .map-temp-shape-hit {
+  pointer-events: visibleStroke;
+}
+
 .leaflet-container .map-lot-path,
 .leaflet-container .map-lot-path:focus,
 .leaflet-container .map-lot-path:focus-visible {
@@ -528,15 +536,15 @@
 }
 
 .map-feature-popup-btn--accent {
-  border-color: #c9a84c;
-  background: #faf6eb;
+  border-color: #a07a28;
+  background: #c9a84c;
   color: #1a3a28;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .map-feature-popup-btn--accent:hover {
-  border-color: #a07a28;
-  background: #f5edd4;
+  border-color: #8a6820;
+  background: #e8c96a;
   color: #1a3a28;
 }
 
