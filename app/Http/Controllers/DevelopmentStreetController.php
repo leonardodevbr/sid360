@@ -30,10 +30,14 @@ class DevelopmentStreetController extends Controller
         $development = Development::query()->findOrFail((int) $developmentId);
 
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:100'],
+            'name' => ['required', 'string', 'max:120'],
             'color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'coordinates' => ['nullable', 'array', 'min:4'],
+            'width' => ['nullable', 'numeric', 'min:0.5', 'max:200'],
             'order' => ['nullable', 'integer'],
+            'coordinates' => ['nullable', 'array', 'min:3'],
+            'coordinates.*' => ['array', 'size:2'],
+            'centerline' => ['nullable', 'array', 'min:2'],
+            'centerline.*' => ['array', 'size:2'],
         ]);
 
         $street = $development->streets()->create($data);
@@ -50,10 +54,14 @@ class DevelopmentStreetController extends Controller
             ->findOrFail((int) $streetId);
 
         $data = $request->validate([
-            'name' => ['sometimes', 'string', 'max:100'],
+            'name' => ['sometimes', 'string', 'max:120'],
             'color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'coordinates' => ['nullable', 'array', 'min:4'],
+            'width' => ['nullable', 'numeric', 'min:0.5', 'max:200'],
             'order' => ['nullable', 'integer'],
+            'coordinates' => ['nullable', 'array', 'min:3'],
+            'coordinates.*' => ['array', 'size:2'],
+            'centerline' => ['nullable', 'array', 'min:2'],
+            'centerline.*' => ['array', 'size:2'],
         ]);
 
         $street->update($data);

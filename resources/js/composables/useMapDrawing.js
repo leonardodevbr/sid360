@@ -1,4 +1,4 @@
-import { ref, computed, watch, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useToast } from 'vue-toastification';
 import { useMapFullscreen } from '@/composables/useMapFullscreen';
 import {
@@ -1444,6 +1444,21 @@ export function useMapDrawing(options) {
     ensureMapDraggingEnabled();
   }
 
+  function handleDrawingEscape(event) {
+    if (event.key !== 'Escape' || !drawingMode.value) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    if (drawingPoints.value.length > 0) {
+      undoLastPoint();
+    } else {
+      cancelDrawing();
+    }
+  }
+
   function clearSavedFeature() {
     if (drawingMode.value) {
       cancelDrawing();
@@ -1755,7 +1770,12 @@ export function useMapDrawing(options) {
     }
   });
 
+  onMounted(() => {
+    document.addEventListener('keydown', handleDrawingEscape, true);
+  });
+
   onUnmounted(() => {
+    document.removeEventListener('keydown', handleDrawingEscape, true);
     destroyMap();
   });
 

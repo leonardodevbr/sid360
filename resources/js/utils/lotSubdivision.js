@@ -44,6 +44,44 @@ export function getBlockEdges(blockLatLng) {
 }
 
 /**
+ * Enriquece arestas com a rua cadastrada mais próxima (se houver).
+ *
+ * @param {Array<[number,number]>} blockLatLng
+ * @param {Array<{ name: string, coordinates?: Array<[number,number]> }>} streets
+ * @param {number} [maxDistanceM]
+ */
+export function enrichBlockEdgesWithStreets(blockLatLng, streets, maxDistanceM = 30) {
+  const edges = getBlockEdges(blockLatLng);
+  const mappedStreets = (streets ?? []).filter(
+    (street) => Array.isArray(street.coordinates) && street.coordinates.length >= 3,
+  );
+
+  return edges.map((edge) => {
+    const midpoint = turf.point([edge.midpoint[1], edge.midpoint[0]]);
+    let nearestStreet = null;
+    let minDistance = Infinity;
+
+    mappedStreets.forEach((street) => {
+      const ring = toGeoJsonRing(street.coordinates);
+      const polygon = turf.polygon([ring]);
+      const distance = turf.pointToPolygonDistance(midpoint, polygon, { units: 'meters' });
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestStreet = street;
+      }
+    });
+
+    const withinRange = minDistance <= maxDistanceM;
+
+    return {
+      ...edge,
+      nearestStreet: withinRange ? nearestStreet?.name ?? null : null,
+      nearestStreetDistance: withinRange ? Math.round(minDistance) : null,
+    };
+  });
+}
+
+/**
  * Subdivide a quadra em lotes retangulares ao longo da aresta de frente.
  *
  * @param {Object} params

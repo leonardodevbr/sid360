@@ -17,7 +17,9 @@ class DevelopmentStreet extends Model
         'development_id',
         'name',
         'color',
+        'width',
         'coordinates',
+        'centerline',
         'order',
     ];
 
@@ -28,6 +30,8 @@ class DevelopmentStreet extends Model
     {
         return [
             'coordinates' => 'array',
+            'centerline' => 'array',
+            'width' => 'float',
         ];
     }
 
