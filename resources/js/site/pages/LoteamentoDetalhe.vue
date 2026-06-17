@@ -487,78 +487,80 @@ function scrollToMap() {
 
     <template v-else-if="dev">
       <section class="dev-detail-hero">
-        <div class="dev-detail-hero__banner">
-          <video
-            v-if="dev.hero_video_url"
-            class="dev-detail-hero__video"
-            autoplay
-            muted
-            loop
-            playsinline
-            :poster="dev.cover_photo || undefined"
-          >
-            <source :src="dev.hero_video_url" :type="dev.hero_video_mime || 'video/mp4'">
-          </video>
-          <img
-            v-else-if="dev.cover_photo"
-            :src="dev.cover_photo"
-            :alt="dev.name"
-            class="dev-detail-hero__photo"
-          >
-          <div v-else class="dev-detail-hero__photo dev-detail-hero__photo--empty" />
-        </div>
-        <div class="dev-detail-hero__content">
-          <div class="dev-detail-hero__meta">
-            <RouterLink
-              :to="{ name: 'site.loteamentos' }"
-              class="dev-detail-hero__back"
+        <div class="dev-detail-hero__inner">
+          <div class="dev-detail-hero__banner">
+            <video
+              v-if="dev.hero_video_url"
+              class="dev-detail-hero__video"
+              autoplay
+              muted
+              loop
+              playsinline
+              :poster="dev.cover_photo || undefined"
             >
-              Todos os loteamentos
-            </RouterLink>
-            <span class="dev-detail-hero__badge">Em destaque</span>
+              <source :src="dev.hero_video_url" :type="dev.hero_video_mime || 'video/mp4'">
+            </video>
+            <img
+              v-else-if="dev.cover_photo"
+              :src="dev.cover_photo"
+              :alt="dev.name"
+              class="dev-detail-hero__photo"
+            >
+            <div v-else class="dev-detail-hero__photo dev-detail-hero__photo--empty" />
           </div>
+          <div class="dev-detail-hero__content">
+            <div class="dev-detail-hero__meta">
+              <RouterLink
+                :to="{ name: 'site.loteamentos' }"
+                class="dev-detail-hero__back"
+              >
+                Todos os loteamentos
+              </RouterLink>
+              <span class="dev-detail-hero__badge">Em destaque</span>
+            </div>
 
-          <h1 class="dev-detail-hero__title">
-            {{ dev.name }}
-          </h1>
-          <p v-if="dev.location" class="dev-detail-hero__location">
-            {{ dev.location }}
-          </p>
+            <h1 class="dev-detail-hero__title">
+              {{ dev.name }}
+            </h1>
+            <p v-if="dev.location" class="dev-detail-hero__location">
+              {{ dev.location }}
+            </p>
 
-          <p
-            v-if="dev.description"
-            class="dev-detail-hero__description"
-          >
-            {{ dev.description }}
-          </p>
-
-          <p
-            v-if="lots.length"
-            class="dev-detail-hero__summary"
-          >
-            <span>{{ lots.length }} lote{{ lots.length !== 1 ? 's' : '' }}</span>
-            <span class="dev-detail-hero__summary-sep" aria-hidden="true">·</span>
-            <span
-              class="dev-detail-hero__summary-avail"
-              :class="{ 'dev-detail-hero__summary-avail--zero': availableLots.length === 0 }"
-            >{{ availableLots.length }} disponível{{ availableLots.length !== 1 ? 'eis' : '' }}</span>
-          </p>
-
-          <div class="dev-detail-hero__actions">
-            <a
-              :href="waUrl"
-              class="btn-whatsapp dev-detail-hero__wa-primary"
-              target="_blank"
-              rel="noopener noreferrer"
-            >Falar no WhatsApp</a>
-            <button
-              v-if="hasMapSection"
-              type="button"
-              class="dev-detail-hero__ghost"
-              @click="scrollToMap"
+            <p
+              v-if="dev.description"
+              class="dev-detail-hero__description"
             >
-              Ver mapa
-            </button>
+              {{ dev.description }}
+            </p>
+
+            <p
+              v-if="lots.length"
+              class="dev-detail-hero__summary"
+            >
+              <span>{{ lots.length }} lote{{ lots.length !== 1 ? 's' : '' }}</span>
+              <span class="dev-detail-hero__summary-sep" aria-hidden="true">·</span>
+              <span
+                class="dev-detail-hero__summary-avail"
+                :class="{ 'dev-detail-hero__summary-avail--zero': availableLots.length === 0 }"
+              >{{ availableLots.length }} disponível{{ availableLots.length !== 1 ? 'eis' : '' }}</span>
+            </p>
+
+            <div class="dev-detail-hero__actions">
+              <a
+                :href="waUrl"
+                class="btn-whatsapp dev-detail-hero__wa-primary"
+                target="_blank"
+                rel="noopener noreferrer"
+              >Falar no WhatsApp</a>
+              <button
+                v-if="hasMapSection"
+                type="button"
+                class="dev-detail-hero__ghost"
+                @click="scrollToMap"
+              >
+                Ver mapa
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -567,151 +569,155 @@ function scrollToMap() {
         v-if="devPhotos.length"
         class="dev-detail-gallery"
       >
-        <div class="section-label dev-detail-gallery__label">
-          Galeria
-        </div>
-        <div class="dev-detail-gallery__grid">
-          <button
-            v-for="(ph, i) in devPhotos"
-            :key="ph.id"
-            type="button"
-            class="dev-detail-gallery__thumb"
-            @click="openGallery(i)"
-          >
-            <img :src="ph.url" :alt="ph.caption || 'Foto'">
-          </button>
+        <div class="dev-detail-gallery__inner">
+          <div class="section-label dev-detail-gallery__label">
+            Galeria
+          </div>
+          <div class="dev-detail-gallery__grid">
+            <button
+              v-for="(ph, i) in devPhotos"
+              :key="ph.id"
+              type="button"
+              class="dev-detail-gallery__thumb"
+              @click="openGallery(i)"
+            >
+              <img :src="ph.url" :alt="ph.caption || 'Foto'">
+            </button>
+          </div>
         </div>
       </section>
 
-      <section id="lotes" class="dev-detail-lots">
-        <div class="dev-detail-lots__head">
-          <div class="dev-detail-lots__head-text">
-            <span class="section-label">Tipos de lote</span>
-            <h2 class="dev-detail-lots__title">
-              Escolha o tamanho
-            </h2>
-          </div>
-          <button
-            v-if="hasMapSection"
-            type="button"
-            class="dev-detail-lots__maplink"
-            @click="scrollToMap"
-          >
-            Mapa
-          </button>
-        </div>
-        <p class="dev-detail-lots__sub">
-          Toque em um tipo para simular ou falar com o corretor. As quadras estão no mapa abaixo.
-        </p>
-
-        <div class="dev-detail-lots__filters">
-          <SiteSelect
-            v-model="filterValue"
-            class="dev-detail-lots__filter-select"
-            placeholder="Qualquer valor"
-            :can-clear="true"
-            :options="[
-              { value: '50000', label: 'Até R$ 50.000' },
-              { value: '100000', label: 'Até R$ 100.000' },
-              { value: '200000', label: 'Até R$ 200.000' },
-              { value: '500000', label: 'Até R$ 500.000' },
-            ]"
-          />
-
-          <label class="dev-detail-lots__checkbox">
-            <input v-model="onlyAvailable" type="checkbox">
-            Só com disponíveis
-          </label>
-        </div>
-
-        <div
-          v-if="filteredLotGroups.length"
-          class="dev-detail-lots__grid"
-        >
-          <button
-            v-for="group in filteredLotGroups"
-            :key="group.key"
-            type="button"
-            class="dev-detail-group-card"
-            @click="openGroup(group)"
-          >
-            <div class="dev-detail-group-card__thumb">
-              <img
-                v-if="group.cover_photo"
-                :src="group.cover_photo"
-                :alt="group.label"
-                loading="lazy"
-              >
-              <div
-                v-else
-                class="dev-detail-lot-card__placeholder"
-              >
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-                </svg>
-              </div>
-              <span
-                class="dev-detail-group-card__badge"
-                :class="{
-                  'dev-detail-group-card__badge--available': group.available_count > 0,
-                  'dev-detail-group-card__badge--reserved': group.available_count === 0 && group.reserved_count > 0,
-                  'dev-detail-group-card__badge--sold': group.available_count === 0 && group.reserved_count === 0,
-                }"
-              >
-                {{ group.available_count > 0 ? `${group.available_count} disponível${group.available_count !== 1 ? 'is' : ''}` : (group.reserved_count > 0 ? 'Reservado' : 'Esgotado') }}
-              </span>
+      <div class="dev-detail-lots-map-row">
+        <section id="lotes" class="dev-detail-lots">
+          <div class="dev-detail-lots__head">
+            <div class="dev-detail-lots__head-text">
+              <span class="section-label">Tipos de lote</span>
+              <h2 class="dev-detail-lots__title">
+                Escolha o tamanho
+              </h2>
             </div>
+            <button
+              v-if="hasMapSection"
+              type="button"
+              class="dev-detail-lots__maplink"
+              @click="scrollToMap"
+            >
+              Mapa
+            </button>
+          </div>
+          <p class="dev-detail-lots__sub">
+            Toque em um tipo para simular ou falar com o corretor. As quadras estão no mapa abaixo.
+          </p>
 
-            <div class="dev-detail-group-card__body">
-              <p class="dev-detail-group-card__label">
-                {{ group.label }}
-              </p>
-              <p v-if="groupAreaSubtitle(group)" class="dev-detail-group-card__area">
-                {{ groupAreaSubtitle(group) }}
-              </p>
-              <p class="dev-detail-group-card__counts">
-                {{ group.total_count }} lote{{ group.total_count !== 1 ? 's' : '' }} · {{ groupAvailabilityText(group) }}
-              </p>
-              <div class="dev-detail-group-card__price-wrap">
-                <span class="dev-detail-lot-card__price-label">Valor</span>
-                <span class="dev-detail-group-card__price">
-                  {{ formatGroupPrice(group) }}
+          <div class="dev-detail-lots__filters">
+            <SiteSelect
+              v-model="filterValue"
+              class="dev-detail-lots__filter-select"
+              placeholder="Qualquer valor"
+              :can-clear="true"
+              :options="[
+                { value: '50000', label: 'Até R$ 50.000' },
+                { value: '100000', label: 'Até R$ 100.000' },
+                { value: '200000', label: 'Até R$ 200.000' },
+                { value: '500000', label: 'Até R$ 500.000' },
+              ]"
+            />
+
+            <label class="dev-detail-lots__checkbox">
+              <input v-model="onlyAvailable" type="checkbox">
+              Só com disponíveis
+            </label>
+          </div>
+
+          <div
+            v-if="filteredLotGroups.length"
+            class="dev-detail-lots__grid"
+          >
+            <button
+              v-for="group in filteredLotGroups"
+              :key="group.key"
+              type="button"
+              class="dev-detail-group-card"
+              @click="openGroup(group)"
+            >
+              <div class="dev-detail-group-card__thumb">
+                <img
+                  v-if="group.cover_photo"
+                  :src="group.cover_photo"
+                  :alt="group.label"
+                  loading="lazy"
+                >
+                <div
+                  v-else
+                  class="dev-detail-lot-card__placeholder"
+                >
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                  </svg>
+                </div>
+                <span
+                  class="dev-detail-group-card__badge"
+                  :class="{
+                    'dev-detail-group-card__badge--available': group.available_count > 0,
+                    'dev-detail-group-card__badge--reserved': group.available_count === 0 && group.reserved_count > 0,
+                    'dev-detail-group-card__badge--sold': group.available_count === 0 && group.reserved_count === 0,
+                  }"
+                >
+                  {{ group.available_count > 0 ? `${group.available_count} disponível${group.available_count !== 1 ? 'is' : ''}` : (group.reserved_count > 0 ? 'Reservado' : 'Esgotado') }}
                 </span>
               </div>
-              <span class="dev-detail-group-card__cta">Simular</span>
-            </div>
-          </button>
-        </div>
 
-        <div v-else class="dev-detail-lots__empty">
-          Nenhum tipo de lote encontrado com esses filtros.
-        </div>
-      </section>
+              <div class="dev-detail-group-card__body">
+                <p class="dev-detail-group-card__label">
+                  {{ group.label }}
+                </p>
+                <p v-if="groupAreaSubtitle(group)" class="dev-detail-group-card__area">
+                  {{ groupAreaSubtitle(group) }}
+                </p>
+                <p class="dev-detail-group-card__counts">
+                  {{ group.total_count }} lote{{ group.total_count !== 1 ? 's' : '' }} · {{ groupAvailabilityText(group) }}
+                </p>
+                <div class="dev-detail-group-card__price-wrap">
+                  <span class="dev-detail-lot-card__price-label">Valor</span>
+                  <span class="dev-detail-group-card__price">
+                    {{ formatGroupPrice(group) }}
+                  </span>
+                </div>
+                <span class="dev-detail-group-card__cta">Simular</span>
+              </div>
+            </button>
+          </div>
 
-      <section
-        v-if="hasMapSection"
-        id="mapa"
-        class="dev-detail-map"
-      >
-        <div class="section-label">
-          Mapa
-        </div>
-        <h2 class="dev-detail-map__title">
-          Onde ficam os lotes
-        </h2>
-        <p class="dev-detail-map__sub">
-          Toque em um lote para ver detalhes. Zoom: Ctrl ou Cmd + rolagem.
-        </p>
-        <div class="dev-detail-map__legend">
-          <span><i class="dev-detail-map__dot dev-detail-map__dot--available" /> Disponível</span>
-          <span><i class="dev-detail-map__dot dev-detail-map__dot--reserved" /> Reservado</span>
-          <span><i class="dev-detail-map__dot dev-detail-map__dot--sold" /> Vendido</span>
-        </div>
-        <div
-          ref="mapContainer"
-          class="lots-map-canvas dev-detail-map__canvas"
-        />
-      </section>
+          <div v-else class="dev-detail-lots__empty">
+            Nenhum tipo de lote encontrado com esses filtros.
+          </div>
+        </section>
+
+        <section
+          v-if="hasMapSection"
+          id="mapa"
+          class="dev-detail-map"
+        >
+          <div class="section-label">
+            Mapa
+          </div>
+          <h2 class="dev-detail-map__title">
+            Onde ficam os lotes
+          </h2>
+          <p class="dev-detail-map__sub">
+            Toque em um lote para ver detalhes. Zoom: Ctrl ou Cmd + rolagem.
+          </p>
+          <div class="dev-detail-map__legend">
+            <span><i class="dev-detail-map__dot dev-detail-map__dot--available" /> Disponível</span>
+            <span><i class="dev-detail-map__dot dev-detail-map__dot--reserved" /> Reservado</span>
+            <span><i class="dev-detail-map__dot dev-detail-map__dot--sold" /> Vendido</span>
+          </div>
+          <div
+            ref="mapContainer"
+            class="lots-map-canvas dev-detail-map__canvas"
+          />
+        </section>
+      </div>
 
       <section id="simulador" class="simulador-section">
         <div class="simulador-header">
@@ -1242,6 +1248,46 @@ function scrollToMap() {
   }
 }
 
+@media (min-width: 1024px) {
+  .dev-detail-hero {
+    padding-top: 88px;
+    padding-bottom: 0;
+  }
+
+  .dev-detail-hero__inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 5% 48px;
+    display: grid;
+    grid-template-columns: 55% 1fr;
+    gap: 40px;
+    align-items: start;
+  }
+
+  .dev-detail-hero__banner {
+    margin: 0;
+    border-radius: 16px;
+    max-height: none;
+    box-shadow: 0 8px 32px rgba(28, 10, 6, 0.08);
+  }
+
+  .dev-detail-hero__photo,
+  .dev-detail-hero__video {
+    height: 380px;
+  }
+
+  .dev-detail-hero__content {
+    max-width: none;
+    padding: 0;
+    position: sticky;
+    top: 100px;
+  }
+
+  .dev-detail-hero__wa-primary {
+    width: auto;
+  }
+}
+
 .dev-detail-hero__photo,
 .dev-detail-hero__video {
   display: block;
@@ -1258,13 +1304,6 @@ function scrollToMap() {
   .dev-detail-hero__photo,
   .dev-detail-hero__video {
     height: 260px;
-  }
-}
-
-@media (min-width: 1024px) {
-  .dev-detail-hero__photo,
-  .dev-detail-hero__video {
-    height: 300px;
   }
 }
 
@@ -1466,6 +1505,23 @@ function scrollToMap() {
   }
 }
 
+@media (min-width: 1024px) {
+  .dev-detail-gallery {
+    padding: 40px 5% 44px;
+  }
+
+  .dev-detail-gallery__inner {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .dev-detail-gallery__grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    max-width: none;
+  }
+}
+
 .dev-detail-gallery__thumb {
   padding: 0;
   border: none;
@@ -1487,6 +1543,58 @@ function scrollToMap() {
   background: white;
   padding: 32px 1.25rem 40px;
   border-top: 1px solid var(--border-light);
+}
+
+/* ── Lots + Map two-column layout (desktop) ─────────────────────────────── */
+.dev-detail-lots-map-row {
+  display: contents;
+}
+
+@media (min-width: 1024px) {
+  .dev-detail-lots-map-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 0;
+  }
+
+  .dev-detail-lots-map-row .dev-detail-lots {
+    padding: 48px 40px 56px 5%;
+    border-right: 1px solid var(--border-light);
+  }
+
+  .dev-detail-lots-map-row .dev-detail-map {
+    padding: 48px 5% 56px 40px;
+    position: sticky;
+    top: 88px;
+    max-height: calc(100vh - 88px);
+    overflow-y: auto;
+  }
+
+  .dev-detail-lots-map-row .dev-detail-map__canvas {
+    height: min(60vh, 480px);
+  }
+
+  .dev-detail-lots__maplink {
+    display: none;
+  }
+
+  .dev-detail-lots-map-row:not(:has(.dev-detail-map)) {
+    display: block;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .dev-detail-lots-map-row:not(:has(.dev-detail-map)) .dev-detail-lots {
+    padding: 48px 5% 56px;
+    border-right: none;
+  }
+
+  .dev-detail-lots-map-row:not(:has(.dev-detail-map)) .dev-detail-lots__grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 @media (min-width: 640px) {
@@ -2092,6 +2200,32 @@ function scrollToMap() {
   justify-content: center;
 }
 
+@media (min-width: 1024px) {
+  .simulador-section {
+    padding: 80px 5%;
+  }
+
+  .simulador-header {
+    max-width: 640px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 44px;
+  }
+
+  .dev-detail-sim__card {
+    max-width: 800px;
+  }
+
+  .dev-detail-sim__row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .dev-detail-sim__results {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+}
+
 /* ── Modal inline simulator ───────────────────────────────────────────────── */
 .modal-sim {
   background: var(--bg-section);
@@ -2352,5 +2486,42 @@ function scrollToMap() {
   font-size: 0.72rem;
   font-weight: 600;
   color: var(--accent-dark);
+}
+
+/* ── Desktop containers ─────────────────────────────────────────────────── */
+@media (min-width: 1024px) {
+  .dev-detail-cta {
+    padding: 48px 5%;
+  }
+
+  .dev-detail-lots__head {
+    align-items: center;
+  }
+
+  .dev-detail-lots__title {
+    font-size: 1.5rem;
+  }
+
+  .dev-detail-map__title {
+    font-size: 1.2rem;
+  }
+
+  .dev-detail-lots-map-row .dev-detail-lots__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .dev-detail-lots-map-row {
+    max-width: 1320px;
+  }
+
+  .dev-detail-hero__inner {
+    max-width: 1320px;
+  }
+
+  .dev-detail-gallery__inner {
+    max-width: 1320px;
+  }
 }
 </style>
