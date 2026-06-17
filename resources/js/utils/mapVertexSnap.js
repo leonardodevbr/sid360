@@ -41,6 +41,7 @@ function coordKey(coord) {
  * @param {number|string|null} [options.excludeZoneId]
  * @param {number|string|null} [options.excludeStreetId]
  * @param {boolean} [options.includeDrawingPoints]
+ * @param {number|null} [options.excludeDrawingVertexIndex]
  */
 export function collectMapSnapTargets({
   perimeterCoordinates = [],
@@ -51,6 +52,7 @@ export function collectMapSnapTargets({
   excludeZoneId = null,
   excludeStreetId = null,
   includeDrawingPoints = true,
+  excludeDrawingVertexIndex = null,
 } = {}) {
   const targets = [];
   const seen = new Set();
@@ -99,7 +101,16 @@ export function collectMapSnapTargets({
   });
 
   if (includeDrawingPoints) {
-    currentDrawingPoints.forEach((coord) => addTarget(coord, 'drawing'));
+    currentDrawingPoints.forEach((coord, index) => {
+      if (
+        excludeDrawingVertexIndex != null
+        && Number(index) === Number(excludeDrawingVertexIndex)
+      ) {
+        return;
+      }
+
+      addTarget(coord, 'drawing');
+    });
   }
 
   return targets;

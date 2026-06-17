@@ -1388,9 +1388,16 @@ function getDrawingSnapContext() {
   };
 }
 
-function applyDrawingSnap(lat, lng) {
+function applyDrawingSnap(lat, lng, {
+  excludeDrawingVertexIndex = null,
+  includeDrawingPoints = true,
+} = {}) {
   const context = getDrawingSnapContext();
-  const targets = collectMapSnapTargets(context);
+  const targets = collectMapSnapTargets({
+    ...context,
+    includeDrawingPoints,
+    excludeDrawingVertexIndex,
+  });
   const segmentTargets = drawingMode.value === 'street-axis'
     ? collectMapSnapSegmentTargets({
       streets: streets.value,
@@ -2292,7 +2299,10 @@ function bindVertexMarkerDrag(marker) {
       return;
     }
 
-    const snapped = applyDrawingSnap(latLng.lat, latLng.lng);
+    const snapped = applyDrawingSnap(latLng.lat, latLng.lng, {
+      excludeDrawingVertexIndex: marker._vertexIndex,
+      includeDrawingPoints: !startedFromExistingPolygon.value,
+    });
     const nextLatLng = { lat: snapped.lat, lng: snapped.lng };
 
     marker.setLatLng(nextLatLng);
