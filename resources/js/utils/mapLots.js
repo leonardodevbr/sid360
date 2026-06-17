@@ -9,7 +9,7 @@ export function getLotMapStyle(status) {
 }
 
 export function buildLotMapLabel(lot) {
-  const blockLabel = lot.block ? `Quadra ${lot.block}` : lot.zone?.name;
+  const blockLabel = lot.block || lot.zone?.name;
 
   return blockLabel ? `${blockLabel} · Lote ${lot.number}` : `Lote ${lot.number}`;
 }

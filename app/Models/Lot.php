@@ -120,7 +120,7 @@ class Lot extends Model
         if ($this->zone?->name) {
             $parts[] = $this->zone->name;
         } elseif ($this->block) {
-            $parts[] = 'Quadra ' . $this->block;
+            $parts[] = $this->block;
         }
 
         $parts[] = 'Lote ' . $this->number;

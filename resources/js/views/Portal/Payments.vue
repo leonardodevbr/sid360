@@ -116,7 +116,8 @@ function backToList() {
 }
 
 function lotLabel(sale) {
-  return `Quadra ${sale.lot?.block ?? '–'} · Lote ${sale.lot?.number ?? '–'}`;
+  const block = sale.lot?.block ?? sale.lot?.zone?.name ?? '–';
+  return `${block} · Lote ${sale.lot?.number ?? '–'}`;
 }
 
 function patchInstallment(updated) {

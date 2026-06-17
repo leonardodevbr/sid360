@@ -32,7 +32,7 @@
           />
         </div>
         <Input v-model="form.location" label="Localização" placeholder="Endereço ou referência" />
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Input
             v-model="form.down_payment_percent"
             label="Entrada sugerida (%)"
@@ -48,11 +48,11 @@
             :options="developmentStatusFormOptions"
             :searchable="false"
           />
+          <CurrencyInput
+            v-model="form.base_price_per_m2"
+            label="Valor base do m²"
+          />
         </div>
-        <CurrencyInput
-          v-model="form.base_price_per_m2"
-          label="Valor base do m²"
-        />
         <p class="text-xs text-slate-400">
           Usado para calcular o valor dos lotes quando a zona não tiver valor próprio por m².
         </p>
@@ -2070,7 +2070,7 @@ function getLotMapStyle(status) {
 }
 
 function buildLotLabel(lot) {
-  const blockLabel = lot.block ? `Quadra ${lot.block}` : lot.zone?.name;
+  const blockLabel = lot.block || lot.zone?.name;
   return blockLabel ? `${blockLabel} · Lote ${lot.number}` : `Lote ${lot.number}`;
 }
 

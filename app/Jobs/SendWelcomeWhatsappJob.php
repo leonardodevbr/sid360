@@ -54,7 +54,8 @@ class SendWelcomeWhatsappJob implements ShouldQueue
 
         $fmt = fn ($v) => 'R$ '.number_format((int) $v / 100, 2, ',', '.');
 
-        $lotDescription = 'Quadra '.($this->sale->lot?->block ?? '?').' · Lote '.($this->sale->lot?->number ?? '?');
+        $lotBlock = $this->sale->lot?->block ?? $this->sale->lot?->zone?->name ?? '?';
+        $lotDescription = $lotBlock.' · Lote '.($this->sale->lot?->number ?? '?');
 
         if (
             $this->sale->whatsapp_welcome_sent_at === null
