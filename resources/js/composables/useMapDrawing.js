@@ -25,8 +25,10 @@ import { buildStreetNetworkVisualRings } from '@/utils/streetGeometry';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import { createGpsPreviewController, isCoarsePointerDevice } from '@/utils/mapGpsPreview';
 import {
+  collectMapSnapIntersectionTargets,
   collectMapSnapSegmentTargets,
   collectMapSnapTargets,
+  MAP_INTERSECTION_SNAP_PIXEL_RADIUS,
   MAP_SEGMENT_SNAP_PIXEL_RADIUS,
   MAP_SNAP_PIXEL_RADIUS,
   resolveSnapToleranceMeters,
@@ -473,8 +475,12 @@ export function useMapDrawing(options) {
       ...context,
       includeDrawingSegments,
     });
+    const intersectionTargets = collectMapSnapIntersectionTargets(segmentTargets);
     const vertexToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
       pixelRadius: MAP_SNAP_PIXEL_RADIUS,
+    });
+    const intersectionToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
+      pixelRadius: MAP_INTERSECTION_SNAP_PIXEL_RADIUS,
     });
     const segmentToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
       pixelRadius: MAP_SEGMENT_SNAP_PIXEL_RADIUS,
@@ -482,8 +488,10 @@ export function useMapDrawing(options) {
 
     return resolveSnappedCoordinate(lat, lng, {
       targets,
+      intersectionTargets,
       segmentTargets,
       vertexToleranceMeters,
+      intersectionToleranceMeters,
       segmentToleranceMeters,
     });
   }
@@ -506,6 +514,10 @@ export function useMapDrawing(options) {
 
       marker.setLatLng({ lat: snapped.lat, lng: snapped.lng });
       drawingPoints.value[marker._vertexIndex] = [snapped.lat, snapped.lng];
+      cursorPreview.showSnapIndicator(
+        { lat: snapped.lat, lng: snapped.lng },
+        snapped.snapped,
+      );
       refreshTempPolyline(
         startedFromExistingPolygon.value && drawingPoints.value.length >= 3,
         { livePreview: true },
@@ -527,6 +539,8 @@ export function useMapDrawing(options) {
       document.removeEventListener('touchend', onEnd);
 
       enableMapDraggingAfterVertexDrag();
+
+      cursorPreview.clearSnapIndicator();
 
       if (!marker._wasDragged && tryClosePolygonOnFirstVertexTap(marker)) {
         return;
@@ -776,7 +790,23 @@ export function useMapDrawing(options) {
     }
 
     if (startedFromExistingPolygon.value) {
-      cursorPreview.unbind();
+      cursorPreview.bind(map, L, {
+        isActive: () => Boolean(drawingMode.value),
+        getLastPoint: () => null,
+        resolveCursorLatLng: (cursorLatLng) => {
+          if (!cursorLatLng) {
+            return cursorLatLng;
+          }
+
+          return applyDrawingSnap(cursorLatLng.lat, cursorLatLng.lng, {
+            includeDrawingPoints: false,
+            includeDrawingSegments: false,
+          });
+        },
+        getStrokeColor: getDrawingStrokeColor,
+        getInvalid: () => false,
+        isCursorInvalid: () => false,
+      });
       syncGpsDrawingPreview();
       return;
     }

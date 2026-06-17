@@ -1292,8 +1292,10 @@ import {
 } from '@/utils/zone';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import {
+  collectMapSnapIntersectionTargets,
   collectMapSnapSegmentTargets,
   collectMapSnapTargets,
+  MAP_INTERSECTION_SNAP_PIXEL_RADIUS,
   MAP_SEGMENT_SNAP_PIXEL_RADIUS,
   MAP_SNAP_PIXEL_RADIUS,
   rectangleFromOppositeCorners,
@@ -1449,8 +1451,12 @@ function applyDrawingSnap(lat, lng, {
     ...context,
     includeDrawingSegments,
   });
+  const intersectionTargets = collectMapSnapIntersectionTargets(segmentTargets);
   const vertexToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
     pixelRadius: MAP_SNAP_PIXEL_RADIUS,
+  });
+  const intersectionToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
+    pixelRadius: MAP_INTERSECTION_SNAP_PIXEL_RADIUS,
   });
   const segmentToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
     pixelRadius: MAP_SEGMENT_SNAP_PIXEL_RADIUS,
@@ -1458,8 +1464,10 @@ function applyDrawingSnap(lat, lng, {
 
   return resolveSnappedCoordinate(lat, lng, {
     targets,
+    intersectionTargets,
     segmentTargets,
     vertexToleranceMeters,
+    intersectionToleranceMeters,
     segmentToleranceMeters,
   });
 }
@@ -1547,7 +1555,23 @@ function syncDrawingCursorPreview() {
   const rectanglePreviewActive = drawingShapeMode.value === 'rectangle' && Boolean(rectangleAnchor.value);
 
   if (startedFromExistingPolygon.value && !rectanglePreviewActive) {
-    cursorPreview.unbind();
+    cursorPreview.bind(map, L, {
+      isActive: () => Boolean(drawingMode.value),
+      getLastPoint: () => null,
+      resolveCursorLatLng: (cursorLatLng) => {
+        if (!cursorLatLng) {
+          return cursorLatLng;
+        }
+
+        return applyDrawingSnap(cursorLatLng.lat, cursorLatLng.lng, {
+          includeDrawingPoints: false,
+          includeDrawingSegments: false,
+        });
+      },
+      getStrokeColor: getDrawingStrokeColor,
+      getInvalid: () => false,
+      isCursorInvalid: () => false,
+    });
     return;
   }
 
@@ -2372,6 +2396,7 @@ function bindVertexMarkerDrag(marker) {
 
     marker.setLatLng(nextLatLng);
     perimeterPoints.value[marker._vertexIndex] = [snapped.lat, snapped.lng];
+    cursorPreview.showSnapIndicator(nextLatLng, snapped.snapped);
     refreshTempPolyline(
       startedFromExistingPolygon.value && perimeterPoints.value.length >= 3,
       { livePreview: true },
@@ -2397,6 +2422,8 @@ function bindVertexMarkerDrag(marker) {
     document.removeEventListener('touchend', onEnd);
 
     enableMapDraggingAfterVertexDrag();
+
+    cursorPreview.clearSnapIndicator();
 
     if (!marker._wasDragged && tryClosePolygonOnFirstVertexTap(marker)) {
       return;
@@ -3652,7 +3679,12 @@ async function loadZones() {
 
   try {
     const { data } = await api.get(`/developments/${route.params.id}/zones`);
-    zones.value = Array.isArray(data) ? data : data.data ?? [];
+    const items = Array.isArray(data) ? data : data.data ?? [];
+
+    zones.value = items.map((zone) => ({
+      ...zone,
+      coordinates: normalizePolygonCoordinates(zone.coordinates) ?? [],
+    }));
   } catch {
     zones.value = [];
   }

@@ -282,11 +282,22 @@ export function createCursorPreviewController() {
     L = null;
   }
 
+  function showSnapIndicator(latLng, snapped = true) {
+    const to = normalizeLatLng(latLng);
+    updateSnapMarker(to, snapped);
+  }
+
+  function clearSnapIndicator() {
+    clearSnapMarker();
+  }
+
   return {
     bind,
     configure,
     unbind,
     clear,
+    clearSnapIndicator,
+    showSnapIndicator,
     update,
   };
 }

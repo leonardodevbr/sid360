@@ -3,10 +3,11 @@ import * as turf from '@turf/turf';
 import { distanceBetweenPointsMeters } from '@/utils/mapGeometry';
 
 export const MAP_VERTEX_SNAP_TOLERANCE_METERS = 12;
-export const MAP_SNAP_PIXEL_RADIUS = 20;
-export const MAP_SEGMENT_SNAP_PIXEL_RADIUS = 32;
-export const MAP_SNAP_MIN_METERS = 5;
-export const MAP_SNAP_MAX_METERS = 28;
+export const MAP_SNAP_PIXEL_RADIUS = 24;
+export const MAP_SEGMENT_SNAP_PIXEL_RADIUS = 36;
+export const MAP_INTERSECTION_SNAP_PIXEL_RADIUS = 28;
+export const MAP_SNAP_MIN_METERS = 4;
+export const MAP_SNAP_MAX_METERS = 50;
 
 export function metersPerPixelAtLatLng(lat, zoom) {
   const clampedLat = Math.max(Math.min(Number(lat), 85), -85);
@@ -263,6 +264,88 @@ export function collectMapSnapSegmentTargets({
   return segments;
 }
 
+function toGeoJsonCoord(coord) {
+  const normalized = normalizeCoord(coord);
+  if (!normalized) {
+    return null;
+  }
+
+  return [normalized[1], normalized[0]];
+}
+
+function expandSegmentsToEdges(segments) {
+  const edges = [];
+
+  segments.forEach((segment, segmentIndex) => {
+    const coords = (segment.coords ?? [])
+      .map((coord) => normalizeCoord(coord))
+      .filter(Boolean);
+
+    for (let index = 0; index < coords.length - 1; index += 1) {
+      edges.push({
+        a: coords[index],
+        b: coords[index + 1],
+        source: segment.source,
+        edgeKey: `${segmentIndex}-${index}`,
+      });
+    }
+  });
+
+  return edges;
+}
+
+/**
+ * Pontos de cruzamento entre arestas de polígonos diferentes (ex.: setor × perímetro).
+ */
+export function collectMapSnapIntersectionTargets(segments) {
+  const edges = expandSegmentsToEdges(segments);
+  const targets = [];
+  const seen = new Set();
+
+  const addTarget = (lat, lng) => {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return;
+    }
+
+    const key = coordKey([lat, lng]);
+    if (seen.has(key)) {
+      return;
+    }
+
+    seen.add(key);
+    targets.push({ coord: [lat, lng], source: 'intersection' });
+  };
+
+  for (let i = 0; i < edges.length; i += 1) {
+    for (let j = i + 1; j < edges.length; j += 1) {
+      const startA = toGeoJsonCoord(edges[i].a);
+      const endA = toGeoJsonCoord(edges[i].b);
+      const startB = toGeoJsonCoord(edges[j].a);
+      const endB = toGeoJsonCoord(edges[j].b);
+
+      if (!startA || !endA || !startB || !endB) {
+        continue;
+      }
+
+      try {
+        const hits = turf.lineIntersect(
+          turf.lineString([startA, endA]),
+          turf.lineString([startB, endB]),
+        );
+
+        hits.features.forEach((feature) => {
+          const [lng, lat] = feature.geometry.coordinates;
+          addTarget(lat, lng);
+        });
+      } catch {
+        /* arestas colineares ou inválidas */
+      }
+    }
+  }
+
+  return targets;
+}
+
 export function findNearestVertexSnap(lat, lng, targets, toleranceMeters = MAP_VERTEX_SNAP_TOLERANCE_METERS) {
   let best = null;
 
@@ -380,36 +463,43 @@ export function resolveSnappedCoordinate(
   lng,
   {
     targets = [],
+    intersectionTargets = [],
     segmentTargets = [],
     vertexToleranceMeters = MAP_VERTEX_SNAP_TOLERANCE_METERS,
+    intersectionToleranceMeters = MAP_VERTEX_SNAP_TOLERANCE_METERS,
     segmentToleranceMeters = MAP_VERTEX_SNAP_TOLERANCE_METERS,
   } = {},
 ) {
   const vertexSnap = findNearestVertexSnap(lat, lng, targets, vertexToleranceMeters);
+  const intersectionSnap = intersectionTargets.length
+    ? findNearestVertexSnap(lat, lng, intersectionTargets, intersectionToleranceMeters)
+    : null;
   const segmentSnap = segmentTargets.length
     ? findNearestSegmentSnap(lat, lng, segmentTargets, segmentToleranceMeters)
     : null;
 
-  if (!vertexSnap && !segmentSnap) {
+  let best = null;
+
+  [
+    vertexSnap ? { ...vertexSnap, snapKind: 'vertex' } : null,
+    intersectionSnap ? { ...intersectionSnap, snapKind: 'intersection' } : null,
+    segmentSnap ? { ...segmentSnap, snapKind: 'segment' } : null,
+  ].filter(Boolean).forEach((candidate) => {
+    if (!best || candidate.distanceMeters < best.distanceMeters) {
+      best = candidate;
+    }
+  });
+
+  if (!best) {
     return { lat, lng, snapped: false };
   }
 
-  if (vertexSnap && (!segmentSnap || vertexSnap.distanceMeters <= segmentSnap.distanceMeters)) {
-    return {
-      lat: vertexSnap.lat,
-      lng: vertexSnap.lng,
-      snapped: true,
-      source: vertexSnap.source,
-      snapKind: 'vertex',
-    };
-  }
-
   return {
-    lat: segmentSnap.lat,
-    lng: segmentSnap.lng,
+    lat: best.lat,
+    lng: best.lng,
     snapped: true,
-    source: segmentSnap.source,
-    snapKind: 'segment',
+    source: best.source,
+    snapKind: best.snapKind,
   };
 }
 
