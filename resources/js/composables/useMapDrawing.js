@@ -25,6 +25,11 @@ import { buildStreetNetworkVisualRings } from '@/utils/streetGeometry';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import { createGpsPreviewController, isCoarsePointerDevice } from '@/utils/mapGpsPreview';
 import {
+  collectMapSnapSegmentTargets,
+  collectMapSnapTargets,
+  resolveSnappedCoordinate,
+} from '@/utils/mapVertexSnap';
+import {
   captureHighAccuracyPosition,
   formatAccuracyHint,
   MAX_ACCEPTABLE_ACCURACY_M,
@@ -53,6 +58,7 @@ export function useMapDrawing(options) {
     savedCoordinates,
     onCoordinatesChange,
     featureLabel,
+    editingLotId,
   } = options;
 
   const mapContainer = ref(null);
@@ -434,6 +440,39 @@ export function useMapDrawing(options) {
     return true;
   }
 
+  function getDrawingSnapContext() {
+    const lots = contextLots?.value ?? contextLots ?? [];
+    const excludeLotId = editingLotId?.value ?? editingLotId ?? null;
+
+    return {
+      perimeterCoordinates: contextPerimeter?.value ?? contextPerimeter ?? [],
+      zones: contextZones?.value ?? contextZones ?? [],
+      streets: contextStreets?.value ?? contextStreets ?? [],
+      lots,
+      currentDrawingPoints: drawingPoints.value,
+      excludeLotId,
+    };
+  }
+
+  function applyDrawingSnap(lat, lng, {
+    excludeDrawingVertexIndex = null,
+    includeDrawingPoints = true,
+    includeDrawingSegments = true,
+  } = {}) {
+    const context = getDrawingSnapContext();
+    const targets = collectMapSnapTargets({
+      ...context,
+      includeDrawingPoints,
+      excludeDrawingVertexIndex,
+    });
+    const segmentTargets = collectMapSnapSegmentTargets({
+      ...context,
+      includeDrawingSegments,
+    });
+
+    return resolveSnappedCoordinate(lat, lng, { targets, segmentTargets });
+  }
+
   function bindVertexMarkerDrag(marker) {
     const onMove = (moveEvent) => {
       L.DomEvent.preventDefault(moveEvent);
@@ -444,8 +483,14 @@ export function useMapDrawing(options) {
         return;
       }
 
-      marker.setLatLng(latLng);
-      drawingPoints.value[marker._vertexIndex] = [latLng.lat, latLng.lng];
+      const snapped = applyDrawingSnap(latLng.lat, latLng.lng, {
+        excludeDrawingVertexIndex: marker._vertexIndex,
+        includeDrawingPoints: !startedFromExistingPolygon.value,
+        includeDrawingSegments: !startedFromExistingPolygon.value,
+      });
+
+      marker.setLatLng({ lat: snapped.lat, lng: snapped.lng });
+      drawingPoints.value[marker._vertexIndex] = [snapped.lat, snapped.lng];
       refreshTempPolyline(
         startedFromExistingPolygon.value && drawingPoints.value.length >= 3,
         { livePreview: true },
@@ -726,6 +771,13 @@ export function useMapDrawing(options) {
       getLastPoint: () => {
         const points = drawingPoints.value;
         return points.length ? points[points.length - 1] : null;
+      },
+      resolveCursorLatLng: (cursorLatLng) => {
+        if (!cursorLatLng) {
+          return cursorLatLng;
+        }
+
+        return applyDrawingSnap(cursorLatLng.lat, cursorLatLng.lng);
       },
       getStrokeColor: getDrawingStrokeColor,
       getInvalid: isDrawingStrokeInvalid,
@@ -1289,7 +1341,10 @@ export function useMapDrawing(options) {
   function onMapClick(event) {
     if (!drawingMode.value || !L) return;
 
-    const { lat, lng } = event.latlng;
+    const snapped = applyDrawingSnap(event.latlng.lat, event.latlng.lng);
+    const lat = snapped.lat;
+    const lng = snapped.lng;
+
     drawingPoints.value.push([lat, lng]);
     addDrawingMarker([lat, lng], getDrawingBaseColor(), drawingPoints.value.length - 1);
 

@@ -119,6 +119,7 @@ const featureLabelRef = computed(() => props.featureLabel);
 const boundaryPolygonRef = computed(() => props.boundaryPolygon);
 const mapCenterRef = computed(() => props.mapCenter);
 const mapZoomRef = computed(() => props.mapZoom);
+const editingLotIdRef = computed(() => props.editingLotId);
 
 const {
   mapContainer,
@@ -166,6 +167,7 @@ const {
   mapZoom: mapZoomRef,
   savedCoordinates: savedCoordinatesRef,
   featureLabel: featureLabelRef,
+  editingLotId: editingLotIdRef,
   fitContextOnLoad: props.fitContextOnLoad,
   onDemarcationSaved: (coords) => {
     emit('save-demarcation', coords);

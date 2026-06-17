@@ -1431,6 +1431,7 @@ function getDrawingSnapContext() {
 function applyDrawingSnap(lat, lng, {
   excludeDrawingVertexIndex = null,
   includeDrawingPoints = true,
+  includeDrawingSegments = true,
 } = {}) {
   const context = getDrawingSnapContext();
   const targets = collectMapSnapTargets({
@@ -1438,12 +1439,10 @@ function applyDrawingSnap(lat, lng, {
     includeDrawingPoints,
     excludeDrawingVertexIndex,
   });
-  const segmentTargets = drawingMode.value === 'street-axis'
-    ? collectMapSnapSegmentTargets({
-      streets: streets.value,
-      excludeStreetId: drawingStreet.value?.id ?? null,
-    })
-    : [];
+  const segmentTargets = collectMapSnapSegmentTargets({
+    ...context,
+    includeDrawingSegments,
+  });
 
   return resolveSnappedCoordinate(lat, lng, { targets, segmentTargets });
 }
@@ -2342,6 +2341,7 @@ function bindVertexMarkerDrag(marker) {
     const snapped = applyDrawingSnap(latLng.lat, latLng.lng, {
       excludeDrawingVertexIndex: marker._vertexIndex,
       includeDrawingPoints: !startedFromExistingPolygon.value,
+      includeDrawingSegments: !startedFromExistingPolygon.value,
     });
     const nextLatLng = { lat: snapped.lat, lng: snapped.lng };
 

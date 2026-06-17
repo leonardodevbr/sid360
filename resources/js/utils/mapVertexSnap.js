@@ -40,6 +40,7 @@ function coordKey(coord) {
  * @param {Array<[number, number]>} [options.currentDrawingPoints]
  * @param {number|string|null} [options.excludeZoneId]
  * @param {number|string|null} [options.excludeStreetId]
+ * @param {number|string|null} [options.excludeLotId]
  * @param {boolean} [options.includeDrawingPoints]
  * @param {number|null} [options.excludeDrawingVertexIndex]
  */
@@ -51,6 +52,7 @@ export function collectMapSnapTargets({
   currentDrawingPoints = [],
   excludeZoneId = null,
   excludeStreetId = null,
+  excludeLotId = null,
   includeDrawingPoints = true,
   excludeDrawingVertexIndex = null,
 } = {}) {
@@ -97,6 +99,10 @@ export function collectMapSnapTargets({
   });
 
   lots.forEach((lot) => {
+    if (excludeLotId != null && String(lot.id) === String(excludeLotId)) {
+      return;
+    }
+
     lot.coordinates?.forEach((coord) => addTarget(coord, 'lot'));
   });
 
@@ -116,16 +122,83 @@ export function collectMapSnapTargets({
   return targets;
 }
 
+function pushPolylineSegment(segments, coords, source, meta = {}) {
+  const normalized = (coords ?? [])
+    .map((coord) => normalizeCoord(coord))
+    .filter(Boolean);
+
+  if (normalized.length < 2) {
+    return;
+  }
+
+  segments.push({
+    coords: normalized,
+    source,
+    ...meta,
+  });
+}
+
+function pushPolygonRingSegment(segments, coords, source, meta = {}) {
+  const normalized = (coords ?? [])
+    .map((coord) => normalizeCoord(coord))
+    .filter(Boolean);
+
+  if (normalized.length < 2) {
+    return;
+  }
+
+  const ring = [...normalized];
+
+  if (ring.length >= 3) {
+    const first = ring[0];
+    const last = ring[ring.length - 1];
+
+    if (first[0] !== last[0] || first[1] !== last[1]) {
+      ring.push([...first]);
+    }
+  }
+
+  pushPolylineSegment(segments, ring, source, meta);
+}
+
 /**
  * @param {object} options
+ * @param {Array<[number, number]>} [options.perimeterCoordinates]
+ * @param {Array<object>} [options.zones]
  * @param {Array<object>} [options.streets]
+ * @param {Array<object>} [options.lots]
+ * @param {Array<[number, number]>} [options.currentDrawingPoints]
+ * @param {number|string|null} [options.excludeZoneId]
  * @param {number|string|null} [options.excludeStreetId]
+ * @param {number|string|null} [options.excludeLotId]
+ * @param {boolean} [options.includeDrawingSegments]
  */
 export function collectMapSnapSegmentTargets({
+  perimeterCoordinates = [],
+  zones = [],
   streets = [],
+  lots = [],
+  currentDrawingPoints = [],
+  excludeZoneId = null,
   excludeStreetId = null,
+  excludeLotId = null,
+  includeDrawingSegments = true,
 } = {}) {
   const segments = [];
+
+  if (perimeterCoordinates.length >= 2) {
+    pushPolygonRingSegment(segments, perimeterCoordinates, 'perimeter-segment');
+  }
+
+  zones.forEach((zone) => {
+    if (excludeZoneId != null && String(zone.id) === String(excludeZoneId)) {
+      return;
+    }
+
+    if (zone.coordinates?.length >= 2) {
+      pushPolygonRingSegment(segments, zone.coordinates, 'zone-segment', { zoneId: zone.id });
+    }
+  });
 
   streets.forEach((street) => {
     if (excludeStreetId != null && String(street.id) === String(excludeStreetId)) {
@@ -134,16 +207,28 @@ export function collectMapSnapSegmentTargets({
 
     const centerline = street.centerline ?? street.center_line;
 
-    if (!Array.isArray(centerline) || centerline.length < 2) {
+    if (Array.isArray(centerline) && centerline.length >= 2) {
+      pushPolylineSegment(segments, centerline, 'street-centerline-segment', { streetId: street.id });
+    }
+
+    if (Array.isArray(street.coordinates) && street.coordinates.length >= 2) {
+      pushPolygonRingSegment(segments, street.coordinates, 'street-polygon-segment', { streetId: street.id });
+    }
+  });
+
+  lots.forEach((lot) => {
+    if (excludeLotId != null && String(lot.id) === String(excludeLotId)) {
       return;
     }
 
-    segments.push({
-      coords: centerline,
-      source: 'street-segment',
-      streetId: street.id,
-    });
+    if (lot.coordinates?.length >= 2) {
+      pushPolygonRingSegment(segments, lot.coordinates, 'lot-segment', { lotId: lot.id });
+    }
   });
+
+  if (includeDrawingSegments && currentDrawingPoints.length >= 2) {
+    pushPolylineSegment(segments, currentDrawingPoints, 'drawing-segment');
+  }
 
   return segments;
 }
