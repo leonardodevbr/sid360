@@ -22,6 +22,7 @@ class Development extends Model
         'status',
         'is_featured',
         'down_payment_percent',
+        'base_price_per_m2',
         'coordinates',
         'lot_number_pattern',
         'map_center',
@@ -36,6 +37,7 @@ class Development extends Model
     {
         return [
             'down_payment_percent' => 'decimal:2',
+            'base_price_per_m2' => 'integer',
             'coordinates' => 'array',
             'map_center' => 'array',
             'is_featured' => 'boolean',

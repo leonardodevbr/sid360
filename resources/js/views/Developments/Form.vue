@@ -42,13 +42,20 @@
             step="0.01"
             placeholder="20"
           />
-            <SelectInput
+          <SelectInput
             v-model="form.status"
             label="Status"
             :options="developmentStatusFormOptions"
             :searchable="false"
           />
         </div>
+        <CurrencyInput
+          v-model="form.base_price_per_m2"
+          label="Valor base do m²"
+        />
+        <p class="text-xs text-slate-400">
+          Usado para calcular o valor dos lotes quando a zona não tiver valor próprio por m².
+        </p>
         <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
           <input
             v-model="form.is_featured"
@@ -400,6 +407,9 @@
                     <Input v-model.number="geoForm.start_from" type="number" label="Nº inicial" />
                     <CurrencyInput v-model="geoForm.total_value" label="Valor/lote" />
                   </div>
+                  <p v-if="generateLotsEffectivePricePerM2" class="mt-1 text-[11px] text-slate-400">
+                    Calculado com {{ formatPricePerM2Label(generateLotsEffectivePricePerM2) }}/m²
+                  </p>
 
                   <div
                     v-if="previewLots.length"
@@ -954,6 +964,13 @@
         <p v-else-if="zoneForm.type === 'setor'" class="text-xs text-slate-400">
           Setores ficam no topo da hierarquia e não possuem zona pai.
         </p>
+        <CurrencyInput
+          v-model="zoneForm.price_per_m2"
+          label="Valor do m² (zona)"
+        />
+        <p class="text-xs text-slate-400">
+          Opcional — sobrescreve o valor base do empreendimento para lotes desta zona.
+        </p>
         <div>
           <label class="mb-1 block text-xs font-medium text-slate-600">Cor no mapa</label>
           <div class="flex flex-wrap gap-2">
@@ -1211,6 +1228,10 @@
           step="0.01"
         />
         <CurrencyInput v-model="generateForm.total_value" label="Valor de cada lote" />
+        <p v-if="generateLotsEffectivePricePerM2" class="text-xs text-slate-400">
+          Calculado com {{ formatPricePerM2Label(generateLotsEffectivePricePerM2) }}/m²
+          <span v-if="generateForm.area"> · {{ generateForm.area }} m²</span>
+        </p>
         <div>
           <label class="mb-1 block text-xs font-medium text-slate-600">Padrão de numeração</label>
           <input
@@ -1299,7 +1320,12 @@ import {
   resolveSliceWidths,
   suggestEqualSliceWidths,
 } from '@/utils/lotSubdivision';
+import {
+  computeLotTotalValueFromArea,
+  resolveEffectivePricePerM2,
+} from '@/utils/lotPricing';
 import { buildStreetPolygon, centerlineLengthMeters, buildStreetNetworkVisualRings, normalizeStreetEndCap } from '@/utils/streetGeometry';
+import { formatMoneyMaskFromCents } from '@/utils/format';
 import Input from '@/components/Common/Input.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
 import Button from '@/components/Common/Button.vue';
@@ -1327,6 +1353,7 @@ const form = ref({
   status: 'active',
   is_featured: false,
   down_payment_percent: '20',
+  base_price_per_m2: 0,
   lot_number_pattern: '{zona}-L{numero2}',
   coordinates: null,
   map_center: null,
@@ -3515,7 +3542,7 @@ const zoneColors = [
 
 const zoneTypeOptions = ZONE_TYPE_OPTIONS;
 
-const zoneForm = reactive({ name: '', type: 'quadra', color: '#3B82F6', parent_zone_id: '' });
+const zoneForm = reactive({ name: '', type: 'quadra', color: '#3B82F6', parent_zone_id: '', price_per_m2: 0 });
 const zoneFormErrors = reactive({ name: '', type: '' });
 
 watch(
@@ -4326,6 +4353,7 @@ function resetZoneForm() {
   zoneForm.type = 'quadra';
   zoneForm.color = '#3B82F6';
   zoneForm.parent_zone_id = '';
+  zoneForm.price_per_m2 = 0;
   clearZoneFormErrors();
 }
 
@@ -4341,6 +4369,7 @@ function editZone(zone) {
   zoneForm.type = zone.type ?? 'quadra';
   zoneForm.color = zone.color ?? '#3B82F6';
   zoneForm.parent_zone_id = zone.parent_zone_id ? String(zone.parent_zone_id) : '';
+  zoneForm.price_per_m2 = zone.price_per_m2 ?? 0;
   clearZoneFormErrors();
   showZoneForm.value = true;
 }
@@ -4382,6 +4411,7 @@ function buildZonePayload() {
     type: zoneForm.type || 'quadra',
     color: zoneForm.color || '#3B82F6',
     parent_zone_id: zoneForm.parent_zone_id ? Number(zoneForm.parent_zone_id) : null,
+    price_per_m2: zoneForm.price_per_m2 > 0 ? zoneForm.price_per_m2 : null,
   };
 }
 
@@ -4484,6 +4514,59 @@ const previewLotNumber = computed(() => {
     .replace('{numero3}', String(num).padStart(3, '0'));
 });
 
+const generateLotsEffectivePricePerM2 = computed(() => {
+  const zone = generateLotsZone.value;
+  if (!zone) {
+    return 0;
+  }
+
+  return resolveEffectivePricePerM2(zone, form.value.base_price_per_m2);
+});
+
+function formatPricePerM2Label(cents) {
+  return formatMoneyMaskFromCents(cents);
+}
+
+function computeLotValueForZone(zone, areaM2) {
+  return computeLotTotalValueFromArea(areaM2, resolveEffectivePricePerM2(zone, form.value.base_price_per_m2));
+}
+
+function resolveLotTotalValueForGeneration(zone, areaM2, fallbackTotalValue = 0) {
+  const computedValue = computeLotValueForZone(zone, areaM2);
+  if (computedValue > 0) {
+    return computedValue;
+  }
+
+  return fallbackTotalValue > 0 ? fallbackTotalValue : null;
+}
+
+function syncSimpleGenerateLotValue() {
+  const zone = generateLotsZone.value;
+  const area = parseFloat(generateForm.value.area);
+
+  if (!zone || !Number.isFinite(area) || area <= 0) {
+    return;
+  }
+
+  const value = computeLotValueForZone(zone, area);
+  if (value > 0) {
+    generateForm.value.total_value = value;
+  }
+}
+
+function syncGeoGenerateLotValue() {
+  const zone = generateLotsZone.value;
+  if (!zone || !previewLots.value.length) {
+    return;
+  }
+
+  const firstArea = previewLots.value[0]?.area;
+  const value = computeLotValueForZone(zone, firstArea);
+  if (value > 0) {
+    geoForm.value.total_value = value;
+  }
+}
+
 const geoFrontLengthM = computed(() => {
   if (geoForm.value.frontEdgeIndex == null) {
     return 0;
@@ -4535,6 +4618,15 @@ watch(
   () => {
     if (genMode.value === 'geometric' && previewLots.value.length) {
       drawPreviewLotsOnMap({ fitView: false });
+    }
+  },
+);
+
+watch(
+  () => generateForm.value.area,
+  () => {
+    if (generateLotsZone.value && genMode.value === 'simple') {
+      syncSimpleGenerateLotValue();
     }
   },
 );
@@ -4853,6 +4945,7 @@ function buildPreview({ silent = false } = {}) {
     if (!previewLots.value.length && !silent) {
       toast.warning('Nenhum lote gerado. Verifique as dimensões e o lado selecionado.');
     }
+    syncGeoGenerateLotValue();
     drawPreviewLotsOnMap({ fitView: false });
   } finally {
     previewing.value = false;
@@ -4965,6 +5058,11 @@ async function doGenerateGeometricLots() {
           area_computed: l.area,
           width_meters: l.widthMeters,
           depth_meters: l.depthMeters,
+          total_value: resolveLotTotalValueForGeneration(
+            generateLotsZone.value,
+            l.area,
+            geoForm.value.total_value,
+          ),
         })),
       },
     );
@@ -5031,6 +5129,7 @@ async function loadItem() {
       status: item.status ?? 'active',
       is_featured: Boolean(item.is_featured),
       down_payment_percent: String(item.down_payment_percent ?? 20),
+      base_price_per_m2: item.base_price_per_m2 ?? 0,
       lot_number_pattern: item.lot_number_pattern ?? '{zona}-L{numero2}',
       coordinates: item.coordinates ?? null,
       map_center: item.map_center ?? null,
@@ -5048,11 +5147,16 @@ async function loadItem() {
 async function submit() {
   saving.value = true;
   try {
+    const payload = {
+      ...form.value,
+      base_price_per_m2: form.value.base_price_per_m2 > 0 ? form.value.base_price_per_m2 : null,
+    };
+
     if (isEdit.value) {
-      await api.post(`/developments/${route.params.id}/update`, form.value);
+      await api.post(`/developments/${route.params.id}/update`, payload);
       toast.success('Empreendimento atualizado.');
     } else {
-      const { data } = await api.post('/developments', form.value);
+      const { data } = await api.post('/developments', payload);
       const id = (data.data ?? data).id;
       toast.success('Empreendimento criado.');
       router.push({ name: 'developments.edit', params: { id } });

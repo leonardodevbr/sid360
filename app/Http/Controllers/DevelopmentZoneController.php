@@ -35,6 +35,7 @@ class DevelopmentZoneController extends Controller
             'color' => ['nullable', 'string', 'max:10'],
             'coordinates' => ['nullable', 'array'],
             'order' => ['nullable', 'integer'],
+            'price_per_m2' => ['nullable', 'integer', 'min:0'],
             'parent_zone_id' => [
                 'nullable',
                 'integer',
@@ -63,6 +64,7 @@ class DevelopmentZoneController extends Controller
             'color' => ['nullable', 'string', 'max:10'],
             'coordinates' => ['nullable', 'array'],
             'order' => ['nullable', 'integer'],
+            'price_per_m2' => ['nullable', 'integer', 'min:0'],
             'parent_zone_id' => [
                 'nullable',
                 'integer',
@@ -144,7 +146,12 @@ class DevelopmentZoneController extends Controller
                 'block' => $zone->name,
                 'number' => $number,
                 'area' => $data['area'] ?? null,
-                'total_value' => $data['total_value'] ?? null,
+                'total_value' => $this->resolveLotTotalValue(
+                    $development,
+                    $zone,
+                    isset($data['area']) ? (float) $data['area'] : null,
+                    isset($data['total_value']) ? (int) $data['total_value'] : null,
+                ),
                 'down_payment_percent' => null,
                 'status' => Lot::STATUS_AVAILABLE,
             ]);
@@ -186,6 +193,7 @@ class DevelopmentZoneController extends Controller
             'lots.*.area_computed' => ['nullable', 'numeric', 'min:0'],
             'lots.*.width_meters' => ['nullable', 'numeric', 'min:0'],
             'lots.*.depth_meters' => ['nullable', 'numeric', 'min:0'],
+            'lots.*.total_value' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $startFrom = (int) ($data['start_from'] ?? 1);
@@ -216,6 +224,15 @@ class DevelopmentZoneController extends Controller
                     $lotData['depth_meters'] ?? $data['lot_depth'] ?? null,
                 );
 
+                $lotTotalValue = $this->resolveLotTotalValue(
+                    $development,
+                    $zone,
+                    isset($lotData['area_computed']) ? (float) $lotData['area_computed'] : null,
+                    isset($lotData['total_value']) ? (int) $lotData['total_value'] : (
+                        isset($data['total_value']) ? (int) $data['total_value'] : null
+                    ),
+                );
+
                 $created[] = Lot::query()->create([
                     'development_id' => $development->id,
                     'zone_id' => $zone->id,
@@ -224,7 +241,7 @@ class DevelopmentZoneController extends Controller
                     'area' => $lotData['area_computed'] ?? null,
                     'area_computed' => $lotData['area_computed'] ?? null,
                     'size_label' => $sizeLabel,
-                    'total_value' => $data['total_value'] ?? null,
+                    'total_value' => $lotTotalValue,
                     'down_payment_percent' => null,
                     'status' => Lot::STATUS_AVAILABLE,
                     'coordinates' => $lotData['coordinates'],
@@ -267,5 +284,24 @@ class DevelopmentZoneController extends Controller
         }
 
         return "{$widthLabel}×{$depthLabel}m";
+    }
+
+    private function resolveLotTotalValue(
+        Development $development,
+        DevelopmentZone $zone,
+        ?float $areaM2,
+        ?int $requestedTotalValue,
+    ): ?int {
+        if ($requestedTotalValue !== null && $requestedTotalValue > 0) {
+            return $requestedTotalValue;
+        }
+
+        $pricePerM2 = $zone->price_per_m2 ?? $development->base_price_per_m2;
+
+        if ($pricePerM2 !== null && $pricePerM2 > 0 && $areaM2 !== null && $areaM2 > 0) {
+            return (int) round($areaM2 * $pricePerM2);
+        }
+
+        return null;
     }
 }

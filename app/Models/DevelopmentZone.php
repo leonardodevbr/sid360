@@ -31,6 +31,7 @@ class DevelopmentZone extends Model
         'color',
         'coordinates',
         'order',
+        'price_per_m2',
     ];
 
     /**
@@ -40,6 +41,7 @@ class DevelopmentZone extends Model
     {
         return [
             'coordinates' => 'array',
+            'price_per_m2' => 'integer',
         ];
     }
 

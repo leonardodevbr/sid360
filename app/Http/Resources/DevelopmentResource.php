@@ -25,6 +25,7 @@ class DevelopmentResource extends JsonResource
             'down_payment_percent' => $this->down_payment_percent !== null
                 ? (float) $this->down_payment_percent
                 : 20,
+            'base_price_per_m2' => $this->base_price_per_m2 !== null ? (int) $this->base_price_per_m2 : null,
             'coordinates' => $this->coordinates,
             'lot_number_pattern' => $this->lot_number_pattern,
             'map_center' => $this->map_center,
@@ -43,6 +44,7 @@ class DevelopmentResource extends JsonResource
                 'color' => $zone->color,
                 'coordinates' => $zone->coordinates,
                 'order' => $zone->order,
+                'price_per_m2' => $zone->price_per_m2 !== null ? (int) $zone->price_per_m2 : null,
                 'lots' => $zone->relationLoaded('lots')
                     ? LotResource::collection($zone->lots)
                     : [],
