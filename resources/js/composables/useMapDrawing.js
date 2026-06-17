@@ -21,7 +21,7 @@ import {
 import { buildZoneTitleLabel } from '@/utils/zone';
 import { getLotMapStyle, buildLotMapLabel } from '@/utils/mapLots';
 import { getStreetColor, getMappedStreets, hasValidStreetPolygon, DEFAULT_STREET_COLOR } from '@/utils/mapStreets';
-import { mergeStreetPolygons } from '@/utils/streetGeometry';
+import { buildStreetNetworkVisualRings, streetUsesCenterlineForVisual } from '@/utils/streetGeometry';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import { createGpsPreviewController, isCoarsePointerDevice } from '@/utils/mapGpsPreview';
 import {
@@ -1030,10 +1030,12 @@ export function useMapDrawing(options) {
 
     const useUnionVisual = mappedStreets.length > 1;
     const mergedRings = useUnionVisual
-      ? mergeStreetPolygons(mappedStreets.map((street) => street.coordinates))
+      ? buildStreetNetworkVisualRings(mappedStreets)
       : [];
 
-    if (useUnionVisual && mergedRings.length) {
+    const renderUnionVisual = useUnionVisual && mergedRings.length > 0;
+
+    if (renderUnionVisual) {
       contextStreetUnionLayer = L.layerGroup();
 
       mergedRings.forEach((ring) => {
@@ -1054,7 +1056,8 @@ export function useMapDrawing(options) {
 
     mappedStreets.forEach((street) => {
       const color = getStreetColor(street);
-      const layer = L.polygon(street.coordinates, useUnionVisual
+      const keepIndividualVisual = !renderUnionVisual || !streetUsesCenterlineForVisual(street);
+      const layer = L.polygon(street.coordinates, keepIndividualVisual
         ? {
           color,
           weight: 0,

@@ -53,14 +53,29 @@ export function normalizeStreetEndCap(value) {
 
 function bufferLineWithEndCap(centerlineLatLng, radiusMeters, steps, endCapStyle) {
   const line = turf.lineString(toGeoJsonLine(centerlineLatLng));
-  const anchor = center(line).geometry.coordinates;
+  return bufferGeoJsonLines([line.geometry.coordinates], radiusMeters, steps, endCapStyle);
+}
+
+function bufferGeoJsonLines(lineStringsLngLat, radiusMeters, steps, endCapStyle) {
+  if (!lineStringsLngLat.length) {
+    return null;
+  }
+
+  const geoJson = lineStringsLngLat.length === 1
+    ? { type: 'LineString', coordinates: lineStringsLngLat[0] }
+    : { type: 'MultiLineString', coordinates: lineStringsLngLat };
+
+  const feature = geoJson.type === 'LineString'
+    ? turf.lineString(geoJson.coordinates)
+    : turf.multiLineString(geoJson.coordinates);
+  const anchor = center(feature).geometry.coordinates;
   const projection = geoAzimuthalEquidistant()
     .rotate([-anchor[0], -anchor[1]])
     .scale(earthRadius);
 
   const projected = {
-    type: line.geometry.type,
-    coordinates: projectCoords(line.geometry.coordinates, projection),
+    type: geoJson.type,
+    coordinates: projectCoords(geoJson.coordinates, projection),
   };
 
   const geometry = new GeoJSONReader().read(projected);
@@ -76,6 +91,248 @@ function bufferLineWithEndCap(centerlineLatLng, radiusMeters, steps, endCapStyle
     type: result.type,
     coordinates: unprojectCoords(result.coordinates, projection),
   };
+}
+
+function bufferedGeometryToLatLngRings(buffered) {
+  if (!buffered) {
+    return [];
+  }
+
+  if (buffered.type === 'Polygon') {
+    return [fromGeoJsonRing(buffered.coordinates[0])];
+  }
+
+  if (buffered.type === 'MultiPolygon') {
+    return buffered.coordinates.map((polygon) => fromGeoJsonRing(polygon[0]));
+  }
+
+  return [];
+}
+
+function distanceMetersBetweenLatLng(a, b) {
+  return turf.distance(turf.point([a[1], a[0]]), turf.point([b[1], b[0]]), { units: 'meters' });
+}
+
+function latLngPointsNear(a, b, toleranceMeters = 0.5) {
+  return distanceMetersBetweenLatLng(a, b) <= toleranceMeters;
+}
+
+function nearestPointOnCenterlineLatLng(pointLatLng, lineLatLng) {
+  const line = turf.lineString(toGeoJsonLine(lineLatLng));
+  const point = turf.point([pointLatLng[1], pointLatLng[0]]);
+  const snapped = turf.nearestPointOnLine(line, point, { units: 'meters' });
+
+  return {
+    coord: [snapped.geometry.coordinates[1], snapped.geometry.coordinates[0]],
+    distanceMeters: Number(snapped.properties.dist ?? 0),
+    segmentIndex: Number(snapped.properties.index ?? 0),
+  };
+}
+
+function insertVertexOnCenterline(line, segmentIndex, coord) {
+  const nextIndex = Math.min(segmentIndex + 1, line.length - 1);
+  const reference = line[nextIndex];
+
+  if (latLngPointsNear(reference, coord)) {
+    return;
+  }
+
+  if (line.some((point) => latLngPointsNear(point, coord))) {
+    return;
+  }
+
+  line.splice(nextIndex, 0, [...coord]);
+}
+
+/**
+ * Alinha extremidades a outros eixos e insere vértices em cruzamentos em T.
+ *
+ * @param {Array<Array<[number, number]>>} centerlines
+ * @param {number} [toleranceMeters=3]
+ * @returns {Array<Array<[number, number]>>}
+ */
+export function snapStreetCenterlinesAtJunctions(centerlines, toleranceMeters = 3) {
+  if (!Array.isArray(centerlines) || centerlines.length < 2) {
+    return centerlines ?? [];
+  }
+
+  const lines = centerlines.map((line) =>
+    line.map(([lat, lng]) => [Number(lat), Number(lng)]),
+  );
+
+  const endpointIndexes = [];
+  lines.forEach((line, lineIndex) => {
+    if (line.length < 2) {
+      return;
+    }
+
+    endpointIndexes.push({ lineIndex, pointIndex: 0 });
+    endpointIndexes.push({ lineIndex, pointIndex: line.length - 1 });
+  });
+
+  endpointIndexes.forEach(({ lineIndex, pointIndex }) => {
+    const endpoint = lines[lineIndex][pointIndex];
+    let bestEndpointSnap = null;
+
+    endpointIndexes.forEach(({ lineIndex: otherLineIndex, pointIndex: otherPointIndex }) => {
+      if (otherLineIndex === lineIndex) {
+        return;
+      }
+
+      const otherPoint = lines[otherLineIndex][otherPointIndex];
+      const distanceMeters = distanceMetersBetweenLatLng(endpoint, otherPoint);
+
+      if (distanceMeters <= toleranceMeters && (!bestEndpointSnap || distanceMeters < bestEndpointSnap.distanceMeters)) {
+        bestEndpointSnap = { coord: [...otherPoint], distanceMeters };
+      }
+    });
+
+    if (bestEndpointSnap) {
+      lines[lineIndex][pointIndex] = bestEndpointSnap.coord;
+      return;
+    }
+
+    let bestSegmentSnap = null;
+
+    lines.forEach((otherLine, otherLineIndex) => {
+      if (otherLineIndex === lineIndex || otherLine.length < 2) {
+        return;
+      }
+
+      const nearest = nearestPointOnCenterlineLatLng(endpoint, otherLine);
+
+      if (nearest.distanceMeters <= toleranceMeters && (!bestSegmentSnap || nearest.distanceMeters < bestSegmentSnap.distanceMeters)) {
+        bestSegmentSnap = {
+          ...nearest,
+          otherLineIndex,
+        };
+      }
+    });
+
+    if (bestSegmentSnap) {
+      lines[lineIndex][pointIndex] = [...bestSegmentSnap.coord];
+      insertVertexOnCenterline(
+        lines[bestSegmentSnap.otherLineIndex],
+        bestSegmentSnap.segmentIndex,
+        bestSegmentSnap.coord,
+      );
+    }
+  });
+
+  return lines;
+}
+
+function collectStreetVisualRings(streets) {
+  const rings = [];
+
+  (streets ?? []).forEach((street) => {
+    if (Array.isArray(street.coordinates) && street.coordinates.length >= 3) {
+      rings.push(street.coordinates);
+      return;
+    }
+
+    if (Array.isArray(street.centerline) && street.centerline.length >= 2) {
+      const polygon = buildStreetPolygon(
+        street.centerline,
+        Number(street.width) > 0 ? Number(street.width) : 10,
+        street.end_cap,
+      );
+
+      if (polygon) {
+        rings.push(polygon);
+      }
+    }
+  });
+
+  return rings;
+}
+
+/**
+ * @param {Array<{ centerline?: Array<[number, number]>, width?: number, end_cap?: string, coordinates?: Array<[number, number]> }>} streets
+ * @returns {Array<Array<[number, number]>>}
+ */
+export function buildStreetNetworkVisualRings(streets) {
+  const allStreets = (streets ?? []).filter(
+    (street) =>
+      (Array.isArray(street.centerline) && street.centerline.length >= 2)
+      || (Array.isArray(street.coordinates) && street.coordinates.length >= 3),
+  );
+
+  if (!allStreets.length) {
+    return [];
+  }
+
+  if (allStreets.length === 1) {
+    return collectStreetVisualRings(allStreets);
+  }
+
+  const withCenterline = allStreets.filter(
+    (street) => Array.isArray(street.centerline) && street.centerline.length >= 2,
+  );
+  const withoutCenterline = allStreets.filter(
+    (street) => !Array.isArray(street.centerline) || street.centerline.length < 2,
+  );
+
+  let rings = [];
+
+  if (withCenterline.length >= 2) {
+    const widthGroups = new Map();
+
+    withCenterline.forEach((street) => {
+      const width = Number(street.width) > 0 ? Number(street.width) : 10;
+      const cap = normalizeStreetEndCap(street.end_cap);
+      const key = `${width}:${cap}`;
+
+      if (!widthGroups.has(key)) {
+        widthGroups.set(key, { width, cap, centerlines: [] });
+      }
+
+      widthGroups.get(key).centerlines.push(street.centerline);
+    });
+
+    widthGroups.forEach(({ width, cap, centerlines }) => {
+      const snapped = snapStreetCenterlinesAtJunctions(centerlines);
+      const geoLines = snapped.map((line) => toGeoJsonLine(line));
+      const steps = cap === 'square' ? 2 : 8;
+      const endCapStyle = cap === 'square' ? END_CAP_FLAT : END_CAP_ROUND;
+      const buffered = bufferGeoJsonLines(geoLines, width / 2, steps, endCapStyle);
+      rings = rings.concat(bufferedGeometryToLatLngRings(buffered));
+    });
+
+    withCenterline.forEach((street) => {
+      const polygon = buildStreetPolygon(
+        street.centerline,
+        Number(street.width) > 0 ? Number(street.width) : 10,
+        street.end_cap,
+      );
+
+      if (polygon) {
+        rings.push(polygon);
+      }
+    });
+  } else if (withCenterline.length === 1) {
+    rings = rings.concat(collectStreetVisualRings(withCenterline));
+  }
+
+  withoutCenterline.forEach((street) => {
+    if (street.coordinates?.length >= 3) {
+      rings.push(street.coordinates);
+    }
+  });
+
+  if (!rings.length) {
+    return collectStreetVisualRings(allStreets);
+  }
+
+  if (rings.length === 1) {
+    return rings;
+  }
+
+  return mergeStreetPolygons(rings);
+}
+
+export function streetUsesCenterlineForVisual(street) {
+  return Array.isArray(street?.centerline) && street.centerline.length >= 2;
 }
 
 /**
