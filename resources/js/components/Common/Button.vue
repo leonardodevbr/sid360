@@ -8,6 +8,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  disabled: {
+    type: Boolean,
+    default: false,
+  },
   type: {
     type: String,
     default: 'button',
@@ -27,7 +31,7 @@ const variants = {
 <template>
   <button
     :type="type"
-    :disabled="loading"
+    :disabled="loading || disabled"
     :class="[baseClasses, variants[variant] || variants.primary]"
   >
     <svg

@@ -348,7 +348,7 @@
                     >
                       <span class="block font-semibold">Inverter profundidade</span>
                       <span class="mt-0.5 block text-[11px] text-slate-400">
-                        Lotes para o outro lado da frente
+                        Recua os lotes para o fundo da quadra
                       </span>
                     </button>
                     <button
@@ -434,14 +434,16 @@
               </div>
 
               <div v-if="blockEdges.length" class="map-lot-gen-panel-footer">
-                <Button variant="outline" @click="switchGenMode('simple')">
+                <Button variant="outline" type="button" @click.stop="switchGenMode('simple')">
                   Modo simples
                 </Button>
                 <Button
                   variant="primary"
+                  type="button"
                   class="flex-1"
+                  :loading="generating"
                   :disabled="generating || !previewLots.length"
-                  @click="doGenerateGeometricLots()"
+                  @click.stop="doGenerateGeometricLots"
                 >
                   {{ generating ? 'Gerando...' : `Gerar ${previewLots.length || 0} lotes` }}
                 </Button>
@@ -4676,14 +4678,22 @@ function removeCustomWidthRow(index) {
 function toggleGeoInvertDepth() {
   geoForm.value.invertDepth = !geoForm.value.invertDepth;
   if (geoForm.value.frontEdgeIndex != null) {
-    scheduleGeoPreview();
+    if (geoPreviewTimer) {
+      clearTimeout(geoPreviewTimer);
+      geoPreviewTimer = null;
+    }
+    buildPreview({ silent: true });
   }
 }
 
 function toggleGeoReverseFrontEdge() {
   geoForm.value.reverseFrontEdge = !geoForm.value.reverseFrontEdge;
   if (geoForm.value.frontEdgeIndex != null) {
-    scheduleGeoPreview();
+    if (geoPreviewTimer) {
+      clearTimeout(geoPreviewTimer);
+      geoPreviewTimer = null;
+    }
+    buildPreview({ silent: true });
   }
 }
 
@@ -4731,7 +4741,7 @@ function clearPreviewLayer() {
   }
 }
 
-function drawPreviewLotsOnMap() {
+function drawPreviewLotsOnMap({ fitView = false } = {}) {
   if (!map || !L) return;
 
   clearPreviewLayer();
@@ -4753,13 +4763,15 @@ function drawPreviewLotsOnMap() {
       .addTo(previewLayerGroup);
   });
 
-  try {
-    const bounds = previewLayerGroup.getBounds();
-    if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [80, 80], maxZoom: 20 });
+  if (fitView) {
+    try {
+      const bounds = previewLayerGroup.getBounds();
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [80, 80], maxZoom: 20 });
+      }
+    } catch {
+      /* geometria inválida */
     }
-  } catch {
-    /* geometria inválida */
   }
 
   drawBlockEdgesOnMap();
@@ -4789,7 +4801,7 @@ function buildPreview({ silent = false } = {}) {
     if (!previewLots.value.length && !silent) {
       toast.warning('Nenhum lote gerado. Verifique as dimensões e o lado selecionado.');
     }
-    drawPreviewLotsOnMap();
+    drawPreviewLotsOnMap({ fitView: false });
   } finally {
     previewing.value = false;
   }
@@ -4868,10 +4880,25 @@ function openGenerateLots(zone, { preferGeometric = false } = {}) {
 }
 
 async function doGenerateGeometricLots() {
+  if (generating.value) {
+    return;
+  }
+
   if (!previewLots.value.length) {
     toast.warning('Gere o preview antes de salvar.');
     return;
   }
+
+  if (!generateLotsZone.value?.id) {
+    toast.error('Zona não encontrada. Feche e abra o painel novamente.');
+    return;
+  }
+
+  if (!route.params.id) {
+    toast.error('Salve o empreendimento antes de gerar lotes.');
+    return;
+  }
+
   generating.value = true;
   try {
     const { data } = await api.post(
@@ -4897,7 +4924,15 @@ async function doGenerateGeometricLots() {
     await loadLots();
     drawLotsOnMap();
   } catch (err) {
-    toast.error(err?.response?.data?.message ?? 'Erro ao gerar lotes.');
+    const message = err?.response?.data?.message;
+    const validationErrors = err?.response?.data?.errors;
+
+    if (validationErrors && typeof validationErrors === 'object') {
+      const firstError = Object.values(validationErrors).flat()?.[0];
+      toast.error(firstError || message || 'Erro ao gerar lotes.');
+    } else {
+      toast.error(message || 'Erro ao gerar lotes.');
+    }
   } finally {
     generating.value = false;
   }

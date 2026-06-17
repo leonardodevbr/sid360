@@ -347,7 +347,7 @@ function measureMaxInwardDepth(blockPolygon, frontStart, frontEnd, insideBearing
 
   const sampleCount = Math.max(3, Math.ceil(frontLengthM / 3));
   const endpointInset = Math.min(0.75, frontLengthM * 0.04);
-  let minDepth = Infinity;
+  const depths = [];
 
   for (let i = 0; i <= sampleCount; i += 1) {
     let distanceAlong = (frontLengthM * i) / sampleCount;
@@ -361,12 +361,31 @@ function measureMaxInwardDepth(blockPolygon, frontStart, frontEnd, insideBearing
     const point = turf.along(frontLine, distanceAlong, { units: 'meters' });
     const depth = measureRayDepthInsideBlock(point, insideBearing, blockPolygon);
 
-    if (depth > 0.5 && depth < minDepth) {
-      minDepth = depth;
+    if (depth > 0.5) {
+      depths.push(depth);
     }
   }
 
-  return Number.isFinite(minDepth) ? minDepth : 0;
+  if (!depths.length) {
+    const midpoint = turf.along(frontLine, frontLengthM / 2, { units: 'meters' });
+    const midpointDepth = measureRayDepthInsideBlock(midpoint, insideBearing, blockPolygon);
+
+    return midpointDepth > 0.5 ? midpointDepth : 0;
+  }
+
+  return Math.min(...depths);
+}
+
+function measureTypicalInwardDepth(blockPolygon, frontStart, frontEnd, insideBearing) {
+  const frontLine = turf.lineString([frontStart, frontEnd]);
+  const frontLengthM = turf.length(frontLine, { units: 'meters' });
+
+  if (!(frontLengthM > 0)) {
+    return 0;
+  }
+
+  const midpoint = turf.along(frontLine, frontLengthM / 2, { units: 'meters' });
+  return measureRayDepthInsideBlock(midpoint, insideBearing, blockPolygon);
 }
 
 function pickInsideBearing(normalA, normalB, blockPolygon, frontStart, frontEnd, frontMid) {
@@ -422,8 +441,10 @@ function resolveDepthExtrusion({
     return { bearing: outsideBearing, depthOffset: 0 };
   }
 
-  const maxDepth = measureMaxInwardDepth(blockPolygon, frontStart, frontEnd, insideBearing);
-  const depthOffset = Math.max(0, maxDepth - lotDepth);
+  const safeDepth = measureMaxInwardDepth(blockPolygon, frontStart, frontEnd, insideBearing);
+  const typicalDepth = measureTypicalInwardDepth(blockPolygon, frontStart, frontEnd, insideBearing);
+  const blockDepth = Math.max(safeDepth, typicalDepth);
+  const depthOffset = Math.max(0, blockDepth - lotDepth);
 
   return { bearing: insideBearing, depthOffset };
 }
