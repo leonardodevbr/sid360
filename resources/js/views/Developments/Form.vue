@@ -4531,6 +4531,15 @@ watch(
 );
 
 watch(
+  () => geoForm.value.start_from,
+  () => {
+    if (genMode.value === 'geometric' && previewLots.value.length) {
+      drawPreviewLotsOnMap({ fitView: false });
+    }
+  },
+);
+
+watch(
   () => streets.value,
   () => {
     if (genMode.value === 'geometric' && generateLotsZone.value) {
@@ -4790,6 +4799,8 @@ function drawPreviewLotsOnMap({ fitView = false } = {}) {
   previewLayerGroup = L.featureGroup().addTo(map);
 
   previewLots.value.forEach((lot, i) => {
+    const lotNumber = (parseInt(geoForm.value.start_from, 10) || 1) + i;
+
     L.polygon(lot.coordinates, {
       color: lot.clipped ? '#f59e0b' : '#c9a84c',
       weight: 2,
@@ -4799,7 +4810,7 @@ function drawPreviewLotsOnMap({ fitView = false } = {}) {
       className: 'map-lot-preview-path',
     })
       .bindTooltip(
-        `Lote ${geoForm.value.start_from + i} · ${lot.widthMeters}m × ${lot.depthMeters}m · ${lot.area}m²`,
+        `Lote ${lotNumber} · ${lot.widthMeters}m × ${lot.depthMeters}m · ${lot.area}m²`,
         { permanent: false },
       )
       .addTo(previewLayerGroup);
