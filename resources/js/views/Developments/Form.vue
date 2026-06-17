@@ -178,8 +178,163 @@
 
                 <template v-else>
                   <div class="grid grid-cols-2 gap-2">
-                    <Input v-model.number="geoForm.lotWidth" type="number" label="Largura (m)" />
                     <Input v-model.number="geoForm.lotDepth" type="number" label="Profundidade (m)" />
+                    <Input
+                      v-if="geoForm.widthMode === 'equal'"
+                      v-model.number="geoForm.lotWidth"
+                      type="number"
+                      label="Largura (m)"
+                    />
+                  </div>
+
+                  <div class="mt-3">
+                    <p class="text-xs font-semibold text-slate-700">Divisão ao longo da frente</p>
+                    <div class="mt-1.5 grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        class="rounded-lg border px-2 py-1.5 text-xs font-semibold transition-colors"
+                        :class="geoForm.widthMode === 'equal'
+                          ? 'border-[#c9a84c] bg-amber-50 text-[#1a3a28]'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
+                        @click="setGeoWidthMode('equal')"
+                      >
+                        Larguras iguais
+                      </button>
+                      <button
+                        type="button"
+                        class="rounded-lg border px-2 py-1.5 text-xs font-semibold transition-colors"
+                        :class="geoForm.widthMode === 'custom'
+                          ? 'border-[#c9a84c] bg-amber-50 text-[#1a3a28]'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
+                        @click="setGeoWidthMode('custom')"
+                      >
+                        Personalizadas
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="geoFrontLengthM > 0"
+                    class="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] text-slate-600"
+                  >
+                    <span class="font-semibold text-slate-700">Frente: {{ formatMeters(geoFrontLengthM) }}</span>
+                    <span v-if="geoSlicePlan.widths.length">
+                      · {{ geoSlicePlan.widths.length }} lote(s)
+                      · {{ geoSlicePlan.widths.map((w) => `${w}m`).join(' + ') }}
+                    </span>
+                    <p v-if="geoSlicePlan.trimmed" class="mt-1 text-amber-700">
+                      Algumas larguras foram cortadas para caber na frente.
+                    </p>
+                  </div>
+
+                  <div
+                    v-if="geoForm.widthMode === 'equal' && geoSlicePlan.remainder >= 0.5"
+                    class="mt-2"
+                  >
+                    <p class="text-[11px] font-medium text-slate-600">Sobra de {{ formatMeters(geoSlicePlan.remainder) }}</p>
+                    <div class="mt-1 grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        class="rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition-colors"
+                        :class="geoForm.remainderSide === 'start'
+                          ? 'border-[#c9a84c] bg-amber-50 text-[#1a3a28]'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
+                        @click="setGeoRemainderSide('start')"
+                      >
+                        No início
+                      </button>
+                      <button
+                        type="button"
+                        class="rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition-colors"
+                        :class="geoForm.remainderSide === 'end'
+                          ? 'border-[#c9a84c] bg-amber-50 text-[#1a3a28]'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
+                        @click="setGeoRemainderSide('end')"
+                      >
+                        No final
+                      </button>
+                    </div>
+                  </div>
+
+                  <div v-if="geoForm.widthMode === 'custom'" class="mt-2 space-y-1.5">
+                    <div
+                      v-for="(width, index) in geoForm.customWidths"
+                      :key="`geo-width-${index}`"
+                      class="flex items-end gap-1.5"
+                    >
+                      <Input
+                        v-model.number="geoForm.customWidths[index]"
+                        type="number"
+                        :label="`Lote ${index + 1} (m)`"
+                        class="min-w-0 flex-1"
+                      />
+                      <button
+                        type="button"
+                        class="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50 hover:text-red-500 disabled:opacity-40"
+                        :disabled="geoForm.customWidths.length <= 1"
+                        :aria-label="`Remover lote ${index + 1}`"
+                        @click="removeCustomWidthRow(index)"
+                      >
+                        <XMarkIcon class="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <div class="flex flex-wrap gap-1.5 pt-1">
+                      <button
+                        type="button"
+                        class="inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-2 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                        @click="addCustomWidthRow"
+                      >
+                        <PlusIcon class="h-3.5 w-3.5" />
+                        Adicionar lote
+                      </button>
+                      <button
+                        type="button"
+                        class="rounded-lg border border-slate-200 px-2 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                        @click="fillCustomWidthsFromEqual"
+                      >
+                        Preencher iguais
+                      </button>
+                      <button
+                        v-if="geoFrontLengthM > 0 && geoForm.customWidths.length === 2"
+                        type="button"
+                        class="rounded-lg border border-slate-200 px-2 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                        @click="splitCustomWidthsHalfHalf"
+                      >
+                        Metade / metade
+                      </button>
+                    </div>
+
+                    <div
+                      v-if="geoCustomWidthsRemainder >= 0.5"
+                      class="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2"
+                    >
+                      <p class="text-[11px] font-medium text-amber-800">
+                        Sobra de {{ formatMeters(geoCustomWidthsRemainder) }} na frente
+                      </p>
+                      <div class="mt-1 grid grid-cols-2 gap-1.5">
+                        <button
+                          type="button"
+                          class="rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition-colors"
+                          :class="geoForm.remainderSide === 'start'
+                            ? 'border-[#c9a84c] bg-white text-[#1a3a28]'
+                            : 'border-amber-200 bg-white/70 text-amber-900 hover:bg-white'"
+                          @click="setGeoRemainderSide('start')"
+                        >
+                          Somar no 1º lote
+                        </button>
+                        <button
+                          type="button"
+                          class="rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition-colors"
+                          :class="geoForm.remainderSide === 'end'
+                            ? 'border-[#c9a84c] bg-white text-[#1a3a28]'
+                            : 'border-amber-200 bg-white/70 text-amber-900 hover:bg-white'"
+                          @click="setGeoRemainderSide('end')"
+                        >
+                          Somar no último
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   <div class="mt-3 grid grid-cols-2 gap-2">
@@ -1102,7 +1257,12 @@ import {
   rectangleFromOppositeCorners,
   resolveSnappedCoordinate,
 } from '@/utils/mapVertexSnap';
-import { subdivideBlockIntoLots, enrichBlockEdgesWithStreets } from '@/utils/lotSubdivision';
+import {
+  subdivideBlockIntoLots,
+  enrichBlockEdgesWithStreets,
+  resolveSliceWidths,
+  suggestEqualSliceWidths,
+} from '@/utils/lotSubdivision';
 import { buildStreetPolygon, centerlineLengthMeters, buildStreetNetworkVisualRings, normalizeStreetEndCap } from '@/utils/streetGeometry';
 import Input from '@/components/Common/Input.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
@@ -3962,6 +4122,9 @@ const generateForm = ref({
 const geoForm = ref({
   lotWidth: 20,
   lotDepth: 30,
+  widthMode: 'equal',
+  customWidths: [20, 20],
+  remainderSide: 'end',
   frontEdgeIndex: null,
   invertDepth: false,
   reverseFrontEdge: false,
@@ -3988,10 +4151,42 @@ const previewLotNumber = computed(() => {
     .replace('{numero3}', String(num).padStart(3, '0'));
 });
 
+const geoFrontLengthM = computed(() => {
+  if (geoForm.value.frontEdgeIndex == null) {
+    return 0;
+  }
+
+  const edge = blockEdges.value.find((item) => item.index === geoForm.value.frontEdgeIndex);
+  return edge?.lengthMeters ?? 0;
+});
+
+const geoSlicePlan = computed(() => resolveSliceWidths(geoFrontLengthM.value, {
+  widthMode: geoForm.value.widthMode,
+  lotWidth: Number(geoForm.value.lotWidth),
+  customWidths: geoForm.value.customWidths,
+  remainderSide: geoForm.value.remainderSide,
+}));
+
+const geoCustomWidthsRemainder = computed(() => {
+  if (geoForm.value.widthMode !== 'custom' || !(geoFrontLengthM.value > 0)) {
+    return 0;
+  }
+
+  const defined = geoForm.value.customWidths
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .reduce((sum, value) => sum + value, 0);
+
+  return Math.round(Math.max(0, geoFrontLengthM.value - defined) * 100) / 100;
+});
+
 watch(
   () => [
     geoForm.value.lotWidth,
     geoForm.value.lotDepth,
+    geoForm.value.widthMode,
+    geoForm.value.customWidths,
+    geoForm.value.remainderSide,
     geoForm.value.invertDepth,
     geoForm.value.reverseFrontEdge,
   ],
@@ -4000,6 +4195,7 @@ watch(
       scheduleGeoPreview();
     }
   },
+  { deep: true },
 );
 
 watch(
@@ -4108,8 +4304,96 @@ function drawBlockEdgesOnMap() {
 function selectFrontEdge(index) {
   geoForm.value.frontEdgeIndex = index;
   hoveredEdgeIndex.value = null;
+  if (geoForm.value.widthMode === 'custom' && geoFrontLengthM.value > 0) {
+    seedCustomWidthsIfNeeded();
+  }
   drawBlockEdgesOnMap();
   scheduleGeoPreview();
+}
+
+function setGeoWidthMode(mode) {
+  if (geoForm.value.widthMode === mode) {
+    return;
+  }
+
+  geoForm.value.widthMode = mode;
+
+  if (mode === 'custom') {
+    fillCustomWidthsFromEqual();
+  }
+
+  if (geoForm.value.frontEdgeIndex != null) {
+    scheduleGeoPreview();
+  }
+}
+
+function setGeoRemainderSide(side) {
+  if (geoForm.value.remainderSide === side) {
+    return;
+  }
+
+  geoForm.value.remainderSide = side;
+
+  if (geoForm.value.frontEdgeIndex != null) {
+    scheduleGeoPreview();
+  }
+}
+
+function seedCustomWidthsIfNeeded() {
+  const hasValidWidth = geoForm.value.customWidths.some(
+    (value) => Number.isFinite(Number(value)) && Number(value) > 0,
+  );
+
+  if (hasValidWidth) {
+    return;
+  }
+
+  fillCustomWidthsFromEqual();
+}
+
+function fillCustomWidthsFromEqual() {
+  if (!(geoFrontLengthM.value > 0) && !(Number(geoForm.value.lotWidth) > 0)) {
+    geoForm.value.customWidths = [20, 20];
+    return;
+  }
+
+  geoForm.value.customWidths = suggestEqualSliceWidths(
+    geoFrontLengthM.value || Number(geoForm.value.lotWidth) * 2,
+    Number(geoForm.value.lotWidth) || 20,
+  );
+}
+
+function splitCustomWidthsHalfHalf() {
+  if (!(geoFrontLengthM.value > 0)) {
+    return;
+  }
+
+  const half = Math.round((geoFrontLengthM.value / 2) * 100) / 100;
+  const other = Math.round((geoFrontLengthM.value - half) * 100) / 100;
+  geoForm.value.customWidths = [half, other];
+  geoForm.value.remainderSide = 'end';
+
+  if (geoForm.value.frontEdgeIndex != null) {
+    scheduleGeoPreview();
+  }
+}
+
+function addCustomWidthRow() {
+  const fallback = Number(geoForm.value.lotWidth) || 20;
+  const last = geoForm.value.customWidths[geoForm.value.customWidths.length - 1];
+  geoForm.value.customWidths.push(Number(last) > 0 ? Number(last) : fallback);
+}
+
+function removeCustomWidthRow(index) {
+  if (geoForm.value.customWidths.length <= 1) {
+    return;
+  }
+
+  geoForm.value.customWidths.splice(index, 1);
+
+  if (geoForm.value.frontEdgeIndex != null) {
+    scheduleGeoPreview();
+  }
 }
 
 function toggleGeoInvertDepth() {
@@ -4185,7 +4469,10 @@ function drawPreviewLotsOnMap() {
       dashArray: '6 4',
       className: 'map-lot-preview-path',
     })
-      .bindTooltip(`Lote ${geoForm.value.start_from + i} · ${lot.area}m²`, { permanent: false })
+      .bindTooltip(
+        `Lote ${geoForm.value.start_from + i} · ${lot.widthMeters}m × ${lot.depthMeters}m · ${lot.area}m²`,
+        { permanent: false },
+      )
       .addTo(previewLayerGroup);
   });
 
@@ -4216,6 +4503,9 @@ function buildPreview({ silent = false } = {}) {
       frontEdgeIndex: geoForm.value.frontEdgeIndex,
       lotWidth: Number(geoForm.value.lotWidth),
       lotDepth: Number(geoForm.value.lotDepth),
+      widthMode: geoForm.value.widthMode,
+      customWidths: geoForm.value.customWidths,
+      remainderSide: geoForm.value.remainderSide,
       invertDepth: geoForm.value.invertDepth,
       reverseFrontEdge: geoForm.value.reverseFrontEdge,
     });
@@ -4278,6 +4568,9 @@ function openGenerateLots(zone) {
   geoForm.value = {
     lotWidth: 20,
     lotDepth: 30,
+    widthMode: 'equal',
+    customWidths: [20, 20],
+    remainderSide: 'end',
     frontEdgeIndex: null,
     invertDepth: false,
     reverseFrontEdge: false,

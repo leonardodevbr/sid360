@@ -82,12 +82,151 @@ export function enrichBlockEdgesWithStreets(blockLatLng, streets, maxDistanceM =
 }
 
 /**
+ * Comprimento em metros da aresta de frente selecionada.
+ */
+export function getFrontEdgeLengthMeters(blockLatLng, frontEdgeIndex) {
+  const edges = getBlockEdges(blockLatLng);
+  const edge = edges.find((item) => item.index === frontEdgeIndex);
+  return edge?.lengthMeters ?? 0;
+}
+
+/**
+ * Gera larguras sugeridas (iguais) para preencher a frente.
+ */
+export function suggestEqualSliceWidths(frontLengthM, lotWidth, maxLots = 200) {
+  return resolveSliceWidths(frontLengthM, {
+    widthMode: 'equal',
+    lotWidth,
+    maxLots,
+    remainderSide: 'end',
+  }).widths;
+}
+
+/**
+ * Resolve as larguras de cada fatia ao longo da frente.
+ *
+ * @returns {{ widths: number[], definedTotal: number, remainder: number, trimmed: boolean }}
+ */
+export function resolveSliceWidths(frontLengthM, {
+  widthMode = 'equal',
+  lotWidth = 20,
+  customWidths = [],
+  remainderSide = 'end',
+  maxLots = 200,
+} = {}) {
+  if (!(frontLengthM > 0)) {
+    return { widths: [], definedTotal: 0, remainder: 0, trimmed: false };
+  }
+
+  if (widthMode === 'custom') {
+    return resolveCustomSliceWidths(frontLengthM, customWidths, remainderSide);
+  }
+
+  return resolveEqualSliceWidths(frontLengthM, lotWidth, maxLots, remainderSide);
+}
+
+function resolveEqualSliceWidths(frontLengthM, lotWidth, maxLots, remainderSide) {
+  if (!(lotWidth > 0)) {
+    return { widths: [], definedTotal: 0, remainder: frontLengthM, trimmed: false };
+  }
+
+  const sliceCount = Math.min(maxLots, Math.ceil(frontLengthM / lotWidth));
+  if (sliceCount <= 0) {
+    return { widths: [], definedTotal: 0, remainder: frontLengthM, trimmed: false };
+  }
+
+  const fullCount = Math.max(0, sliceCount - 1);
+  const remainder = Math.round((frontLengthM - fullCount * lotWidth) * 100) / 100;
+  const fullWidths = Array.from({ length: fullCount }, () => lotWidth);
+
+  let widths = [];
+
+  if (remainderSide === 'start') {
+    widths = remainder >= 0.5
+      ? [remainder, ...fullWidths]
+      : [...fullWidths];
+  } else if (remainder >= 0.5) {
+    widths = [...fullWidths, remainder];
+  } else {
+    widths = [...fullWidths];
+  }
+
+  if (!widths.length) {
+    widths = [frontLengthM];
+  }
+
+  const definedTotal = widths.reduce((sum, width) => sum + width, 0);
+
+  return {
+    widths,
+    definedTotal: Math.round(definedTotal * 100) / 100,
+    remainder: Math.round(Math.max(0, frontLengthM - definedTotal) * 100) / 100,
+    trimmed: false,
+  };
+}
+
+function resolveCustomSliceWidths(frontLengthM, customWidths, remainderSide) {
+  const parsed = (customWidths ?? [])
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0);
+
+  if (!parsed.length) {
+    return { widths: [], definedTotal: 0, remainder: frontLengthM, trimmed: false };
+  }
+
+  let trimmed = false;
+  const widths = [];
+  let used = 0;
+
+  parsed.forEach((width) => {
+    if (used >= frontLengthM - 0.5) {
+      trimmed = true;
+      return;
+    }
+
+    const remaining = frontLengthM - used;
+    const sliceWidth = width > remaining ? remaining : width;
+    if (sliceWidth >= 0.5) {
+      widths.push(Math.round(sliceWidth * 100) / 100);
+      used += sliceWidth;
+      if (width > remaining + 0.01) {
+        trimmed = true;
+      }
+    }
+  });
+
+  if (!widths.length) {
+    return { widths: [], definedTotal: 0, remainder: frontLengthM, trimmed };
+  }
+
+  const extra = Math.round((frontLengthM - used) * 100) / 100;
+  if (extra >= 0.5) {
+    if (remainderSide === 'start') {
+      widths[0] = Math.round((widths[0] + extra) * 100) / 100;
+    } else {
+      widths[widths.length - 1] = Math.round((widths[widths.length - 1] + extra) * 100) / 100;
+    }
+    used = frontLengthM;
+  }
+
+  return {
+    widths,
+    definedTotal: Math.round(used * 100) / 100,
+    remainder: Math.round(Math.max(0, frontLengthM - used) * 100) / 100,
+    trimmed,
+  };
+}
+
+/**
  * Subdivide a quadra em lotes retangulares ao longo da aresta de frente.
  *
  * @param {Object} params
  * @param {Array<[number,number]>} params.blockLatLng - polígono da quadra [lat,lng]
  * @param {number} params.frontEdgeIndex - índice da aresta de frente (getBlockEdges)
- * @param {number} params.lotWidth - largura do lote em metros (ao longo da frente)
+ * @param {'equal'|'custom'} [params.widthMode]
+ * @param {number} params.lotWidth - largura do lote em metros (modo igual)
+ * @param {number[]} [params.customWidths] - larguras individuais (modo personalizado)
+ * @param {'start'|'end'} [params.remainderSide] - onde aplicar a sobra
  * @param {number} params.lotDepth - profundidade do lote em metros (perpendicular)
  * @param {number} [params.maxLots] - limite de lotes (segurança)
  * @returns {Array<{ index, coordinates, area, widthMeters, depthMeters, clipped }>}
@@ -97,6 +236,9 @@ export function subdivideBlockIntoLots({
   frontEdgeIndex,
   lotWidth,
   lotDepth,
+  widthMode = 'equal',
+  customWidths = [],
+  remainderSide = 'end',
   maxLots = 200,
   invertDepth = false,
   reverseFrontEdge = false,
@@ -104,7 +246,7 @@ export function subdivideBlockIntoLots({
   if (!Array.isArray(blockLatLng) || blockLatLng.length < 3) {
     return [];
   }
-  if (!(lotWidth > 0) || !(lotDepth > 0)) {
+  if (!(lotDepth > 0)) {
     return [];
   }
 
@@ -124,17 +266,16 @@ export function subdivideBlockIntoLots({
   const frontLine = turf.lineString([frontStart, frontEnd]);
   const frontLengthM = turf.length(frontLine, { units: 'meters' });
 
-  if (frontLengthM < lotWidth) {
-    return buildLotsFromSlices({
-      blockPolygon,
-      frontStart,
-      frontEnd,
-      frontLengthM,
-      sliceWidth: frontLengthM,
-      lotDepth,
-      maxLots: 1,
-      invertDepth,
-    });
+  const { widths: sliceWidths } = resolveSliceWidths(frontLengthM, {
+    widthMode,
+    lotWidth,
+    customWidths,
+    remainderSide,
+    maxLots,
+  });
+
+  if (!sliceWidths.length) {
+    return [];
   }
 
   return buildLotsFromSlices({
@@ -142,9 +283,8 @@ export function subdivideBlockIntoLots({
     frontStart,
     frontEnd,
     frontLengthM,
-    sliceWidth: lotWidth,
+    sliceWidths,
     lotDepth,
-    maxLots,
     invertDepth,
   });
 }
@@ -186,9 +326,8 @@ function buildLotsFromSlices({
   frontStart,
   frontEnd,
   frontLengthM,
-  sliceWidth,
+  sliceWidths,
   lotDepth,
-  maxLots,
   invertDepth = false,
 }) {
   const lots = [];
@@ -205,11 +344,13 @@ function buildLotsFromSlices({
     invertDepth,
   );
 
-  const sliceCount = Math.min(maxLots, Math.ceil(frontLengthM / sliceWidth));
+  let distCursor = 0;
 
-  for (let i = 0; i < sliceCount; i += 1) {
-    const distStart = i * sliceWidth;
-    const distEnd = Math.min((i + 1) * sliceWidth, frontLengthM);
+  for (let i = 0; i < sliceWidths.length; i += 1) {
+    const sliceWidth = sliceWidths[i];
+    const distStart = distCursor;
+    const distEnd = Math.min(distStart + sliceWidth, frontLengthM);
+
     if (distEnd - distStart < 0.5) {
       break;
     }
@@ -242,6 +383,7 @@ function buildLotsFromSlices({
         }
         clipped = turf.area(finalLot) < turf.area(rawLot) - 1;
       } else {
+        distCursor = distEnd;
         continue;
       }
     } catch {
@@ -250,6 +392,7 @@ function buildLotsFromSlices({
 
     const areaM2 = Math.round(turf.area(finalLot));
     if (areaM2 < 1) {
+      distCursor = distEnd;
       continue;
     }
 
@@ -265,6 +408,8 @@ function buildLotsFromSlices({
       depthMeters: lotDepth,
       clipped,
     });
+
+    distCursor = distEnd;
   }
 
   return lots;
