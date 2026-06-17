@@ -23,6 +23,66 @@ function fromGeoJsonRing(ring) {
   return ring.map(([lng, lat]) => [Number(lat), Number(lng)]);
 }
 
+function isLatLngRing(value) {
+  return Array.isArray(value)
+    && value.length >= 3
+    && Array.isArray(value[0])
+    && value[0].length >= 2
+    && typeof value[0][0] === 'number'
+    && typeof value[0][1] === 'number';
+}
+
+function isLatLngPolygonWithHoles(value) {
+  return Array.isArray(value)
+    && value.length >= 2
+    && isLatLngRing(value[0])
+    && isLatLngRing(value[1]);
+}
+
+/**
+ * Converte anéis GeoJSON [lng,lat] em formato Leaflet (com furos quando existirem).
+ * @param {Array<Array<[number, number]>>} lngLatRings
+ * @returns {Array<[number, number]> | Array<Array<[number, number]>> | null}
+ */
+function geoJsonPolygonToLeafletLatLngs(lngLatRings) {
+  if (!Array.isArray(lngLatRings) || !lngLatRings.length) {
+    return null;
+  }
+
+  const rings = lngLatRings
+    .map((ring) => fromGeoJsonRing(ring))
+    .filter((ring) => ring.length >= 3);
+
+  if (!rings.length) {
+    return null;
+  }
+
+  if (rings.length === 1) {
+    return rings[0];
+  }
+
+  return rings;
+}
+
+function bufferedGeometryToLatLngRings(buffered) {
+  if (!buffered) {
+    return [];
+  }
+
+  if (buffered.type === 'Polygon') {
+    const latLngs = geoJsonPolygonToLeafletLatLngs(buffered.coordinates);
+    return latLngs ? [latLngs] : [];
+  }
+
+  if (buffered.type === 'MultiPolygon') {
+    return buffered.coordinates
+      .map((polygonRings) => geoJsonPolygonToLeafletLatLngs(polygonRings))
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
 function projectCoords(coords, projection) {
   if (typeof coords[0] !== 'object') {
     return projection(coords);
@@ -91,22 +151,6 @@ function bufferGeoJsonLines(lineStringsLngLat, radiusMeters, steps, endCapStyle)
     type: result.type,
     coordinates: unprojectCoords(result.coordinates, projection),
   };
-}
-
-function bufferedGeometryToLatLngRings(buffered) {
-  if (!buffered) {
-    return [];
-  }
-
-  if (buffered.type === 'Polygon') {
-    return [fromGeoJsonRing(buffered.coordinates[0])];
-  }
-
-  if (buffered.type === 'MultiPolygon') {
-    return buffered.coordinates.map((polygon) => fromGeoJsonRing(polygon[0]));
-  }
-
-  return [];
 }
 
 function distanceMetersBetweenLatLng(a, b) {
@@ -292,11 +336,13 @@ export function buildStreetNetworkVisualRings(streets) {
 
     widthGroups.forEach(({ width, cap, centerlines }) => {
       const snapped = snapStreetCenterlinesAtJunctions(centerlines);
-      const geoLines = snapped.map((line) => toGeoJsonLine(line));
       const steps = cap === 'square' ? 2 : 8;
       const endCapStyle = cap === 'square' ? END_CAP_FLAT : END_CAP_ROUND;
-      const buffered = bufferGeoJsonLines(geoLines, width / 2, steps, endCapStyle);
-      rings = rings.concat(bufferedGeometryToLatLngRings(buffered));
+
+      snapped.forEach((line) => {
+        const buffered = bufferGeoJsonLines([toGeoJsonLine(line)], width / 2, steps, endCapStyle);
+        rings = rings.concat(bufferedGeometryToLatLngRings(buffered));
+      });
     });
   } else if (withCenterline.length === 1) {
     rings = rings.concat(collectStreetVisualRings(withCenterline));
@@ -363,11 +409,7 @@ export function centerlineLengthMeters(centerlineLatLng) {
   return Math.round(turf.length(line, { units: 'meters' }));
 }
 
-function latLngRingToTurfPolygon(ringLatLng) {
-  if (!Array.isArray(ringLatLng) || ringLatLng.length < 3) {
-    return null;
-  }
-
+function latLngRingToGeoJsonCoords(ringLatLng) {
   const coords = ringLatLng.map(([lat, lng]) => [Number(lng), Number(lat)]);
   const first = coords[0];
   const last = coords[coords.length - 1];
@@ -375,6 +417,16 @@ function latLngRingToTurfPolygon(ringLatLng) {
   if (first[0] !== last[0] || first[1] !== last[1]) {
     coords.push(first);
   }
+
+  return coords;
+}
+
+function latLngRingToTurfPolygon(ringLatLng) {
+  if (!isLatLngRing(ringLatLng)) {
+    return null;
+  }
+
+  const coords = latLngRingToGeoJsonCoords(ringLatLng);
 
   if (coords.length < 4) {
     return null;
@@ -387,9 +439,22 @@ function latLngRingToTurfPolygon(ringLatLng) {
   }
 }
 
+function leafletLatLngsToTurfFeature(latLngs) {
+  if (isLatLngPolygonWithHoles(latLngs)) {
+    try {
+      const coords = latLngs.map((ring) => latLngRingToGeoJsonCoords(ring));
+      return turf.polygon(coords);
+    } catch {
+      return null;
+    }
+  }
+
+  return latLngRingToTurfPolygon(latLngs);
+}
+
 /**
  * @param {import('@turf/helpers').Feature<import('@turf/helpers').Polygon | import('@turf/helpers').MultiPolygon>} feature
- * @returns {Array<Array<[number, number]>>}
+ * @returns {Array<Array<[number, number]> | Array<Array<[number, number]>>>}
  */
 function turfPolygonFeatureToLatLngRings(feature) {
   const geometry = feature?.geometry;
@@ -398,14 +463,14 @@ function turfPolygonFeatureToLatLngRings(feature) {
   }
 
   if (geometry.type === 'Polygon') {
-    const ring = geometry.coordinates[0]?.map(([lng, lat]) => [Number(lat), Number(lng)]) ?? [];
-    return ring.length >= 3 ? [ring] : [];
+    const latLngs = geoJsonPolygonToLeafletLatLngs(geometry.coordinates);
+    return latLngs ? [latLngs] : [];
   }
 
   if (geometry.type === 'MultiPolygon') {
     return geometry.coordinates
-      .map((polygon) => polygon[0]?.map(([lng, lat]) => [Number(lat), Number(lng)]) ?? [])
-      .filter((ring) => ring.length >= 3);
+      .map((polygonRings) => geoJsonPolygonToLeafletLatLngs(polygonRings))
+      .filter(Boolean);
   }
 
   return [];
@@ -419,7 +484,7 @@ function turfPolygonFeatureToLatLngRings(feature) {
  */
 export function mergeStreetPolygons(rings) {
   const features = (rings ?? [])
-    .map((ring) => latLngRingToTurfPolygon(ring))
+    .map((ring) => leafletLatLngsToTurfFeature(ring))
     .filter(Boolean);
 
   if (!features.length) {
