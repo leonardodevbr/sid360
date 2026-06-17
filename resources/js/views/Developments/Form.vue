@@ -732,20 +732,31 @@
         </div>
       </div>
 
-      <div v-if="isEdit" class="card space-y-4 overflow-hidden p-4 sm:p-5">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p class="text-sm font-semibold text-slate-700">Ruas do loteamento</p>
+      <div v-if="isEdit" class="card overflow-hidden">
+        <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:px-5">
           <button
             type="button"
-            class="flex w-full items-center justify-center gap-1.5 rounded-lg bg-slate-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 sm:w-auto"
-            @click="openStreetForm"
+            class="flex min-w-0 flex-1 items-center gap-2 text-left hover:opacity-80"
+            @click="streetsSectionExpanded = !streetsSectionExpanded"
+          >
+            <ChevronDownIcon
+              class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200"
+              :class="{ '-rotate-90': !streetsSectionExpanded }"
+            />
+            <p class="text-sm font-semibold text-slate-700">Ruas do loteamento</p>
+            <span class="text-xs text-slate-400">{{ streets.length }} rua(s)</span>
+          </button>
+          <button
+            type="button"
+            class="flex shrink-0 items-center gap-1.5 rounded-lg bg-slate-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
+            @click.stop="openStreetForm"
           >
             <PlusIcon class="h-3.5 w-3.5" />
             Nova rua
           </button>
         </div>
 
-        <div v-if="streets.length" class="space-y-2">
+        <div v-show="streetsSectionExpanded" class="space-y-2 p-4 sm:p-5">
           <div
             v-for="street in streets"
             :key="street.id"
@@ -799,39 +810,60 @@
               </button>
             </div>
           </div>
+          <p v-if="!streets.length" class="text-xs text-slate-400">Nenhuma rua cadastrada ainda.</p>
         </div>
-        <p v-else class="text-xs text-slate-400">Nenhuma rua cadastrada ainda.</p>
       </div>
 
-      <div v-if="isEdit" class="card space-y-4 overflow-hidden p-4 sm:p-5">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p class="text-sm font-semibold text-slate-700">
-            Zonas (quadras / conjuntos / ruas)
-          </p>
+      <div v-if="isEdit" class="card overflow-hidden">
+        <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:px-5">
           <button
             type="button"
-            class="flex w-full items-center justify-center gap-1.5 rounded-lg bg-action px-3 py-1.5 text-xs font-semibold text-white hover:bg-action-hover sm:w-auto"
-            @click="openZoneForm"
+            class="flex min-w-0 flex-1 items-center gap-2 text-left hover:opacity-80"
+            @click="zonesSectionExpanded = !zonesSectionExpanded"
+          >
+            <ChevronDownIcon
+              class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200"
+              :class="{ '-rotate-90': !zonesSectionExpanded }"
+            />
+            <p class="text-sm font-semibold text-slate-700">
+              Zonas (setor / conjunto / quadra)
+            </p>
+            <span class="text-xs text-slate-400">{{ zones.length }} zona(s)</span>
+          </button>
+          <button
+            type="button"
+            class="flex shrink-0 items-center gap-1.5 rounded-lg bg-action px-3 py-1.5 text-xs font-semibold text-white hover:bg-action-hover"
+            @click.stop="openZoneForm"
           >
             <PlusIcon class="h-3.5 w-3.5" />
             Nova zona
           </button>
         </div>
 
-        <div v-if="zones.length" class="space-y-2">
+        <div v-show="zonesSectionExpanded" class="space-y-2 p-4 sm:p-5">
+          <p class="text-[11px] leading-snug text-slate-400">
+            Ordem hierárquica: setor engloba conjuntos e quadras. Use zona pai ao cadastrar ou editar.
+          </p>
+
           <div
-            v-for="zone in zones"
+            v-for="{ zone, depth } in hierarchicalZones"
             :key="zone.id"
             class="resource-list-item flex flex-col gap-3 rounded-lg border border-slate-200 p-3 sm:flex-row sm:items-center sm:gap-3 sm:py-2.5"
+            :class="depth > 0 ? 'border-slate-100 bg-slate-50/60' : ''"
           >
-            <div class="flex min-w-0 items-start gap-3 sm:flex-1">
+            <div class="flex min-w-0 items-start gap-3 sm:flex-1" :style="{ paddingLeft: `${depth * 18}px` }">
+              <div
+                v-if="depth > 0"
+                class="mt-2 h-px w-3 shrink-0 bg-slate-300"
+                aria-hidden="true"
+              />
               <div class="mt-1 h-3 w-3 shrink-0 rounded-full" :style="{ background: zone.color }" />
               <div class="min-w-0 flex-1">
                 <p class="text-sm font-semibold tracking-wide text-slate-800">{{ buildZoneTitleLabel(zone) }}</p>
                 <p class="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-slate-400">
                   <span class="whitespace-nowrap">{{ zoneTypeLabel(zone.type) }}</span>
-                  <span v-if="zone.parent_zone_id" class="whitespace-nowrap">
-                    · dentro de <strong>{{ zones.find((item) => item.id === zone.parent_zone_id)?.name }}</strong>
+                  <span v-if="getZoneParentName(zones, zone)" class="whitespace-nowrap">
+                    · em <strong>{{ getZoneParentName(zones, zone) }}</strong>
                   </span>
                   <span class="whitespace-nowrap">· {{ zoneLotsCount(zone) }} lote(s)</span>
                   <span v-if="zone.coordinates?.length >= 3" class="whitespace-nowrap text-emerald-600">· área definida</span>
@@ -875,8 +907,8 @@
               </button>
             </div>
           </div>
+          <p v-if="!zones.length" class="text-xs text-slate-400">Nenhuma zona cadastrada ainda.</p>
         </div>
-        <p v-else class="text-xs text-slate-400">Nenhuma zona cadastrada ainda.</p>
       </div>
 
       <div v-if="isEdit" class="card space-y-3 p-5">
@@ -924,11 +956,14 @@
           v-model="zoneForm.parent_zone_id"
           label="Zona pai"
           :options="parentZoneOptions"
-          placeholder="Nenhuma (zona independente)"
+          placeholder="Nenhuma (zona de nível superior)"
           :searchable="false"
         />
         <p v-if="parentZoneOptions.length" class="text-xs text-slate-400">
-          Opcional — ex: Setor dentro de uma Quadra
+          Opcional — ex: Conjunto ou Quadra dentro de um Setor; Quadra dentro de um Conjunto.
+        </p>
+        <p v-else-if="zoneForm.type === 'setor'" class="text-xs text-slate-400">
+          Setores ficam no topo da hierarquia e não possuem zona pai.
         </p>
         <div>
           <label class="mb-1 block text-xs font-medium text-slate-600">Cor no mapa</label>
@@ -1246,8 +1281,13 @@ import {
 import {
   buildZoneMetaLabel,
   buildZoneTitleLabel,
+  buildZoneHierarchyList,
   canGenerateLotsInZone,
   generateLotsBlockedReason,
+  getValidParentZones,
+  getZoneParentName,
+  getZoneTypeRank,
+  ZONE_TYPE_OPTIONS,
   zoneTypeLabel as zoneTypeLabelHelper,
 } from '@/utils/zone';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
@@ -1270,7 +1310,7 @@ import Button from '@/components/Common/Button.vue';
 import Modal from '@/components/Common/Modal.vue';
 import CurrencyInput from '@/components/Common/CurrencyInput.vue';
 import MediaGallery from '@/components/Common/MediaGallery.vue';
-import { ArrowLeftIcon, ArrowUturnLeftIcon, ArrowsPointingInIcon, ArrowsPointingOutIcon, MapIcon, MapPinIcon, PlusIcon, RectangleGroupIcon, Squares2X2Icon, TagIcon, XMarkIcon } from '@heroicons/vue/24/outline';
+import { ArrowLeftIcon, ArrowUturnLeftIcon, ArrowsPointingInIcon, ArrowsPointingOutIcon, ChevronDownIcon, MapIcon, MapPinIcon, PlusIcon, RectangleGroupIcon, Squares2X2Icon, TagIcon, XMarkIcon } from '@heroicons/vue/24/outline';
 
 const route = useRoute();
 const router = useRouter();
@@ -3163,6 +3203,8 @@ async function confirmClearZone(zone) {
 }
 
 const zones = ref([]);
+const streetsSectionExpanded = ref(false);
+const zonesSectionExpanded = ref(false);
 const streets = ref([]);
 const lots = ref([]);
 const visibleZoneNameTypes = ref([]);
@@ -3206,16 +3248,23 @@ const zoneColors = [
   '#78716C',
 ];
 
-const zoneTypeOptions = [
-  { value: 'quadra', label: 'Quadra' },
-  { value: 'conjunto', label: 'Conjunto' },
-  { value: 'setor', label: 'Setor' },
-  { value: 'rua', label: 'Rua' },
-  { value: 'outro', label: 'Outro' },
-];
+const zoneTypeOptions = ZONE_TYPE_OPTIONS;
 
 const zoneForm = reactive({ name: '', type: 'quadra', color: '#3B82F6', parent_zone_id: '' });
 const zoneFormErrors = reactive({ name: '', type: '' });
+
+watch(
+  () => zoneForm.type,
+  () => {
+    const isValidParent = parentZoneOptions.value.some(
+      (option) => option.value === zoneForm.parent_zone_id,
+    );
+
+    if (!isValidParent) {
+      zoneForm.parent_zone_id = '';
+    }
+  },
+);
 const streetForm = ref({ name: '', color: defaultStreetColor, width: 10, end_cap: 'round' });
 
 const streetEndCapOptions = [
@@ -3392,17 +3441,22 @@ function buildStreetFormPayload() {
 }
 
 const parentZoneOptions = computed(() =>
-  zones.value
-    .filter((zone) =>
-      ['quadra', 'conjunto'].includes(zone.type)
-      && !zone.parent_zone_id
-      && zone.id !== editingZone.value?.id,
-    )
+  getValidParentZones(zones.value, zoneForm.type, editingZone.value?.id ?? null)
+    .sort((a, b) => {
+      const rankDiff = getZoneTypeRank(a.type) - getZoneTypeRank(b.type);
+      if (rankDiff !== 0) {
+        return rankDiff;
+      }
+
+      return String(a.name).localeCompare(String(b.name), 'pt-BR', { sensitivity: 'base', numeric: true });
+    })
     .map((zone) => ({
       value: String(zone.id),
       label: `${buildZoneTitleLabel(zone)} (${zoneTypeLabel(zone.type)})`,
     })),
 );
+
+const hierarchicalZones = computed(() => buildZoneHierarchyList(zones.value));
 
 function zoneTypeLabel(type) {
   return zoneTypeLabelHelper(type);
