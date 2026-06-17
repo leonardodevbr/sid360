@@ -4963,6 +4963,8 @@ async function doGenerateGeometricLots() {
         lots: previewLots.value.map((l) => ({
           coordinates: l.coordinates,
           area_computed: l.area,
+          width_meters: l.widthMeters,
+          depth_meters: l.depthMeters,
         })),
       },
     );

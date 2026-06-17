@@ -184,21 +184,19 @@ class DevelopmentZoneController extends Controller
             'lots.*.coordinates' => ['required', 'array', 'min:3'],
             'lots.*.coordinates.*' => ['array', 'size:2'],
             'lots.*.area_computed' => ['nullable', 'numeric', 'min:0'],
+            'lots.*.width_meters' => ['nullable', 'numeric', 'min:0'],
+            'lots.*.depth_meters' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $startFrom = (int) ($data['start_from'] ?? 1);
         $pattern = $data['pattern'] ?? $development->lot_number_pattern ?? '{zona}-L{numero2}';
-
-        $sizeLabel = ($data['lot_width'] ?? null) && ($data['lot_depth'] ?? null)
-            ? rtrim(rtrim((string) $data['lot_width'], '0'), '.') . '×' . rtrim(rtrim((string) $data['lot_depth'], '0'), '.')
-            : null;
 
         $lastNumber = Lot::query()->where('zone_id', $zone->id)->max('number');
         $nextNumber = $lastNumber ? ((int) preg_replace('/\D/', '', $lastNumber) + 1) : $startFrom;
 
         $created = [];
 
-        DB::transaction(function () use ($data, $development, $zone, $pattern, $nextNumber, $sizeLabel, &$created): void {
+        DB::transaction(function () use ($data, $development, $zone, $pattern, $nextNumber, &$created): void {
             foreach (array_values($data['lots']) as $i => $lotData) {
                 $num = $nextNumber + $i;
 
@@ -211,6 +209,11 @@ class DevelopmentZoneController extends Controller
                         str_pad((string) $num, 3, '0', STR_PAD_LEFT),
                     ],
                     $pattern,
+                );
+
+                $sizeLabel = $this->buildLotSizeLabel(
+                    $lotData['width_meters'] ?? $data['lot_width'] ?? null,
+                    $lotData['depth_meters'] ?? $data['lot_depth'] ?? null,
                 );
 
                 $created[] = Lot::query()->create([
@@ -233,5 +236,36 @@ class DevelopmentZoneController extends Controller
             'created' => count($created),
             'lots' => $created,
         ], 201);
+    }
+
+    private function formatLotMeasurement(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $numeric = (float) $value;
+
+        if ($numeric <= 0 || ! is_finite($numeric)) {
+            return null;
+        }
+
+        if (abs($numeric - round($numeric)) < 0.001) {
+            return (string) (int) round($numeric);
+        }
+
+        return rtrim(rtrim(number_format($numeric, 2, '.', ''), '0'), '.');
+    }
+
+    private function buildLotSizeLabel(mixed $width, mixed $depth): ?string
+    {
+        $widthLabel = $this->formatLotMeasurement($width);
+        $depthLabel = $this->formatLotMeasurement($depth);
+
+        if ($widthLabel === null || $depthLabel === null) {
+            return null;
+        }
+
+        return "{$widthLabel}×{$depthLabel}m";
     }
 }
