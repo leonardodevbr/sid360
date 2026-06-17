@@ -216,10 +216,11 @@ class ProcessWhatsappBotMessageAction
     ): void {
         $this->whatsapp->sendAndRecord(
             phone: $phone,
-            message: WhatsappBotMessageFooter::append($message),
+            message: $message,
             type: $type,
             clientId: $client->id,
             meta: $meta,
+            wppconnectOptions: WhatsappBotMessageFooter::wppconnectOptions(),
         );
 
         $this->conversationState->touchOutbound($state);

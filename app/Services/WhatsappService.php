@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Log;
 
 class WhatsappService
 {
-    public function send(string $phone, string $message): bool
+    public function send(string $phone, string $message, ?array $wppconnectOptions = null): bool
     {
         $recipient = $this->formatRecipient($phone);
 
@@ -28,13 +28,20 @@ class WhatsappService
             return false;
         }
 
+        $payload = [
+            'phone' => $recipient,
+            'message' => $message,
+            'isGroup' => false,
+        ];
+
+        if ($wppconnectOptions !== null && $wppconnectOptions !== []) {
+            $payload['options'] = $wppconnectOptions;
+        }
+
         try {
             $response = Http::timeout(WppconnectConfig::timeout())
                 ->withToken($config['token'])
-                ->post("{$config['base_url']}/api/{$config['session']}/send-message", [
-                    'phone' => $recipient,
-                    'message' => $message,
-                ]);
+                ->post("{$config['base_url']}/api/{$config['session']}/send-message", $payload);
 
             if (! $response->successful()) {
                 Log::warning('WhatsappService::send failed', [
@@ -386,9 +393,10 @@ class WhatsappService
         int|string|null $installmentId = null,
         int|string|null $saleId = null,
         int|string|null $clientId = null,
-        array $meta = []
+        array $meta = [],
+        ?array $wppconnectOptions = null,
     ): bool {
-        $sent = $this->send($phone, $message);
+        $sent = $this->send($phone, $message, $wppconnectOptions);
 
         InstallmentInteraction::create([
             'installment_id' => $installmentId !== null ? (int) $installmentId : null,
@@ -398,7 +406,10 @@ class WhatsappService
             'direction' => InstallmentInteraction::DIR_OUTBOUND,
             'type' => $type,
             'message' => $message,
-            'meta' => array_merge($meta, ['sent' => $sent]),
+            'meta' => array_merge($meta, [
+                'sent' => $sent,
+                'wppconnect_options' => $wppconnectOptions,
+            ]),
         ]);
 
         return $sent;

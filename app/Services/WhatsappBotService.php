@@ -475,13 +475,12 @@ class WhatsappBotService
 
         $this->whatsapp->sendAndRecord(
             phone: $phone,
-            message: WhatsappBotMessageFooter::append(
-                "Olá, *{$client->name}*! Segue o PDF do *{$documentLabel}* do contrato *{$contractNo}*.",
-            ),
+            message: "Olá, *{$client->name}*! Segue o PDF do *{$documentLabel}* do contrato *{$contractNo}*.",
             type: InstallmentInteraction::TYPE_BOT_RESPONSE,
             saleId: $sale->id,
             clientId: $client->id,
             meta: ['command' => $command, 'step' => 'document_intro'],
+            wppconnectOptions: WhatsappBotMessageFooter::wppconnectOptions(),
         );
 
         $this->conversationState->touchOutbound($state);
@@ -678,12 +677,13 @@ class WhatsappBotService
 
         $this->whatsapp->sendAndRecord(
             phone: $phone,
-            message: WhatsappBotMessageFooter::append($message),
+            message: $message,
             type: InstallmentInteraction::TYPE_BOT_RESPONSE,
             installmentId: $installmentId,
             saleId: $saleId,
             clientId: $client->id,
             meta: ['command' => $command],
+            wppconnectOptions: WhatsappBotMessageFooter::wppconnectOptions(),
         );
 
         $this->conversationState->touchOutbound($state);
