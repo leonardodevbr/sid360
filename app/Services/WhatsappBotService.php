@@ -14,6 +14,7 @@ use App\Models\InstallmentInteraction;
 use App\Models\Sale;
 use App\Models\Setting;
 use App\Models\WhatsappConversationState;
+use App\Support\ClientDisplayName;
 use App\Support\WhatsappBotMenuButtons;
 use App\Support\WhatsappBotMessageFooter;
 use Illuminate\Support\Facades\Log;
@@ -175,7 +176,7 @@ class WhatsappBotService
             : '';
 
         $description = $prefix.implode("\n", [
-            "Olá, *{$client->name}*! Sou o assistente *Sid360*.",
+            "Olá, *{$this->clientShortName($client)}*! Sou o assistente *Sid360*.",
             '',
             'Toque no botão abaixo e escolha o que precisa.',
             '',
@@ -212,7 +213,7 @@ class WhatsappBotService
         );
 
         $message = $prefix.$this->whatsapp->interpolate($template, [
-            'nome' => $client->name,
+            'nome' => $this->clientShortName($client),
             'portal_url' => $this->portalUrl(),
         ]);
 
@@ -227,7 +228,7 @@ class WhatsappBotService
             $this->sendBotResponse(
                 $client,
                 $phone,
-                "✅ *{$client->name}*, não encontramos parcelas em aberto nos seus contratos.\n\nPortal: {$this->portalUrl()}",
+                '✅ Não encontramos parcelas em aberto nos seus contratos.'."\n\nPortal: {$this->portalUrl()}",
                 self::COMMAND_PAYMENT,
                 state: $state,
             );
@@ -248,6 +249,8 @@ class WhatsappBotService
         );
 
         if ($pixSent || ($boleto['ok'] ?? false)) {
+            $this->sendServiceContinuation($client, $phone, self::COMMAND_PAYMENT, $state, $installment->sale_id);
+
             return;
         }
 
@@ -270,7 +273,7 @@ class WhatsappBotService
             str_contains(mb_strtolower($boletoError), 'limite')
             || str_contains(mb_strtolower($boletoError), 'máximo')
         )) {
-            return "⚠️ *{$client->name}*, o boleto não pôde ser gerado:\n{$boletoError}\n\n"
+            return "⚠️ O boleto não pôde ser gerado:\n{$boletoError}\n\n"
                 ."O PIX pode ter sido enviado acima (se disponível).\n\n"
                 ."Portal: {$portalUrl}\n\nOu digite *atendimento*.";
         }
@@ -286,7 +289,7 @@ class WhatsappBotService
             $this->sendBotResponse(
                 $client,
                 $phone,
-                "Não encontramos contratos ativos para *{$client->name}*.\n\nFale com a corretora se acredita que isso é um erro.",
+                'Não encontramos contratos ativos.'."\n\nFale com a corretora se acredita que isso é um erro.",
                 self::COMMAND_BALANCE,
                 state: $state,
             );
@@ -334,16 +337,17 @@ class WhatsappBotService
             $this->sendBotResponse(
                 $client,
                 $phone,
-                "✅ *{$client->name}*, todas as parcelas estão em dia. Obrigado!",
+                '✅ Todas as parcelas estão em dia. Obrigado!',
                 self::COMMAND_BALANCE,
                 state: $state,
             );
+            $this->sendServiceContinuation($client, $phone, self::COMMAND_BALANCE, $state);
 
             return;
         }
 
         $message = implode("\n", array_merge(
-            ["📋 *Saldo de {$client->name}* ({$today->format('d/m/Y')})", ''],
+            ['📋 *Saldo de parcelas* ('.$today->format('d/m/Y').')', ''],
             $lines,
             [
                 'Para pagar agora, digite *2ª via*, *quero pagar* ou *manda o pix*.',
@@ -352,6 +356,7 @@ class WhatsappBotService
         ));
 
         $this->sendBotResponse($client, $phone, $message, self::COMMAND_BALANCE, state: $state);
+        $this->sendServiceContinuation($client, $phone, self::COMMAND_BALANCE, $state);
     }
 
     private function handleStatement(Client $client, string $phone, WhatsappConversationState $state): void
@@ -362,7 +367,7 @@ class WhatsappBotService
             $this->sendBotResponse(
                 $client,
                 $phone,
-                "Não encontramos contratos ativos para *{$client->name}*.",
+                'Não encontramos contratos ativos.',
                 self::COMMAND_STATEMENT,
                 state: $state,
             );
@@ -370,7 +375,7 @@ class WhatsappBotService
             return;
         }
 
-        $lines = ["📄 *Extrato — {$client->name}*", ''];
+        $lines = ['📄 *Extrato de pagamentos*', ''];
 
         foreach ($sales as $sale) {
             $paid = $sale->installments
@@ -404,6 +409,7 @@ class WhatsappBotService
         $lines[] = "Extrato completo: {$this->portalUrl()}";
 
         $this->sendBotResponse($client, $phone, implode("\n", $lines), self::COMMAND_STATEMENT, state: $state);
+        $this->sendServiceContinuation($client, $phone, self::COMMAND_STATEMENT, $state);
     }
 
     private function handleContract(
@@ -474,7 +480,7 @@ class WhatsappBotService
             $this->sendBotResponse(
                 $client,
                 $phone,
-                "Não encontramos contratos ativos para *{$client->name}*.",
+                'Não encontramos contratos ativos.',
                 $command,
                 state: $state,
             );
@@ -509,7 +515,7 @@ class WhatsappBotService
 
         $this->whatsapp->sendAndRecord(
             phone: $phone,
-            message: "Olá, *{$client->name}*! Segue o PDF do *{$documentLabel}* do contrato *{$contractNo}*.",
+            message: "Segue o PDF do *{$documentLabel}* do contrato *{$contractNo}*.",
             type: InstallmentInteraction::TYPE_BOT_RESPONSE,
             saleId: $sale->id,
             clientId: $client->id,
@@ -543,7 +549,11 @@ class WhatsappBotService
                 saleId: $sale->id,
                 state: $state,
             );
+
+            return;
         }
+
+        $this->sendServiceContinuation($client, $phone, $command, $state, $sale->id);
     }
 
     private function handleSupport(
@@ -556,7 +566,7 @@ class WhatsappBotService
         $sale = $sales->first();
         $sidDisplay = $this->sidPhoneDisplay();
 
-        $message = "📞 *{$client->name}*, o corretor Sid foi notificado e entrará em contato em breve.\n\n"
+        $message = "📞 O corretor Sid foi notificado e entrará em contato em breve.\n\n"
             ."Nas próximas 24 horas, o assistente automático ficará pausado.\n\n"
             ."Ou chame diretamente:\n📱 *{$this->sidWaMeLink()}*\n\n_Sid360 Imóveis · {$sidDisplay}_";
 
@@ -567,7 +577,7 @@ class WhatsappBotService
             : '';
 
         $this->whatsapp->notifySid(
-            message: "🤝 *{$client->name}* solicitou atendimento via bot.\n{$contractInfo}Fone: {$client->phone}\n\n⚡ Responda logo!",
+            message: '🤝 *'.$this->clientShortName($client).'* solicitou atendimento via bot.'."\n{$contractInfo}Fone: {$client->phone}\n\n⚡ Responda logo!",
             saleId: $sale?->id,
             clientId: $client->id,
             relatedClientPhone: (string) $client->phone,
@@ -696,6 +706,29 @@ class WhatsappBotService
         }
 
         return $digits;
+    }
+
+    private function sendServiceContinuation(
+        Client $client,
+        string $phone,
+        string $command,
+        ?WhatsappConversationState $state = null,
+        ?int $saleId = null,
+    ): void {
+        $this->sendBotResponse(
+            client: $client,
+            phone: $phone,
+            message: "Precisa de mais alguma coisa?\n\n"
+                ."Digite *menu* para ver outros serviços ou *atendimento* para falar com o Sid.",
+            command: $command.'_continuation',
+            saleId: $saleId,
+            state: $state,
+        );
+    }
+
+    private function clientShortName(Client $client): string
+    {
+        return ClientDisplayName::short((string) $client->name);
     }
 
     private function sendBotResponse(

@@ -127,7 +127,7 @@ class ProcessWhatsappBotMessageAction
         $this->sendAutomaticMessage(
             $client,
             $phone,
-            "✅ *{$client->name}*, a assistência automática foi pausada.\n\nQuando quiser retomar, digite *INICIAR*, *MENU* ou *VOLTAR*.",
+            "✅ A assistência automática foi pausada.\n\nQuando quiser retomar, digite *INICIAR*, *MENU* ou *VOLTAR*.",
             InstallmentInteraction::TYPE_BOT_PAUSE,
             $state,
             ['command' => WhatsappCommandParser::COMMAND_PAUSE],

@@ -7,6 +7,7 @@ namespace App\Actions\Installment;
 use App\Models\Installment;
 use App\Models\InstallmentInteraction;
 use App\Models\Sale;
+use App\Support\ClientDisplayName;
 use App\Services\WhatsappService;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -27,8 +28,9 @@ class SendInstallmentPixWhatsappAction
         $installment->loadMissing(['sale.client']);
 
         $pixCode = trim((string) ($installment->efi_pix_copia_cola ?? ''));
+        $qrCode = trim((string) ($installment->efi_pix_qrcode ?? ''));
 
-        if ($regenerate || $pixCode === '') {
+        if ($regenerate || $pixCode === '' || $qrCode === '') {
             try {
                 $this->generatePix->execute($installment);
                 $installment->refresh();
@@ -48,12 +50,20 @@ class SendInstallmentPixWhatsappAction
             return false;
         }
 
+        $qrCode = trim((string) ($installment->efi_pix_qrcode ?? ''));
+
+        if ($qrCode === '') {
+            Log::warning('SendInstallmentPixWhatsappAction: PIX without QR image', [
+                'installment_id' => $installment->id,
+            ]);
+        }
+
         $sale = $installment->sale;
         $client = $sale->client;
         $contractNo = $this->contractNumber($sale);
 
         $message = $this->whatsapp->buildPixPaymentMessage(
-            clientName: (string) $client->name,
+            clientName: ClientDisplayName::short((string) $client->name),
             contractNo: $contractNo,
             installment: $installment,
             pixCopyPaste: $pixCode,
@@ -67,7 +77,7 @@ class SendInstallmentPixWhatsappAction
         return $this->whatsapp->sendPixAndRecord(
             phone: $phone,
             message: $message,
-            qrCodeImage: $installment->efi_pix_qrcode,
+            qrCodeImage: $qrCode !== '' ? $qrCode : null,
             type: $interactionType,
             installmentId: $installment->id,
             saleId: $installment->sale_id,

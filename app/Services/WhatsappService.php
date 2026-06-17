@@ -8,6 +8,7 @@ use App\Models\Installment;
 use App\Models\InstallmentInteraction;
 use App\Models\Setting;
 use App\Support\DocumentHelper;
+use App\Support\WhatsappBotMessageFooter;
 use App\Support\WppconnectConfig;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -69,9 +70,9 @@ class WhatsappService
         ?string $caption = null,
         string $filename = 'pix-qrcode.png',
     ): bool {
-        $recipient = $this->formatRecipient($phone);
+        $contacts = $this->phoneAsWppconnectContacts($phone);
 
-        if ($recipient === null) {
+        if ($contacts === []) {
             return false;
         }
 
@@ -81,15 +82,19 @@ class WhatsappService
             return false;
         }
 
-        $base64 = $this->normalizeBase64Payload($base64Image, 'image/png');
+        $base64Raw = $this->normalizeBase64Payload($base64Image, 'image/png');
 
-        if ($base64 === '') {
+        if ($base64Raw === '') {
+            Log::warning('WhatsappService::sendImage empty base64 payload', [
+                'phone' => $contacts,
+            ]);
+
             return false;
         }
 
         $payload = [
-            'phone' => $recipient,
-            'base64' => $base64,
+            'phone' => $contacts,
+            'base64' => $this->normalizeBase64AsDataUri($base64Raw, 'image/png'),
             'filename' => $filename,
             'isGroup' => false,
         ];
@@ -98,30 +103,17 @@ class WhatsappService
             $payload['caption'] = $caption;
         }
 
-        try {
-            $response = Http::timeout(WppconnectConfig::mediaTimeout())
-                ->withToken($config['token'])
-                ->post("{$config['base_url']}/api/{$config['session']}/send-image", $payload);
-
-            if (! $response->successful()) {
-                Log::warning('WhatsappService::sendImage failed', [
-                    'status' => $response->status(),
-                    'phone' => $recipient,
-                    'body' => $response->body(),
-                ]);
-
-                return false;
+        foreach (['send-image', 'send-file-base64'] as $endpoint) {
+            if ($this->postWppconnectMessage($config, $endpoint, $payload)) {
+                return true;
             }
-
-            return true;
-        } catch (\Exception $e) {
-            Log::error('WhatsappService::sendImage exception', [
-                'message' => $e->getMessage(),
-                'phone' => $recipient,
-            ]);
-
-            return false;
         }
+
+        Log::warning('WhatsappService::sendImage failed on all endpoints', [
+            'phone' => $contacts,
+        ]);
+
+        return false;
     }
 
     /**
@@ -137,13 +129,23 @@ class WhatsappService
         int|string|null $clientId = null,
         ?string $imageCaption = null,
         array $meta = [],
+        ?array $wppconnectOptions = null,
     ): bool {
-        $textSent = $this->send($phone, $message);
+        $options = $wppconnectOptions ?? WhatsappBotMessageFooter::wppconnectOptions();
+        $textSent = $this->send($phone, $message, $options);
 
         $imageSent = null;
+        $hasQrcode = $qrCodeImage !== null && trim($qrCodeImage) !== '';
 
-        if ($qrCodeImage !== null && trim($qrCodeImage) !== '') {
+        if ($hasQrcode) {
             $imageSent = $this->sendImage($phone, $qrCodeImage, $imageCaption);
+
+            if (! $imageSent) {
+                Log::warning('WhatsappService::sendPixAndRecord QR image failed', [
+                    'installment_id' => $installmentId,
+                    'phone' => $phone,
+                ]);
+            }
         }
 
         InstallmentInteraction::create([
@@ -158,7 +160,8 @@ class WhatsappService
                 'sent' => $textSent,
                 'text_sent' => $textSent,
                 'image_sent' => $imageSent,
-                'has_qrcode' => $qrCodeImage !== null && trim($qrCodeImage) !== '',
+                'has_qrcode' => $hasQrcode,
+                'wppconnect_options' => $options,
             ]),
         ]);
 
@@ -304,7 +307,7 @@ class WhatsappService
         ?string $fileCaption = null,
         array $meta = [],
     ): array {
-        $textSent = $this->send($phone, $message);
+        $textSent = $this->send($phone, $message, WhatsappBotMessageFooter::wppconnectOptions());
 
         $fileSent = null;
         $hasPdf = ($pdfUrl !== null && trim($pdfUrl) !== '')
@@ -665,8 +668,6 @@ class WhatsappService
         $value = 'R$ '.number_format((int) $installment->value / 100, 2, ',', '.');
 
         return implode("\n", [
-            "Olá, *{$clientName}*!",
-            '',
             "Segue o PIX da *{$parcela}* do contrato *{$contractNo}*:",
             '',
             "Vencimento: *{$dueDate}*",
@@ -675,8 +676,7 @@ class WhatsappService
             '*Código PIX (Copia e Cola):*',
             $pixCopyPaste,
             '',
-            'Qualquer dúvida, estou à disposição.',
-            '_Sid360 Imóveis_',
+            '_Na mensagem seguinte enviamos o QR Code para pagar pelo app do banco._',
         ]);
     }
 
@@ -692,10 +692,12 @@ class WhatsappService
         $value = 'R$ '.number_format((int) $installment->value / 100, 2, ',', '.');
 
         return implode("\n", [
-            "QR Code PIX — {$parcela}",
+            'QR Code PIX',
             "Contrato {$contractNo}",
             "Valor: {$value}",
             "Vencimento: {$dueDate}",
+            '',
+            'Abra o app do banco e escaneie para pagar.',
         ]);
     }
 
@@ -714,8 +716,6 @@ class WhatsappService
         $value = 'R$ '.number_format((int) $installment->value / 100, 2, ',', '.');
 
         $lines = [
-            "Olá, *{$clientName}*!",
-            '',
             "Segue o boleto da *{$parcela}* do contrato *{$contractNo}*:",
             '',
             "Vencimento: *{$dueDate}*",
@@ -818,6 +818,38 @@ class WhatsappService
         }
 
         return "{$recipient}@c.us";
+    }
+
+    /**
+     * @param  array{base_url: string, session: string, token: string}  $config
+     * @param  array<string, mixed>  $payload
+     */
+    private function postWppconnectMessage(array $config, string $endpoint, array $payload): bool
+    {
+        try {
+            $response = Http::timeout(WppconnectConfig::mediaTimeout())
+                ->withToken($config['token'])
+                ->post("{$config['base_url']}/api/{$config['session']}/{$endpoint}", $payload);
+
+            if (! $response->successful()) {
+                Log::warning("WhatsappService::{$endpoint} failed", [
+                    'status' => $response->status(),
+                    'phone' => $payload['phone'] ?? null,
+                    'body' => $response->body(),
+                ]);
+
+                return false;
+            }
+
+            return true;
+        } catch (\Exception $e) {
+            Log::error("WhatsappService::{$endpoint} exception", [
+                'message' => $e->getMessage(),
+                'phone' => $payload['phone'] ?? null,
+            ]);
+
+            return false;
+        }
     }
 
     private function normalizeBase64Payload(string $base64, string $mimeType): string

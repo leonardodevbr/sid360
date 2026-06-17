@@ -6,6 +6,7 @@ namespace App\Actions\Installment;
 
 use App\Models\Installment;
 use App\Models\InstallmentInteraction;
+use App\Support\ClientDisplayName;
 use App\Services\WhatsappService;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -67,7 +68,7 @@ class SendInstallmentBoletoWhatsappAction
         $filename = "boleto-contrato-{$sale->id}-{$parcelLabel}.pdf";
 
         $message = $this->whatsapp->buildBoletoPaymentMessage(
-            clientName: (string) $client->name,
+            clientName: ClientDisplayName::short((string) $client->name),
             contractNo: $contractNo,
             installment: $installment,
             barcode: $installment->efi_barcode,
