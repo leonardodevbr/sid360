@@ -91,6 +91,7 @@ class ProcessWhatsappBotMessageAction
                 'client_id' => $client->id,
                 'body' => $body,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             $this->sendAutomaticMessage(

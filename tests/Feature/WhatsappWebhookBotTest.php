@@ -282,4 +282,54 @@ class WhatsappWebhookBotTest extends TestCase
             'direction' => InstallmentInteraction::DIR_INBOUND,
         ]);
     }
+
+    public function test_webhook_routes_continuation_more_service_to_menu(): void
+    {
+        Setting::query()->create([
+            'key' => 'whatsapp_bot_enabled',
+            'value' => '1',
+            'type' => 'boolean',
+            'group' => 'whatsapp',
+        ]);
+
+        $client = Client::query()->create([
+            'name' => 'Sidclei Souza Rocha',
+            'cpf' => '52998224725',
+            'phone' => '74988230151',
+            'whatsapp_status' => Client::WHATSAPP_STATUS_CONFIRMED,
+        ]);
+
+        InstallmentInteraction::query()->create([
+            'client_id' => $client->id,
+            'phone' => '74988230151',
+            'direction' => InstallmentInteraction::DIR_OUTBOUND,
+            'type' => InstallmentInteraction::TYPE_BOT_RESPONSE,
+            'message' => 'Precisa de mais alguma coisa?',
+            'meta' => [
+                'format' => 'buttons',
+                'interactive' => 'continuation',
+                'command' => 'contract_continuation',
+                'sent' => true,
+            ],
+        ]);
+
+        $whatsapp = Mockery::mock(WhatsappService::class);
+        $whatsapp->shouldReceive('sendListAndRecord')->once()->andReturn(true);
+        $this->app->instance(WhatsappService::class, $whatsapp);
+
+        $this->postJson('/api/whatsapp/webhook?key='.self::WEBHOOK_KEY, [
+            'event' => 'onmessage',
+            'from' => '5574988230151@c.us',
+            'body' => 'Outro serviço',
+            'fromMe' => false,
+            'type' => 'buttons_response',
+            'selectedButtonId' => 'bot_more_service',
+        ])->assertOk();
+
+        $this->assertDatabaseHas('installment_interactions', [
+            'client_id' => $client->id,
+            'type' => InstallmentInteraction::TYPE_BOT_COMMAND,
+            'message' => 'menu',
+        ]);
+    }
 }

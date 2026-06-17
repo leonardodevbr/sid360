@@ -15,6 +15,7 @@ use App\Models\Sale;
 use App\Models\Setting;
 use App\Models\WhatsappConversationState;
 use App\Support\ClientDisplayName;
+use App\Support\WhatsappBotContinuationButtons;
 use App\Support\WhatsappBotMenuButtons;
 use App\Support\WhatsappBotMessageFooter;
 use Illuminate\Support\Facades\Log;
@@ -715,11 +716,40 @@ class WhatsappBotService
         ?WhatsappConversationState $state = null,
         ?int $saleId = null,
     ): void {
+        try {
+            $state ??= $this->conversationState->findOrCreate($phone, $client->id);
+
+            $sent = $this->whatsapp->sendQuickReplyButtonsAndRecord(
+                phone: $phone,
+                message: 'Precisa de mais alguma coisa?',
+                buttons: WhatsappBotContinuationButtons::buttons(),
+                type: InstallmentInteraction::TYPE_BOT_RESPONSE,
+                saleId: $saleId,
+                clientId: $client->id,
+                meta: [
+                    'command' => $command.'_continuation',
+                    'interactive' => 'continuation',
+                ],
+            );
+
+            if ($sent) {
+                $this->conversationState->touchOutbound($state);
+
+                return;
+            }
+        } catch (\Throwable $e) {
+            Log::error('WhatsappBotService::sendServiceContinuation failed', [
+                'client_id' => $client->id,
+                'command' => $command,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
         $this->sendBotResponse(
             client: $client,
             phone: $phone,
             message: "Precisa de mais alguma coisa?\n\n"
-                ."Digite *menu* para ver outros serviços ou *atendimento* para falar com o Sid.",
+                ."Digite *menu* para ver outros serviços ou *sair* para encerrar.",
             command: $command.'_continuation',
             saleId: $saleId,
             state: $state,

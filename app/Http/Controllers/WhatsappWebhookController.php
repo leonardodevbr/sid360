@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Actions\Installment\SendInstallmentBoletoWhatsappAction;
 use App\Actions\Installment\SendInstallmentPixWhatsappAction;
 use App\Actions\Whatsapp\ProcessWhatsappBotMessageAction;
+use App\Support\WhatsappBotContinuationButtons;
 use App\Support\WhatsappBotMenuButtons;
 use App\Support\WhatsappReminderButtons;
 use App\Models\Client;
@@ -64,6 +65,17 @@ class WhatsappWebhookController extends Controller
         $windowHours = (int) Setting::get('whatsapp_reply_window_hours', 48);
         $since = Carbon::now()->subHours($windowHours);
 
+        if ($option !== '' && WhatsappBotContinuationButtons::isContinuationButtonId($option)) {
+            $continuationContext = $this->findLastBotContinuationOutbound($payload, $from, $since);
+
+            if ($continuationContext) {
+                $commandBody = WhatsappBotContinuationButtons::commandBodyFromButtonId($option) ?? $option;
+                $this->processBotMessage->execute($from, $commandBody, $payload);
+
+                return response()->json(['ok' => true]);
+            }
+        }
+
         if ($option !== '' && WhatsappReminderButtons::isReminderButtonId($option)) {
             $reminderContext = $this->findLastReminderOutbound($payload, $from, $since);
 
@@ -96,6 +108,19 @@ class WhatsappWebhookController extends Controller
         }
 
         if ($body !== '') {
+            $continuationButton = WhatsappBotContinuationButtons::buttonIdFromBody($body);
+
+            if ($continuationButton !== null) {
+                $continuationContext = $this->findLastBotContinuationOutbound($payload, $from, $since);
+
+                if ($continuationContext) {
+                    $commandBody = WhatsappBotContinuationButtons::commandBodyFromButtonId($continuationButton) ?? $body;
+                    $this->processBotMessage->execute($from, $commandBody, $payload);
+
+                    return response()->json(['ok' => true]);
+                }
+            }
+
             $reminderButton = WhatsappReminderButtons::buttonIdFromBody($body);
 
             if ($reminderButton !== null) {
@@ -660,6 +685,43 @@ class WhatsappWebhookController extends Controller
             ->where('created_at', '>=', $since)
             ->where('meta->format', 'list')
             ->where('meta->command', 'menu');
+
+        if ($from !== '') {
+            $byChat = (clone $query)->where('meta->from', $from)->latest()->first();
+
+            if ($byChat) {
+                return $byChat;
+            }
+        }
+
+        $digits = preg_replace('/[^0-9]/', '', $from) ?? '';
+
+        if (strlen($digits) >= 10 && strlen($digits) <= 13) {
+            $normalized = $this->normalizePhone($digits);
+
+            return (clone $query)
+                ->where(function ($phoneQuery) use ($digits, $normalized): void {
+                    $phoneQuery->where('phone', 'like', "%{$normalized}%")
+                        ->orWhere('phone', 'like', "%{$digits}%");
+                })
+                ->latest()
+                ->first();
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function findLastBotContinuationOutbound(array $payload, string $from, Carbon $since): ?InstallmentInteraction
+    {
+        $query = InstallmentInteraction::query()
+            ->where('direction', InstallmentInteraction::DIR_OUTBOUND)
+            ->where('type', InstallmentInteraction::TYPE_BOT_RESPONSE)
+            ->where('created_at', '>=', $since)
+            ->where('meta->format', 'buttons')
+            ->where('meta->interactive', 'continuation');
 
         if ($from !== '') {
             $byChat = (clone $query)->where('meta->from', $from)->latest()->first();

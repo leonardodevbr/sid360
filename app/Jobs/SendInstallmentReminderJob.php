@@ -96,9 +96,8 @@ class SendInstallmentReminderJob implements ShouldQueue
                 installmentId: (int) $this->installment->id,
                 saleId: (int) $sale->id,
                 clientId: (int) $client->id,
-                meta: ['days_before' => $daysBefore],
-                extraOptions: WhatsappBotMessageFooter::wppconnectOptions(),
-            );
+            meta: ['days_before' => $daysBefore],
+        );
 
             if (! $sent) {
                 $sent = $whatsapp->sendAndRecord(
