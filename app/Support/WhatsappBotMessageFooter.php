@@ -7,16 +7,16 @@ namespace App\Support;
 /**
  * Rodapé nativo das mensagens automáticas do bot via WPPConnect.
  *
- * @see https://wppconnect.io/wppconnect/functions/WAJS.chat.sendTextMessage.html
- * @see POST /api/{session}/send-message — body: { message, options: { footer } }
+ * WhatsApp descarta footers acima de ~60 caracteres — manter curto.
  *
- * Botões/listas via send-message (options.buttons) ou send-list-message.
+ * @see POST /api/{session}/send-message — body: { message, options: { footer } }
+ * @see POST /api/{session}/send-list-message — body: { footer } no root do JSON
  */
 final class WhatsappBotMessageFooter
 {
     public static function text(): string
     {
-        return 'Mensagem automática enviada pelo Sid360. Digite ATENDIMENTO para falar com o corretor ou SAIR para pausar o assistente.';
+        return 'Sid360 automático. Digite ATENDIMENTO ou SAIR.';
     }
 
     /**

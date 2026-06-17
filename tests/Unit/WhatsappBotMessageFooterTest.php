@@ -18,6 +18,7 @@ class WhatsappBotMessageFooterTest extends TestCase
         $this->assertStringContainsString('Sid360', $options['footer']);
         $this->assertStringContainsString('ATENDIMENTO', $options['footer']);
         $this->assertStringContainsString('SAIR', $options['footer']);
+        $this->assertLessThanOrEqual(60, mb_strlen($options['footer']));
     }
 
     public function test_footer_is_not_merged_into_message_body(): void
