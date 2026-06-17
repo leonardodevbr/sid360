@@ -298,18 +298,6 @@ export function buildStreetNetworkVisualRings(streets) {
       const buffered = bufferGeoJsonLines(geoLines, width / 2, steps, endCapStyle);
       rings = rings.concat(bufferedGeometryToLatLngRings(buffered));
     });
-
-    withCenterline.forEach((street) => {
-      const polygon = buildStreetPolygon(
-        street.centerline,
-        Number(street.width) > 0 ? Number(street.width) : 10,
-        street.end_cap,
-      );
-
-      if (polygon) {
-        rings.push(polygon);
-      }
-    });
   } else if (withCenterline.length === 1) {
     rings = rings.concat(collectStreetVisualRings(withCenterline));
   }
@@ -329,10 +317,6 @@ export function buildStreetNetworkVisualRings(streets) {
   }
 
   return mergeStreetPolygons(rings);
-}
-
-export function streetUsesCenterlineForVisual(street) {
-  return Array.isArray(street?.centerline) && street.centerline.length >= 2;
 }
 
 /**

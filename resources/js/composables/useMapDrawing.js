@@ -21,7 +21,7 @@ import {
 import { buildZoneTitleLabel } from '@/utils/zone';
 import { getLotMapStyle, buildLotMapLabel } from '@/utils/mapLots';
 import { getStreetColor, getMappedStreets, hasValidStreetPolygon, DEFAULT_STREET_COLOR } from '@/utils/mapStreets';
-import { buildStreetNetworkVisualRings, streetUsesCenterlineForVisual } from '@/utils/streetGeometry';
+import { buildStreetNetworkVisualRings } from '@/utils/streetGeometry';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import { createGpsPreviewController, isCoarsePointerDevice } from '@/utils/mapGpsPreview';
 import {
@@ -1056,8 +1056,7 @@ export function useMapDrawing(options) {
 
     mappedStreets.forEach((street) => {
       const color = getStreetColor(street);
-      const keepIndividualVisual = !renderUnionVisual || !streetUsesCenterlineForVisual(street);
-      const layer = L.polygon(street.coordinates, keepIndividualVisual
+      const layer = L.polygon(street.coordinates, renderUnionVisual
         ? {
           color,
           weight: 0,

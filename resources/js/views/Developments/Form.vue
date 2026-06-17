@@ -954,7 +954,7 @@ import {
 } from '@/utils/zone';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import { subdivideBlockIntoLots, enrichBlockEdgesWithStreets } from '@/utils/lotSubdivision';
-import { buildStreetPolygon, centerlineLengthMeters, buildStreetNetworkVisualRings, streetUsesCenterlineForVisual, normalizeStreetEndCap } from '@/utils/streetGeometry';
+import { buildStreetPolygon, centerlineLengthMeters, buildStreetNetworkVisualRings, normalizeStreetEndCap } from '@/utils/streetGeometry';
 import Input from '@/components/Common/Input.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
 import Button from '@/components/Common/Button.vue';
@@ -2948,9 +2948,7 @@ function drawStreetsOnMap(options = {}) {
   }
 
   mappedStreets.forEach((street) => {
-    const keepIndividualVisual = !renderUnionVisual || !streetUsesCenterlineForVisual(street);
-
-    const layer = L.polygon(street.coordinates, keepIndividualVisual
+    const layer = L.polygon(street.coordinates, renderUnionVisual
       ? {
         color: getStreetColor(street),
         weight: 0,
