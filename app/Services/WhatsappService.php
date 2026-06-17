@@ -602,6 +602,42 @@ class WhatsappService
     }
 
     /**
+     * @param  list<array{id: string, text: string}>  $buttons
+     * @param  array<string, mixed>  $meta
+     * @param  array<string, mixed>  $extraOptions
+     */
+    public function sendQuickReplyButtonsAndRecord(
+        string $phone,
+        string $message,
+        array $buttons,
+        string $type,
+        int|string|null $installmentId = null,
+        int|string|null $saleId = null,
+        int|string|null $clientId = null,
+        array $meta = [],
+        array $extraOptions = [],
+    ): bool {
+        $sent = $this->sendQuickReplyButtons($phone, $message, $buttons, $extraOptions);
+
+        InstallmentInteraction::create([
+            'installment_id' => $installmentId !== null ? (int) $installmentId : null,
+            'sale_id' => $saleId !== null ? (int) $saleId : null,
+            'client_id' => $clientId !== null ? (int) $clientId : null,
+            'phone' => $phone,
+            'direction' => InstallmentInteraction::DIR_OUTBOUND,
+            'type' => $type,
+            'message' => $message,
+            'meta' => array_merge($meta, [
+                'sent' => $sent,
+                'format' => 'buttons',
+                'button_ids' => array_column($buttons, 'id'),
+            ]),
+        ]);
+
+        return $sent;
+    }
+
+    /**
      * Interpola variáveis {nome}, {contrato}, etc. numa mensagem template.
      *
      * @param  array<string, string>  $vars

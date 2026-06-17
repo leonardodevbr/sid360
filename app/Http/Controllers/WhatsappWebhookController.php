@@ -8,6 +8,7 @@ use App\Actions\Installment\SendInstallmentBoletoWhatsappAction;
 use App\Actions\Installment\SendInstallmentPixWhatsappAction;
 use App\Actions\Whatsapp\ProcessWhatsappBotMessageAction;
 use App\Support\WhatsappBotMenuButtons;
+use App\Support\WhatsappReminderButtons;
 use App\Models\Client;
 use App\Models\Installment;
 use App\Models\InstallmentInteraction;
@@ -63,6 +64,16 @@ class WhatsappWebhookController extends Controller
         $windowHours = (int) Setting::get('whatsapp_reply_window_hours', 48);
         $since = Carbon::now()->subHours($windowHours);
 
+        if ($option !== '' && WhatsappReminderButtons::isReminderButtonId($option)) {
+            $reminderContext = $this->findLastReminderOutbound($payload, $from, $since);
+
+            if ($reminderContext) {
+                $this->processReminderButtonReply($payload, $from, $option, $reminderContext);
+
+                return response()->json(['ok' => true]);
+            }
+        }
+
         if ($option !== '' && WhatsappBotMenuButtons::isBotMenuRowId($option)) {
             $botMenuContext = $this->findLastBotMenuOutbound($payload, $from, $since);
 
@@ -85,6 +96,18 @@ class WhatsappWebhookController extends Controller
         }
 
         if ($body !== '') {
+            $reminderButton = WhatsappReminderButtons::buttonIdFromBody($body);
+
+            if ($reminderButton !== null) {
+                $reminderContext = $this->findLastReminderOutbound($payload, $from, $since);
+
+                if ($reminderContext) {
+                    $this->processReminderButtonReply($payload, $from, $reminderButton, $reminderContext);
+
+                    return response()->json(['ok' => true]);
+                }
+            }
+
             $mapped = $this->mapBodyToOption($body);
 
             if ($mapped !== $body && in_array($mapped, ['1', '2', '3'], true)) {
@@ -164,6 +187,7 @@ class WhatsappWebhookController extends Controller
             data_get($payload, 'text'),
             data_get($payload, 'caption'),
             data_get($payload, 'listResponse.title'),
+            data_get($payload, 'selectedDisplayText'),
         ] as $candidate) {
             if (is_string($candidate) && trim($candidate) !== '') {
                 return trim($candidate);
@@ -183,6 +207,13 @@ class WhatsappWebhookController extends Controller
 
         if (is_string($rowId) && $rowId !== '') {
             return trim($rowId);
+        }
+
+        $buttonId = data_get($payload, 'selectedButtonId')
+            ?? data_get($payload, 'selectedButtonID');
+
+        if (is_string($buttonId) && $buttonId !== '') {
+            return trim($buttonId);
         }
 
         if ($body === '') {
@@ -434,6 +465,142 @@ class WhatsappWebhookController extends Controller
                 ->where('status', Installment::STATUS_PENDING)
                 ->orderBy('due_date')
                 ->first();
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function processReminderButtonReply(
+        array $payload,
+        string $from,
+        string $buttonId,
+        InstallmentInteraction $lastOutbound,
+    ): void {
+        if ($buttonId === WhatsappReminderButtons::BTN_PAYMENT) {
+            $this->processReply($payload, $from, '2', $lastOutbound);
+
+            return;
+        }
+
+        $sale = $lastOutbound->sale;
+        $client = $sale?->client;
+
+        if (! $sale || ! $client) {
+            return;
+        }
+
+        if (! $client->acceptsWhatsappNotifications()) {
+            return;
+        }
+
+        $bodyText = trim((string) ($payload['body'] ?? $payload['content'] ?? $buttonId));
+        $phone = preg_replace('/[^0-9]/', '', $from) ?? $from;
+        $sidWaMe = 'wa.me/'.$this->whatsapp->sidPhoneDigits();
+        $sidDisplay = $this->formatSidPhoneDisplay();
+        $contractNo = str_pad((string) $sale->id, 4, '0', STR_PAD_LEFT).'/'.$sale->sale_date?->format('Y');
+        $installment = $lastOutbound->installment;
+        $parcelaLabel = $installment?->type === Installment::TYPE_DOWN_PAYMENT
+            ? 'Entrada'
+            : 'Parcela '.str_pad((string) ($installment?->number ?? 0), 2, '0', STR_PAD_LEFT);
+
+        [$type, $replyMessage, $sidNotification] = match ($buttonId) {
+            WhatsappReminderButtons::BTN_PAID => [
+                InstallmentInteraction::TYPE_REPLY_ACKNOWLEDGE,
+                "✅ Obrigado, *{$client->name}*! Vamos conferir o pagamento e atualizar seu cadastro em breve.\n\nQualquer dúvida: {$sidDisplay}\n_Sid360 Imóveis_",
+                "📬 *{$client->name}* informou que já pagou (lembrete).\n".
+                "Contrato: {$contractNo} · {$parcelaLabel}\n".
+                "Lote: Q{$sale->lot?->block} · L{$sale->lot?->number}\nFone: {$client->phone}",
+            ],
+            WhatsappReminderButtons::BTN_SUPPORT => [
+                InstallmentInteraction::TYPE_REPLY_NEGOTIATE,
+                "📞 Olá, *{$client->name}*! O corretor Sid foi notificado e entrará em contato em breve.\n\nOu se preferir, chame diretamente:\n📱 *{$sidWaMe}*\n_Sid360 Imóveis_",
+                "🤝 *{$client->name}* pediu atendimento após lembrete de vencimento.\n".
+                "Contrato: {$contractNo} · {$parcelaLabel}\n".
+                "Lote: Q{$sale->lot?->block} · L{$sale->lot?->number}\nFone: {$client->phone}\n\n⚡ Responda logo!",
+            ],
+            default => [
+                InstallmentInteraction::TYPE_REPLY_UNKNOWN,
+                "Olá! Não entendi sua resposta. Toque em um dos botões do lembrete ou fale com a gente: {$sidDisplay}",
+                null,
+            ],
+        };
+
+        $installmentId = $lastOutbound->installment_id !== null
+            ? (int) $lastOutbound->installment_id
+            : null;
+
+        InstallmentInteraction::create([
+            'installment_id' => $installmentId,
+            'sale_id' => (int) $sale->id,
+            'client_id' => (int) $client->id,
+            'phone' => $phone,
+            'direction' => InstallmentInteraction::DIR_INBOUND,
+            'type' => $type,
+            'message' => $bodyText,
+            'meta' => [
+                'button_id' => $buttonId,
+                'from' => $from,
+                'message_type' => $payload['type'] ?? null,
+                'source' => 'reminder',
+            ],
+        ]);
+
+        $this->whatsapp->sendAndRecord(
+            phone: $client->phone,
+            message: $replyMessage,
+            type: $type.'_response',
+            installmentId: $installmentId,
+            saleId: (int) $sale->id,
+            clientId: (int) $client->id,
+        );
+
+        if ($sidNotification) {
+            $this->whatsapp->notifySid(
+                message: $sidNotification,
+                saleId: (int) $sale->id,
+                clientId: (int) $client->id,
+                relatedClientPhone: (string) $client->phone,
+                type: InstallmentInteraction::TYPE_SID_NOTIFY,
+                meta: ['trigger' => $type, 'button_id' => $buttonId, 'source' => 'reminder'],
+            );
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function findLastReminderOutbound(array $payload, string $from, Carbon $since): ?InstallmentInteraction
+    {
+        $query = InstallmentInteraction::query()
+            ->where('direction', InstallmentInteraction::DIR_OUTBOUND)
+            ->where('type', InstallmentInteraction::TYPE_REMINDER)
+            ->where('created_at', '>=', $since)
+            ->where('meta->format', 'buttons')
+            ->with(['sale.client', 'sale.lot.development', 'installment']);
+
+        if ($from !== '') {
+            $byChat = (clone $query)->where('meta->from', $from)->latest()->first();
+
+            if ($byChat) {
+                return $byChat;
+            }
+        }
+
+        $digits = preg_replace('/[^0-9]/', '', $from) ?? '';
+
+        if (strlen($digits) >= 10 && strlen($digits) <= 13) {
+            $normalized = $this->normalizePhone($digits);
+
+            return (clone $query)
+                ->where(function ($phoneQuery) use ($digits, $normalized): void {
+                    $phoneQuery->where('phone', 'like', "%{$normalized}%")
+                        ->orWhere('phone', 'like', "%{$digits}%");
+                })
+                ->latest()
+                ->first();
+        }
+
+        return null;
     }
 
     /**

@@ -6,7 +6,10 @@ namespace App\Jobs;
 
 use App\Mail\InstallmentReminderMail;
 use App\Models\Installment;
+use App\Models\InstallmentInteraction;
 use App\Models\Setting;
+use App\Support\WhatsappBotMessageFooter;
+use App\Support\WhatsappReminderButtons;
 use App\Services\WhatsappService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -85,7 +88,32 @@ class SendInstallmentReminderJob implements ShouldQueue
 
             $message = $whatsapp->interpolate($template, $vars);
 
-            if ($message !== '' && $whatsapp->send($client->phone, $message)) {
+            $sent = $whatsapp->sendQuickReplyButtonsAndRecord(
+                phone: (string) $client->phone,
+                message: $message,
+                buttons: WhatsappReminderButtons::buttons(),
+                type: InstallmentInteraction::TYPE_REMINDER,
+                installmentId: (int) $this->installment->id,
+                saleId: (int) $sale->id,
+                clientId: (int) $client->id,
+                meta: ['days_before' => $daysBefore],
+                extraOptions: WhatsappBotMessageFooter::wppconnectOptions(),
+            );
+
+            if (! $sent) {
+                $sent = $whatsapp->sendAndRecord(
+                    phone: (string) $client->phone,
+                    message: $message,
+                    type: InstallmentInteraction::TYPE_REMINDER,
+                    installmentId: (int) $this->installment->id,
+                    saleId: (int) $sale->id,
+                    clientId: (int) $client->id,
+                    meta: ['days_before' => $daysBefore, 'format' => 'text'],
+                    wppconnectOptions: WhatsappBotMessageFooter::wppconnectOptions(),
+                );
+            }
+
+            if ($message !== '' && $sent) {
                 $this->installment->update(['whatsapp_reminder_sent_at' => now()]);
             }
         }
