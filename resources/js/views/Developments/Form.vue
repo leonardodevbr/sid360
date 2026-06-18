@@ -188,7 +188,7 @@
                     <Input
                       v-model.number="geoForm.lotDepth"
                       type="number"
-                      :label="geoDepthLabel"
+                      label="Profundidade (m)"
                       min="0.5"
                       step="0.01"
                       :max="geoMaxDepthM > 0 ? geoMaxDepthM : undefined"
@@ -4720,14 +4720,6 @@ const geoMaxDepthM = computed(() => {
     geoForm.value.frontEdgeIndex,
     geoForm.value.reverseFrontEdge,
   );
-});
-
-const geoDepthLabel = computed(() => {
-  if (geoMaxDepthM.value > 0) {
-    return `Profundidade (m) · máx. ${formatMeters(geoMaxDepthM.value)}`;
-  }
-
-  return 'Profundidade (m)';
 });
 
 const geoSlicePlan = computed(() => resolveSliceWidths(geoFrontLengthM.value, {
