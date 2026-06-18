@@ -413,6 +413,23 @@ export function collectMapSnapHintPoints({
   return hints;
 }
 
+export function findNearestMapSnapHint(lat, lng, hints = []) {
+  let best = null;
+
+  hints.forEach((hint) => {
+    const distanceMeters = distanceBetweenPointsMeters([lat, lng], hint.coord);
+
+    if (!best || distanceMeters < best.distanceMeters) {
+      best = {
+        ...hint,
+        distanceMeters,
+      };
+    }
+  });
+
+  return best;
+}
+
 export function findNearestVertexSnap(lat, lng, targets, toleranceMeters = MAP_VERTEX_SNAP_TOLERANCE_METERS) {
   let best = null;
 

@@ -1344,6 +1344,7 @@ import {
   collectMapSnapIntersectionTargets,
   collectMapSnapSegmentTargets,
   collectMapSnapTargets,
+  findNearestMapSnapHint,
   MAP_INTERSECTION_SNAP_PIXEL_RADIUS,
   MAP_SEGMENT_SNAP_PIXEL_RADIUS,
   MAP_SNAP_PIXEL_RADIUS,
@@ -1440,6 +1441,7 @@ let lotLayersMap = {};
 let previewLayerGroup = null;
 let blockEdgeLayerGroup = null;
 let snapHintLayerGroup = null;
+let lastDrawingCursorLatLng = null;
 let axisPreviewLayer = null;
 let measureTempLayerGroup = null;
 const savedMeasureLayerGroups = [];
@@ -1533,6 +1535,21 @@ function applyDrawingSnap(lat, lng, {
   });
 }
 
+function normalizeMapCursorLatLng(cursorLatLng) {
+  if (!cursorLatLng) {
+    return null;
+  }
+
+  const lat = typeof cursorLatLng.lat === 'number' ? cursorLatLng.lat : cursorLatLng[0];
+  const lng = typeof cursorLatLng.lng === 'number' ? cursorLatLng.lng : cursorLatLng[1];
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null;
+  }
+
+  return { lat, lng };
+}
+
 function clearSnapHintMarkers() {
   if (snapHintLayerGroup && map) {
     map.removeLayer(snapHintLayerGroup);
@@ -1540,7 +1557,7 @@ function clearSnapHintMarkers() {
   }
 }
 
-function syncSnapHintMarkers() {
+function syncSnapHintMarkers(cursorLatLng = null) {
   if (!map || !L) {
     return;
   }
@@ -1551,43 +1568,68 @@ function syncSnapHintMarkers() {
     return;
   }
 
-  const context = getDrawingSnapContext();
-  const hints = collectMapSnapHintPoints(context);
+  const normalizedCursor = normalizeMapCursorLatLng(
+    cursorLatLng ?? lastDrawingCursorLatLng,
+  );
 
-  if (!hints.length) {
+  if (!normalizedCursor) {
     return;
   }
 
-  const bounds = map.getBounds();
-  snapHintLayerGroup = L.featureGroup();
+  const hints = collectMapSnapHintPoints(getDrawingSnapContext());
+  const nearest = findNearestMapSnapHint(normalizedCursor.lat, normalizedCursor.lng, hints);
 
-  hints.forEach((hint) => {
-    const [lat, lng] = hint.coord;
+  if (!nearest) {
+    return;
+  }
 
-    if (!bounds.contains([lat, lng])) {
-      return;
-    }
-
-    const isIntersection = hint.kind === 'intersection';
-
-    snapHintLayerGroup.addLayer(L.marker([lat, lng], {
-      interactive: false,
-      keyboard: false,
-      zIndexOffset: isIntersection ? 1250 : 1150,
-      icon: L.divIcon({
-        className: 'map-snap-hint-icon',
-        html: `<span class="map-snap-hint-indicator${isIntersection ? ' map-snap-hint-indicator--intersection' : ''}"></span>`,
-        iconSize: isIntersection ? [12, 12] : [10, 10],
-        iconAnchor: isIntersection ? [6, 6] : [5, 5],
-      }),
-    }));
+  const maxDisplayMeters = resolveSnapToleranceMeters(map, normalizedCursor.lat, normalizedCursor.lng, {
+    pixelRadius: 48,
+    maxMeters: 80,
   });
 
-  if (snapHintLayerGroup.getLayers().length) {
-    snapHintLayerGroup.addTo(map);
-  } else {
-    clearSnapHintMarkers();
+  if (nearest.distanceMeters > maxDisplayMeters) {
+    return;
   }
+
+  const [lat, lng] = nearest.coord;
+  const isIntersection = nearest.kind === 'intersection';
+
+  snapHintLayerGroup = L.featureGroup();
+  snapHintLayerGroup.addLayer(L.marker([lat, lng], {
+    interactive: false,
+    keyboard: false,
+    zIndexOffset: isIntersection ? 1250 : 1150,
+    icon: L.divIcon({
+      className: 'map-snap-hint-icon',
+      html: `<span class="map-snap-hint-indicator${isIntersection ? ' map-snap-hint-indicator--intersection' : ''}"></span>`,
+      iconSize: isIntersection ? [12, 12] : [10, 10],
+      iconAnchor: isIntersection ? [6, 6] : [5, 5],
+    }),
+  }));
+  snapHintLayerGroup.addTo(map);
+}
+
+function onDrawingMapMouseMove(event) {
+  lastDrawingCursorLatLng = event.latlng;
+
+  if ((map?._vertexDragActiveCount ?? 0) > 0) {
+    return;
+  }
+
+  if (drawingMode.value === 'zone' || drawingMode.value === 'perimeter') {
+    syncSnapHintMarkers(event.latlng);
+  }
+}
+
+function onDrawingMapMouseOut() {
+  lastDrawingCursorLatLng = null;
+
+  if ((map?._vertexDragActiveCount ?? 0) > 0) {
+    return;
+  }
+
+  clearSnapHintMarkers();
 }
 
 function clearRectangleDrawingState() {
@@ -1667,6 +1709,7 @@ function syncDrawingCursorPreview() {
     if (!measureMode.value) {
       cursorPreview.unbind();
     }
+    lastDrawingCursorLatLng = null;
     clearSnapHintMarkers();
     return;
   }
@@ -1902,9 +1945,11 @@ async function initMap() {
   }
 
   map.on('click', onMapClick);
+  map.on('mousemove', onDrawingMapMouseMove);
+  map.on('mouseout', onDrawingMapMouseOut);
   map.on('moveend zoomend', () => {
     if (drawingMode.value === 'zone' || drawingMode.value === 'perimeter') {
-      syncSnapHintMarkers();
+      syncSnapHintMarkers(lastDrawingCursorLatLng);
     }
   });
   map.on('popupopen', (e) => {
@@ -2526,6 +2571,7 @@ function bindVertexMarkerDrag(marker) {
 
     marker.setLatLng(nextLatLng);
     perimeterPoints.value[marker._vertexIndex] = [snapped.lat, snapped.lng];
+    syncSnapHintMarkers(latLng);
     cursorPreview.showSnapIndicator(nextLatLng, snapped.snapped);
     refreshTempPolyline(
       startedFromExistingPolygon.value && perimeterPoints.value.length >= 3,
@@ -2554,6 +2600,7 @@ function bindVertexMarkerDrag(marker) {
     enableMapDraggingAfterVertexDrag();
 
     cursorPreview.clearSnapIndicator();
+    clearSnapHintMarkers();
 
     if (!marker._wasDragged && tryClosePolygonOnFirstVertexTap(marker)) {
       return;
@@ -2589,6 +2636,7 @@ function bindVertexMarkerDrag(marker) {
 
     cursorPreview.clear();
     marker._wasDragged = false;
+    clearSnapHintMarkers();
 
     if (!map._vertexDragActiveCount) {
       map._vertexDragActiveCount = 0;
