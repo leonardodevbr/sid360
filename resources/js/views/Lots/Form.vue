@@ -218,7 +218,7 @@ import { lotStatusFormOptions } from '@/utils/labels';
 import { buildZoneTitleLabel, compareZonesByName, isLotSelectableZone } from '@/utils/zone';
 import { getPolygonCentroid, normalizePolygonCoordinates } from '@/utils/mapGeometry';
 import { getMappedStreets } from '@/utils/mapStreets';
-import { buildLotMapLabel } from '@/utils/mapLots';
+import { buildLotMapLabel, formatLotDimensionsLabel } from '@/utils/mapLots';
 import { getApiErrorMessage } from '@/utils/apiError';
 import Input from '@/components/Common/Input.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
@@ -433,6 +433,11 @@ function getSelectedZone() {
 }
 
 const activeLotMapLabel = computed(() => {
+  const dimensionsLabel = formatLotDimensionsLabel({ size_label: form.value.size_label });
+  if (dimensionsLabel) {
+    return dimensionsLabel;
+  }
+
   const number = String(form.value.number ?? '').trim();
   if (!number) {
     return null;

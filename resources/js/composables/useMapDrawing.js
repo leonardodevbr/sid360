@@ -18,11 +18,12 @@ import {
   computeGeodesicArea,
   getInvalidPointsInsidePolygon,
   getPolygonEdgesMeters,
+  getPolygonCentroid,
   isPointInsideOrOnPolygon,
   normalizePolygonCoordinates,
 } from '@/utils/mapGeometry';
 import { buildZoneTitleLabel } from '@/utils/zone';
-import { getLotMapStyle, buildLotMapLabel } from '@/utils/mapLots';
+import { getLotMapStyle, buildMapFixedLabelIconHtml, formatLotDimensionsLabel } from '@/utils/mapLots';
 import { getStreetColor, getMappedStreets, hasValidStreetPolygon, DEFAULT_STREET_COLOR } from '@/utils/mapStreets';
 import { buildStreetNetworkVisualRings } from '@/utils/streetGeometry';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
@@ -90,6 +91,7 @@ export function useMapDrawing(options) {
   const contextStreetLayerMap = {};
   const contextZoneLayerMap = {};
   const contextLotLayerMap = {};
+  const contextLotLabelMarkers = [];
   let savedFeatureLayer = null;
   let tempMarkers = [];
   let edgeLabelMarkers = [];
@@ -1033,7 +1035,7 @@ export function useMapDrawing(options) {
     layer.bindTooltip(label, {
       permanent: true,
       direction: 'center',
-      className: 'map-lot-feature-label',
+      className: 'map-lot-feature-label map-lot-fixed-center-label',
       opacity: 1,
     });
     layer.openTooltip();
@@ -1068,6 +1070,11 @@ export function useMapDrawing(options) {
     refreshSavedEdgeLabels();
   }
 
+  function clearContextLotLabelMarkers() {
+    contextLotLabelMarkers.forEach((marker) => map?.removeLayer(marker));
+    contextLotLabelMarkers.length = 0;
+  }
+
   function drawContextLots() {
     if (!L || !map) return;
 
@@ -1075,6 +1082,7 @@ export function useMapDrawing(options) {
     Object.keys(contextLotLayerMap).forEach((key) => {
       delete contextLotLayerMap[key];
     });
+    clearContextLotLabelMarkers();
 
     const lots = contextLots?.value ?? [];
     lots.forEach((lot) => {
@@ -1093,15 +1101,24 @@ export function useMapDrawing(options) {
         className: 'map-lot-context-path',
       }).addTo(map);
 
-      const label = buildLotMapLabel(lot);
-      if (label) {
-        layer.bindTooltip(label, {
-          permanent: true,
-          direction: 'center',
-          className: 'map-lot-context-label',
-          opacity: 1,
-        });
-        layer.openTooltip();
+      const dimensionsLabel = formatLotDimensionsLabel(lot);
+      if (dimensionsLabel) {
+        const centroid = getPolygonCentroid(coords);
+
+        if (centroid) {
+          const marker = L.marker(centroid, {
+            interactive: false,
+            keyboard: false,
+            zIndexOffset: 500,
+            icon: L.divIcon({
+              className: 'map-fixed-label-icon',
+              html: buildMapFixedLabelIconHtml(dimensionsLabel),
+              iconSize: [0, 0],
+            }),
+          }).addTo(map);
+
+          contextLotLabelMarkers.push(marker);
+        }
       }
 
       configureMapPathLayer(layer);

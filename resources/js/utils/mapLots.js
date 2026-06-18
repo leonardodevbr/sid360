@@ -27,6 +27,20 @@ export function formatLotDimensionsLabel(lot) {
   return raw.replace(/m$/i, '').replace(/x/gi, '×');
 }
 
+export function hasLotDimensionsLabel(lot) {
+  return Boolean(formatLotDimensionsLabel(lot));
+}
+
+export function buildMapFixedLabelIconHtml(text, labelClass = 'map-lot-context-dimension-label') {
+  const safe = String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+  return `<span class="${labelClass}">${safe}</span>`;
+}
+
 export function buildLotAreaLabel(lot) {
   const storedArea = lot?.area_computed ?? lot?.area;
 

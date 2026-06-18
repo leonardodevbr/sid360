@@ -732,7 +732,7 @@
                   v-if="isEdit && !drawingMode && hasMappedZones"
                   type="button"
                   class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn col-span-2 flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:col-span-1 sm:justify-start sm:px-3 sm:text-xs"
-                  :class="visibleZoneNameTypes.length
+                  :class="hasVisibleMapNameLabels
                     ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                     : ''"
                   @click="openZoneNamePicker"
@@ -1130,7 +1130,7 @@
       @close="closeZoneNamePicker"
     >
       <p class="text-xs text-slate-500">
-        Selecione os tipos de zona cujos nomes devem aparecer no mapa.
+        Selecione os tipos de zona e outras informações que devem aparecer no mapa.
       </p>
 
       <div class="mt-3 flex gap-2">
@@ -1170,6 +1170,35 @@
           <span
             class="flex h-5 w-5 shrink-0 items-center justify-center rounded border"
             :class="zoneNamePickerDraft.includes(option.value)
+              ? 'border-emerald-600 bg-emerald-600 text-white'
+              : 'border-slate-300 bg-white text-transparent'"
+          >
+            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+            </svg>
+          </span>
+        </button>
+      </div>
+
+      <div class="mt-4 border-t border-slate-200 pt-3">
+        <p class="mb-2 text-xs font-medium text-slate-600">Lotes</p>
+        <button
+          type="button"
+          class="flex w-full items-center justify-between rounded-lg border px-3 py-2.5 text-left transition-colors"
+          :class="showLotDimensionsOnMapDraft
+            ? 'border-emerald-300 bg-emerald-50'
+            : 'border-slate-200 bg-white hover:bg-slate-50'"
+          @click="showLotDimensionsOnMapDraft = !showLotDimensionsOnMapDraft"
+        >
+          <span>
+            <span class="block text-sm font-medium text-slate-800">Cotas / metragem</span>
+            <span class="block text-xs text-slate-400">
+              {{ mappedLotsWithDimensionsCount }} com medidas no mapa
+            </span>
+          </span>
+          <span
+            class="flex h-5 w-5 shrink-0 items-center justify-center rounded border"
+            :class="showLotDimensionsOnMapDraft
               ? 'border-emerald-600 bg-emerald-600 text-white'
               : 'border-slate-300 bg-white text-transparent'"
           >
@@ -1363,6 +1392,7 @@ import {
 import {
   buildLotMapLabel,
   buildLotMapMetaText,
+  formatLotDimensionsLabel,
 } from '@/utils/mapLots';
 import { lotStatusLabel } from '@/utils/status';
 import {
@@ -2203,6 +2233,44 @@ function buildLotTooltipHtml(lot) {
   return `<span class="map-lot-hover-label-title">${title}</span><span class="map-lot-hover-label-meta">${meta}</span>`;
 }
 
+function bindLotLayerTooltips(layer, lot) {
+  layer.unbindTooltip();
+
+  if (showLotDimensionsOnMap.value) {
+    const dimensionsLabel = formatLotDimensionsLabel(lot);
+
+    if (dimensionsLabel) {
+      layer.bindTooltip(escapeHtml(dimensionsLabel), {
+        permanent: true,
+        direction: 'center',
+        className: 'map-lot-dimension-label',
+        opacity: 1,
+      });
+      layer.openTooltip();
+      return;
+    }
+  }
+
+  layer.bindTooltip(buildLotTooltipHtml(lot), {
+    sticky: true,
+    direction: 'top',
+    offset: [0, -16],
+    opacity: 1,
+    className: 'map-lot-hover-label',
+  });
+}
+
+function syncLotDimensionLabels() {
+  Object.entries(lotLayersMap).forEach(([lotId, layer]) => {
+    const lot = lots.value.find((item) => String(item.id) === String(lotId));
+    if (!lot) {
+      return;
+    }
+
+    bindLotLayerTooltips(layer, lot);
+  });
+}
+
 function buildLotPopupHtml(lot) {
   const meta = buildLotMapMetaText(lot, lotStatusLabel(lot.status));
 
@@ -2279,6 +2347,7 @@ function mappedZonesCountByType(type) {
 
 function openZoneNamePicker() {
   zoneNamePickerDraft.value = [...visibleZoneNameTypes.value];
+  showLotDimensionsOnMapDraft.value = showLotDimensionsOnMap.value;
   showZoneNamePicker.value = true;
 }
 
@@ -2298,16 +2367,20 @@ function toggleZoneNameTypeDraft(type) {
 
 function selectAllZoneNameTypesInDraft() {
   zoneNamePickerDraft.value = zoneTypeOptions.map((option) => option.value);
+  showLotDimensionsOnMapDraft.value = mappedLotsWithDimensionsCount() > 0;
 }
 
 function clearAllZoneNameTypesInDraft() {
   zoneNamePickerDraft.value = [];
+  showLotDimensionsOnMapDraft.value = false;
 }
 
 function applyZoneNamePicker() {
   visibleZoneNameTypes.value = [...zoneNamePickerDraft.value];
+  showLotDimensionsOnMap.value = showLotDimensionsOnMapDraft.value;
   closeZoneNamePicker();
   syncZoneNameLabels();
+  syncLotDimensionLabels();
 }
 
 function mappedStreetsCount() {
@@ -2320,6 +2393,13 @@ function mappedLotsCount() {
   return lots.value.filter((lot) => {
     const coords = normalizePolygonCoordinates(lot.coordinates);
     return coords && coords.length >= 3;
+  }).length;
+}
+
+function mappedLotsWithDimensionsCount() {
+  return lots.value.filter((lot) => {
+    const coords = normalizePolygonCoordinates(lot.coordinates);
+    return coords && coords.length >= 3 && formatLotDimensionsLabel(lot);
   }).length;
 }
 
@@ -3652,6 +3732,11 @@ const lots = ref([]);
 const visibleZoneNameTypes = ref([]);
 const showZoneNamePicker = ref(false);
 const zoneNamePickerDraft = ref([]);
+const showLotDimensionsOnMap = ref(false);
+const showLotDimensionsOnMapDraft = ref(false);
+const hasVisibleMapNameLabels = computed(() =>
+  visibleZoneNameTypes.value.length > 0 || showLotDimensionsOnMap.value,
+);
 const visibleMapLayers = ref([...DEFAULT_VISIBLE_MAP_LAYER_IDS]);
 const showMapLayerPicker = ref(false);
 const mapLayerPickerDraft = ref([]);
@@ -3972,13 +4057,7 @@ function drawLotsOnMap() {
       className: 'map-feature-polygon map-lot-context-path',
     }).addTo(map);
 
-    layer.bindTooltip(buildLotTooltipHtml(lot), {
-      sticky: true,
-      direction: 'top',
-      offset: [0, -16],
-      opacity: 1,
-      className: 'map-lot-hover-label',
-    });
+    bindLotLayerTooltips(layer, lot);
 
     resetMapFeatureLayerInteraction(layer);
 
@@ -3986,7 +4065,10 @@ function drawLotsOnMap() {
       layer,
       buildLotPopupHtml(lot),
       {
-        onEdit: () => router.push({ name: 'lots.edit', params: { id: lot.id } }),
+        onEdit: () => {
+          const editRoute = router.resolve({ name: 'lots.edit', params: { id: lot.id } });
+          window.open(editRoute.href, '_blank', 'noopener,noreferrer');
+        },
       },
     );
 
