@@ -336,6 +336,22 @@
             </div>
           </div>
 
+          <div>
+            <p class="mb-1 text-xs font-medium text-slate-600">E-mail</p>
+            <input
+              :value="novoCliente.email"
+              type="email"
+              name="sid-fld-j4e9"
+              v-bind="noAutofillInputAttrs"
+              placeholder="cliente@exemplo.com"
+              :class="maskedInputClass"
+              readonly
+              @mousedown="enableInputOnMousedown"
+              @focus="enableInputOnMousedown"
+              @input="onEmailInput"
+            />
+          </div>
+
           <CepInput
             v-model="novoCliente.zip_code"
             label="CEP"
@@ -843,6 +859,10 @@ function onRgIssuerInput(e) {
 
 function onProfessionInput(e) {
   novoCliente.value.profession = e.target.value;
+}
+
+function onEmailInput(e) {
+  novoCliente.value.email = e.target.value;
 }
 
 function onAddressInput(e) {
