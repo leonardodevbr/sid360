@@ -91,6 +91,32 @@ export function getFrontEdgeLengthMeters(blockLatLng, frontEdgeIndex) {
 }
 
 /**
+ * Divide o comprimento da frente em partes iguais entre N lotes.
+ * O arredondamento residual fica no último lote.
+ */
+export function divideFrontLengthEqually(frontLengthM, lotCount) {
+  const total = Number(frontLengthM);
+  const count = Math.max(1, Math.floor(Number(lotCount) || 1));
+
+  if (!Number.isFinite(total) || total <= 0) {
+    return [];
+  }
+
+  if (count === 1) {
+    return [Math.round(total * 100) / 100];
+  }
+
+  const baseWidth = Math.floor((total / count) * 100) / 100;
+  const widths = Array.from({ length: count - 1 }, () => baseWidth);
+  const assigned = baseWidth * (count - 1);
+  const lastWidth = Math.round((total - assigned) * 100) / 100;
+
+  widths.push(lastWidth);
+
+  return widths;
+}
+
+/**
  * Gera larguras sugeridas (iguais) para preencher a frente.
  */
 export function suggestEqualSliceWidths(frontLengthM, lotWidth, maxLots = 200) {

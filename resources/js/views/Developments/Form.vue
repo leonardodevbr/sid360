@@ -1318,7 +1318,7 @@ import {
   subdivideBlockIntoLots,
   enrichBlockEdgesWithStreets,
   resolveSliceWidths,
-  suggestEqualSliceWidths,
+  divideFrontLengthEqually,
 } from '@/utils/lotSubdivision';
 import {
   computeLotTotalValueFromArea,
@@ -4785,15 +4785,20 @@ function seedCustomWidthsIfNeeded() {
 }
 
 function fillCustomWidthsFromEqual() {
-  if (!(geoFrontLengthM.value > 0) && !(Number(geoForm.value.lotWidth) > 0)) {
-    geoForm.value.customWidths = [20, 20];
+  const frontLength = geoFrontLengthM.value;
+  const lotCount = Math.max(1, geoForm.value.customWidths.length);
+
+  if (!(frontLength > 0)) {
+    const lotWidth = Number(geoForm.value.lotWidth) || 20;
+    geoForm.value.customWidths = divideFrontLengthEqually(lotWidth * lotCount, lotCount);
     return;
   }
 
-  geoForm.value.customWidths = suggestEqualSliceWidths(
-    geoFrontLengthM.value || Number(geoForm.value.lotWidth) * 2,
-    Number(geoForm.value.lotWidth) || 20,
-  );
+  geoForm.value.customWidths = divideFrontLengthEqually(frontLength, lotCount);
+
+  if (geoForm.value.frontEdgeIndex != null) {
+    scheduleGeoPreview();
+  }
 }
 
 function splitCustomWidthsHalfHalf() {
