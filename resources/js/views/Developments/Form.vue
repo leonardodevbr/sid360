@@ -86,6 +86,24 @@
             · Ex: QA-L01, Q1L001
           </p>
         </div>
+
+        <div class="rounded-lg border border-slate-200 p-3 sm:p-4">
+          <p class="text-sm font-semibold text-slate-700">Dados do vendedor (contrato)</p>
+          <p class="mt-1 text-xs text-slate-400">
+            Opcional. Deixe em branco para usar os dados globais cadastrados em
+            Configurações → Contrato. Preencha aqui apenas se este empreendimento tiver um
+            vendedor/outorgante diferente.
+          </p>
+          <div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input v-model="form.seller_name" label="Nome do vendedor" placeholder="Ex: Sidiclei Novais Baretto" />
+            <Input v-model="form.seller_address" label="Endereço do vendedor" placeholder="Rua, número, bairro, cidade — UF" />
+          </div>
+          <div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Input v-model="form.seller_cpf" label="CPF" placeholder="000.000.000-00" />
+            <Input v-model="form.seller_rg" label="RG" placeholder="00.000.000-0" />
+            <Input v-model="form.seller_rg_issuer" label="Órgão emissor" placeholder="SSP/BA" />
+          </div>
+        </div>
       </div>
 
       <div class="card space-y-4 overflow-hidden p-4 sm:p-5">
@@ -1538,6 +1556,11 @@ const form = ref({
   map_zoom: 17,
   map_bearing: 0,
   map_color: '#1E5F8E',
+  seller_name: '',
+  seller_cpf: '',
+  seller_rg: '',
+  seller_rg_issuer: '',
+  seller_address: '',
 });
 
 const defaultPerimeterColor = '#1E5F8E';
@@ -5740,6 +5763,11 @@ async function loadItem() {
       map_zoom: item.map_zoom ?? 17,
       map_bearing: item.map_bearing ?? 0,
       map_color: item.map_color ?? defaultPerimeterColor,
+      seller_name: item.seller_name ?? '',
+      seller_cpf: item.seller_cpf ?? '',
+      seller_rg: item.seller_rg ?? '',
+      seller_rg_issuer: item.seller_rg_issuer ?? '',
+      seller_address: item.seller_address ?? '',
     };
     syncSavedMapViewSnapshot();
   } catch {

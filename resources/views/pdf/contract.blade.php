@@ -159,15 +159,57 @@
     color: #666;
     text-align: center;
   }
+
+  .closing-block {
+    page-break-inside: avoid;
+  }
+
+  .watermark {
+    position: fixed;
+    top: 42%;
+    left: -15%;
+    width: 130%;
+    text-align: center;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 64pt;
+    font-weight: bold;
+    color: rgba(150, 20, 20, 0.16);
+    text-transform: uppercase;
+    letter-spacing: 4pt;
+    transform: rotate(-30deg);
+    z-index: -1;
+  }
+
+  .watermark-sub {
+    display: block;
+    font-size: 18pt;
+    letter-spacing: 2pt;
+    margin-top: 8pt;
+  }
 </style>
 </head>
 <body>
+
+@php
+  $isDraft = $isDraft ?? false;
+@endphp
+
+@if($isDraft)
+<div class="watermark">
+  Minuta
+  <span class="watermark-sub">sem valor contratual</span>
+</div>
+@endif
 
 @php
   $brandLogoPath = public_path('img/logo-systema.png');
   $brandLogoSrc = is_readable($brandLogoPath)
       ? 'data:image/png;base64,'.base64_encode((string) file_get_contents($brandLogoPath))
       : null;
+
+  $seller = \App\Support\ContractParty::seller($sale->lot->development ?? null);
+  $company = \App\Support\ContractParty::company();
+  $foro = \App\Support\ContractParty::foro();
 
   $fmt = fn ($v) => 'R$ ' . number_format((int) $v / 100, 2, ',', '.');
   $saleDate = \Carbon\Carbon::parse($sale->sale_date)->translatedFormat('d \d\e F \d\e Y');
@@ -181,24 +223,28 @@
 <div class="doc-header">
   <div class="doc-header-logo">
     @if($brandLogoSrc)
-      <img src="{{ $brandLogoSrc }}" alt="Sid360">
+      <img src="{{ $brandLogoSrc }}" alt="{{ $company['nome'] }}">
     @endif
-    <div class="doc-header-tagline">Imóveis Residencial, Comercial e Rural</div>
+    <div class="doc-header-tagline">{{ $company['tagline'] }}</div>
   </div>
-  <div class="doc-number">Contrato nº {{ $contractNo }} · Emitido em: {{ now()->translatedFormat('d \d\e F \d\e Y') }}</div>
+  <div class="doc-number">
+    Contrato nº {{ $contractNo }} · Emitido em: {{ now()->translatedFormat('d \d\e F \d\e Y') }}
+    @if($isDraft)
+      · <strong>MINUTA — sem valor contratual</strong>
+    @endif
+  </div>
 </div>
 
 <div class="doc-title">
-  <h1>Pré-Contrato Particular de Compromisso<br>de Compra e Venda de Lote</h1>
+  <h1>Contrato Particular de Compromisso<br>de Compra e Venda de Lote</h1>
 </div>
 
 <p class="indent">
   Pelo presente instrumento particular, de um lado, como
   <strong>OUTORGANTE VENDEDOR</strong>:
-  <strong>SIDICLEI NOVAIS BARETTO</strong>, brasileiro, maior, capaz,
-  portador do RG nº 08.280.665-90 SSP/BA e CPF nº 311.168.558-60,
-  residente e domiciliado na Rua Arlindo Montino, nº 4, s/nº, Centro,
-  Cafarnaum — Bahia; e do outro lado, como
+  <strong>{{ strtoupper($seller['name']) }}</strong>, brasileiro, maior, capaz,
+  portador do RG nº {{ $seller['rg'] }} {{ $seller['rg_issuer'] }} e CPF nº {{ $seller['cpf'] }},
+  residente e domiciliado na {{ $seller['address'] }}; e do outro lado, como
   @if($allBuyers->count() > 1)
     <strong>OUTORGADOS COMPRADORES</strong>:
   @else
@@ -256,7 +302,7 @@
   O <strong>OUTORGANTE VENDEDOR</strong> é legítimo proprietário de um
   <strong>TERRENO (LOTE)</strong>, localizado no Loteamento
   <strong>{{ strtoupper($sale->lot->development->name) }}</strong>,
-  situado no Município de Cafarnaum, Estado da Bahia,
+  situado no Município de {{ $foro['cidade'] }}, Estado da {{ $foro['estado_extenso'] }},
   @if($sale->lot->street)
     com frente para a <strong>{{ $sale->lot->street->name }}</strong>,
   @endif
@@ -390,22 +436,18 @@
 <p class="clause-title">Cláusula Sexta — Do Foro</p>
 
 <p class="indent">
-  As partes elegem o Foro da Comarca de <strong>Cafarnaum, Estado da Bahia</strong>,
+  As partes elegem o Foro da Comarca de <strong>{{ $foro['cidade'] }}, Estado da {{ $foro['estado_extenso'] }}</strong>,
   com renúncia expressa a qualquer outro, por mais privilegiado que seja,
   para dirimir quaisquer dúvidas ou litígios oriundos do presente instrumento.
 </p>
 </div>
 
-<p class="local-data">
-  Cafarnaum — BA, {{ $saleDate }}.
-</p>
-
 @php
   $signatureParties = collect([
     [
-      'name' => 'Sidiclei Novais Baretto',
+      'name' => $seller['name'],
       'role' => 'Outorgante Vendedor',
-      'doc' => 'CPF: 311.168.558-60',
+      'doc' => 'CPF: ' . $seller['cpf'],
     ],
   ])->merge($allBuyers->map(function ($buyer, $i) {
     return [
@@ -416,6 +458,11 @@
   }));
   $signatureRows = $signatureParties->chunk(2);
 @endphp
+
+<div class="closing-block">
+<p class="local-data">
+  {{ $foro['cidade'] }} — {{ $foro['estado'] }}, {{ $saleDate }}.
+</p>
 
 <table class="signatures">
   @foreach($signatureRows as $row)
@@ -449,9 +496,10 @@
     </td>
   </tr>
 </table>
+</div>
 
 <div class="doc-footer">
-  Contrato nº {{ $contractNo }} · Sid360 Imóveis · Cafarnaum-BA · sid360.com.br ·
+  Contrato nº {{ $contractNo }} · {{ $company['nome'] }} · {{ $foro['cidade'] }}-{{ $foro['estado'] }} · {{ $company['site'] }} ·
   Documento gerado em {{ now()->format('d/m/Y \à\s H:i') }}
 </div>
 

@@ -29,6 +29,11 @@ class Development extends Model
         'map_zoom',
         'map_bearing',
         'map_color',
+        'seller_name',
+        'seller_cpf',
+        'seller_rg',
+        'seller_rg_issuer',
+        'seller_address',
     ];
 
     /**

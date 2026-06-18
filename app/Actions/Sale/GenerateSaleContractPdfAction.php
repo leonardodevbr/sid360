@@ -9,11 +9,11 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class GenerateSaleContractPdfAction
 {
-    public function execute(Sale $sale): string
+    public function execute(Sale $sale, bool $isDraft = false): string
     {
         $sale->loadMissing(['client', 'lot.development', 'lot.street', 'lot.zone.parent', 'buyers']);
 
-        $pdf = Pdf::loadView('pdf.contract', ['sale' => $sale])
+        $pdf = Pdf::loadView('pdf.contract', ['sale' => $sale, 'isDraft' => $isDraft])
             ->setPaper('a4', 'portrait');
 
         $pdf->render();

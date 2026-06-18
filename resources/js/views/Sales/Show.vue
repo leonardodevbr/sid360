@@ -57,27 +57,27 @@
       <div class="card p-5">
         <h3 class="mb-1 text-sm font-semibold text-slate-800">Contrato</h3>
         <p class="mb-4 text-xs text-slate-500">
-          Gere o PDF para impressão e assinatura do comprador.
+          Pré-visualize a minuta com marca d'água antes de fechar, ou baixe o contrato oficial para assinatura.
         </p>
 
         <div class="flex flex-wrap gap-2">
           <Button
             type="button"
-            variant="primary"
-            :loading="printingContract"
-            @click="handlePrintContract"
+            variant="outline"
+            :loading="previewingContract"
+            @click="handlePreviewContract"
           >
-            <PrinterIcon class="mr-2 h-4 w-4" />
-            Imprimir contrato
+            <EyeIcon class="mr-2 h-4 w-4" />
+            Pré-visualizar (minuta)
           </Button>
           <Button
             type="button"
-            variant="outline"
+            variant="primary"
             :loading="downloadingContract"
             @click="handleDownloadContract"
           >
             <DocumentArrowDownIcon class="mr-2 h-4 w-4" />
-            Baixar PDF
+            Baixar contrato
           </Button>
           <Button
             v-if="financingInstallments.length"
@@ -511,7 +511,7 @@ import {
   downloadContract,
   downloadCarne,
   downloadSignedContract,
-  printContract,
+  previewContract,
   uploadSignedContract,
 } from '@/services/sale.service';
 import { getApiErrorMessage } from '@/utils/apiError';
@@ -543,7 +543,6 @@ import {
   DocumentCheckIcon,
   DocumentTextIcon,
   EyeIcon,
-  PrinterIcon,
 } from '@heroicons/vue/24/outline';
 
 const saleStatusClass = (status) => saleStatusClassHelper(status);
@@ -627,7 +626,7 @@ const toast = useToast();
 const sale = ref(null);
 const interactions = ref([]);
 const loading = ref(false);
-const printingContract = ref(false);
+const previewingContract = ref(false);
 const downloadingContract = ref(false);
 const downloadingCarne = ref(false);
 const downloadingSigned = ref(false);
@@ -726,18 +725,18 @@ async function handleSendOverdueWhatsapp() {
   }
 }
 
-async function handlePrintContract() {
-  printingContract.value = true;
+async function handlePreviewContract() {
+  previewingContract.value = true;
   try {
-    await printContract(sale.value.id);
+    await previewContract(sale.value.id);
   } catch (err) {
     if (err?.code === 'popup_blocked') {
-      toast.warning('Permita pop-ups para imprimir ou use "Baixar PDF".');
+      toast.warning('Permita pop-ups para visualizar ou use "Baixar contrato".');
     } else {
-      toast.error('Erro ao abrir contrato para impressão.');
+      toast.error('Erro ao abrir pré-visualização do contrato.');
     }
   } finally {
-    printingContract.value = false;
+    previewingContract.value = false;
   }
 }
 

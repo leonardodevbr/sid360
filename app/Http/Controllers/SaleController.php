@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Actions\Sale\DeleteSaleAction;
+use App\Actions\Sale\GenerateSaleContractPdfAction;
 use App\Actions\Sale\ListSalesAction;
 use App\Actions\Sale\SendOverdueWhatsappAction;
 use App\Actions\Sale\StoreSaleAction;
@@ -104,7 +105,7 @@ class SaleController extends Controller
         return response()->json($result);
     }
 
-    public function contract(string|int $id): Response
+    public function contract(string|int $id, GenerateSaleContractPdfAction $action): Response
     {
         $this->authorize('sales.view');
 
@@ -112,25 +113,28 @@ class SaleController extends Controller
             ->with(['client', 'lot.development', 'lot.street', 'lot.zone.parent', 'buyers'])
             ->findOrFail((int) $id);
 
-        $pdf = Pdf::loadView('pdf.contract', ['sale' => $sale])
-            ->setPaper('a4', 'portrait');
+        $pdf = $action->execute($sale);
 
-        $pdf->render();
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => "attachment; filename=\"contrato-venda-{$sale->id}.pdf\"",
+        ]);
+    }
 
-        $fontMetrics = $pdf->getDomPDF()->getFontMetrics();
-        $font = $fontMetrics->getFont('Times-Roman', 'normal');
+    public function contractPreview(string|int $id, GenerateSaleContractPdfAction $action): Response
+    {
+        $this->authorize('sales.view');
 
-        $pdf->getCanvas()->page_script(function (int $pageNumber, int $pageCount, $canvas, $fontMetrics) use ($font): void {
-            $text = "{$pageNumber}/{$pageCount}";
-            $size = 9;
-            $width = $fontMetrics->getTextWidth($text, $font, $size);
-            $x = ($canvas->get_width() - $width) / 2;
-            $y = $canvas->get_height() - 55;
+        $sale = Sale::query()
+            ->with(['client', 'lot.development', 'lot.street', 'lot.zone.parent', 'buyers'])
+            ->findOrFail((int) $id);
 
-            $canvas->text($x, $y, $text, $font, $size, [0.35, 0.35, 0.35]);
-        });
+        $pdf = $action->execute($sale, isDraft: true);
 
-        return $pdf->download("contrato-venda-{$sale->id}.pdf");
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => "inline; filename=\"minuta-venda-{$sale->id}.pdf\"",
+        ]);
     }
 
     public function carne(string|int $id): Response

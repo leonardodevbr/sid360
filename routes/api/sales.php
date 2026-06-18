@@ -20,6 +20,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/sales/{id}/delete', [SaleController::class, 'destroy']);
     Route::post('/sales/{id}/whatsapp/overdue', [SaleController::class, 'sendOverdueWhatsapp']);
     Route::get('/sales/{id}/contract', [SaleController::class, 'contract']);
+    Route::get('/sales/{id}/contract/preview', [SaleController::class, 'contractPreview']);
     Route::get('/sales/{id}/carne', [SaleController::class, 'carne']);
     Route::get('/sales/{id}/carne/preview', [SaleController::class, 'carnePreviewHtml']);
     Route::post('/sales/{id}/signed-contract', [SaleController::class, 'uploadSignedContract']);

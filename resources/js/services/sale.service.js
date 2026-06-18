@@ -5,6 +5,11 @@ export async function getContractBlob(saleId) {
   return data;
 }
 
+export async function getContractPreviewBlob(saleId) {
+  const { data } = await api.get(`/sales/${saleId}/contract/preview`, { responseType: 'blob' });
+  return data;
+}
+
 export async function downloadContract(saleId, filename) {
   const blob = await getContractBlob(saleId);
   const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
@@ -15,22 +20,17 @@ export async function downloadContract(saleId, filename) {
   window.URL.revokeObjectURL(url);
 }
 
-export async function printContract(saleId) {
-  const blob = await getContractBlob(saleId);
+export async function previewContract(saleId) {
+  const blob = await getContractPreviewBlob(saleId);
   const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
-  const printWindow = window.open(url, '_blank');
+  const previewWindow = window.open(url, '_blank');
 
-  if (!printWindow) {
+  if (!previewWindow) {
     window.URL.revokeObjectURL(url);
     const error = new Error('popup_blocked');
     error.code = 'popup_blocked';
     throw error;
   }
-
-  printWindow.addEventListener('load', () => {
-    printWindow.focus();
-    printWindow.print();
-  });
 }
 
 export async function uploadSignedContract(saleId, file) {

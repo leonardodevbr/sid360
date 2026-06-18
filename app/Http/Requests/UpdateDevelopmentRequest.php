@@ -33,6 +33,11 @@ class UpdateDevelopmentRequest extends FormRequest
             'map_bearing' => ['nullable', 'numeric'],
             'map_color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'is_featured' => ['nullable', 'boolean'],
+            'seller_name' => ['nullable', 'string', 'max:255'],
+            'seller_cpf' => ['nullable', 'string', 'max:20'],
+            'seller_rg' => ['nullable', 'string', 'max:20'],
+            'seller_rg_issuer' => ['nullable', 'string', 'max:20'],
+            'seller_address' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

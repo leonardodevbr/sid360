@@ -59,6 +59,26 @@ class SettingSeeder extends Seeder
         Settings::setDefault('email_reminder_enabled', '1', 'boolean', 'email');
         Settings::setDefault('email_overdue_enabled', '1', 'boolean', 'email');
 
+        // Dados do vendedor/empresa exibidos no contrato (App\Support\ContractParty).
+        // Podem ser sobrescritos por empreendimento em developments.seller_*.
+        // Defaults reproduzem os valores que estavam hardcoded no template.
+        Settings::setDefault('vendedor_nome', 'Sidiclei Novais Baretto', 'string', 'contrato');
+        Settings::setDefault('vendedor_cpf', '311.168.558-60', 'string', 'contrato');
+        Settings::setDefault('vendedor_rg', '08.280.665-90', 'string', 'contrato');
+        Settings::setDefault('vendedor_rg_issuer', 'SSP/BA', 'string', 'contrato');
+        Settings::setDefault(
+            'vendedor_endereco',
+            'Rua Arlindo Montino, nº 4, s/nº, Centro, Cafarnaum — Bahia',
+            'string',
+            'contrato',
+        );
+        Settings::setDefault('empresa_nome', 'Sid360 Imóveis', 'string', 'contrato');
+        Settings::setDefault('empresa_tagline', 'Imóveis Residencial, Comercial e Rural', 'string', 'contrato');
+        Settings::setDefault('empresa_site', 'sid360.com.br', 'string', 'contrato');
+        Settings::setDefault('foro_cidade', 'Cafarnaum', 'string', 'contrato');
+        Settings::setDefault('foro_estado', 'BA', 'string', 'contrato');
+        Settings::setDefault('foro_estado_extenso', 'Bahia', 'string', 'contrato');
+
         $this->command->info('Configurações iniciais criadas.');
     }
 }

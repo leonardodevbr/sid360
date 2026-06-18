@@ -27,6 +27,10 @@
         <p v-if="group === 'whatsapp_integration'" class="text-xs text-slate-500 mb-4">
           Credenciais do WPPConnect. Campos vazios usam o fallback do arquivo <code class="bg-slate-100 px-1 rounded">.env</code>.
         </p>
+        <p v-if="group === 'contrato'" class="text-xs text-slate-500 mb-4">
+          Dados usados no contrato de venda (PDF). Podem ser sobrescritos por empreendimento em
+          <span class="font-medium">Empreendimentos → editar → Dados básicos</span>.
+        </p>
         <div class="space-y-4">
           <div
             v-for="item in items"
@@ -211,12 +215,24 @@ const KEY_LABELS = {
   email_welcome_enabled: 'E-mail de boas-vindas',
   email_reminder_enabled: 'E-mail de lembrete de vencimento',
   email_overdue_enabled: 'E-mail de inadimplência',
+  vendedor_nome: 'Nome do vendedor (outorgante)',
+  vendedor_cpf: 'CPF do vendedor',
+  vendedor_rg: 'RG do vendedor',
+  vendedor_rg_issuer: 'Órgão emissor do RG',
+  vendedor_endereco: 'Endereço do vendedor',
+  empresa_nome: 'Nome da empresa (contrato/rodapé)',
+  empresa_tagline: 'Slogan da empresa (cabeçalho do contrato)',
+  empresa_site: 'Site da empresa (rodapé do contrato)',
+  foro_cidade: 'Cidade do foro/comarca',
+  foro_estado: 'UF do foro/comarca',
+  foro_estado_extenso: 'Estado do foro (nome completo)',
 };
 
 const GROUP_LABELS = {
   general: 'Geral',
   auth: 'Login / Autenticação',
   municipality: 'Município',
+  contrato: 'Contrato — Vendedor e Empresa',
   whatsapp_integration: 'WhatsApp — Integração (WPPConnect)',
   whatsapp: 'WhatsApp — Mensagens e notificações',
   email: 'Notificações por E-mail',
@@ -226,6 +242,7 @@ const GROUP_ORDER = [
   'general',
   'auth',
   'municipality',
+  'contrato',
   'whatsapp_integration',
   'whatsapp',
   'email',
