@@ -2,6 +2,21 @@ export const STREET_MIN_POINTS = 4;
 
 export const DEFAULT_STREET_COLOR = '#64748B';
 
+export const STREET_MAP_STYLE = {
+  color: '#475569',
+  fill: '#94A3B8',
+};
+
+export function getStreetMapStyle({ preview = false } = {}) {
+  return {
+    color: STREET_MAP_STYLE.color,
+    weight: preview ? 1.5 : 2,
+    fillColor: STREET_MAP_STYLE.fill,
+    fillOpacity: preview ? 0.48 : 0.42,
+    opacity: 0.95,
+  };
+}
+
 /**
  * @param {number | undefined | null} pointCount
  */

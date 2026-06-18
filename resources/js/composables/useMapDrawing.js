@@ -24,7 +24,8 @@ import {
 } from '@/utils/mapGeometry';
 import { buildZoneTitleLabel } from '@/utils/zone';
 import { getLotMapStyle, buildLotDimensionLabelMarkerHtml, shouldShowLotDimensionLabelsAtZoom } from '@/utils/mapLots';
-import { getStreetColor, getMappedStreets, hasValidStreetPolygon, DEFAULT_STREET_COLOR } from '@/utils/mapStreets';
+import { getStreetMapStyle, getMappedStreets, hasValidStreetPolygon, STREET_MAP_STYLE } from '@/utils/mapStreets';
+import { getZonePolygonMapOptions } from '@/utils/mapFeatureColors';
 import {
   buildStreetNetworkVisualRings,
   buildStreetNameLabelMarkerHtml,
@@ -1221,11 +1222,7 @@ export function useMapDrawing(options) {
 
       mergedRings.forEach((ring) => {
         L.polygon(ring, {
-          color: DEFAULT_STREET_COLOR,
-          weight: 2,
-          fillColor: DEFAULT_STREET_COLOR,
-          fillOpacity: 0.15,
-          opacity: 0.95,
+          ...getStreetMapStyle(),
           interactive: false,
           className: 'map-street-union-visual map-lot-path',
         }).addTo(contextStreetUnionLayer);
@@ -1236,21 +1233,19 @@ export function useMapDrawing(options) {
     }
 
     mappedStreets.forEach((street) => {
-      const color = getStreetColor(street);
+      const streetStyle = getStreetMapStyle();
       const layer = L.polygon(street.coordinates, renderUnionVisual
         ? {
-          color,
+          color: STREET_MAP_STYLE.color,
           weight: 0,
           opacity: 0,
-          fillColor: color,
+          fillColor: STREET_MAP_STYLE.fill,
           fillOpacity: 0,
           interactive: false,
           className: 'map-lot-path',
         }
         : {
-          color,
-          weight: 2,
-          fillColor: color,
+          ...streetStyle,
           fillOpacity: 0.15,
           interactive: false,
           className: 'map-lot-path',
@@ -1380,10 +1375,7 @@ export function useMapDrawing(options) {
       if (!zone.coordinates?.length) return;
 
       const layer = L.polygon(zone.coordinates, {
-        color: zone.color,
-        weight: 1.5,
-        fillColor: zone.color,
-        fillOpacity: 0.1,
+        ...getZonePolygonMapOptions(zone.type, { fillOpacity: 0.1, weight: 1.5 }),
         interactive: false,
         className: 'map-lot-path',
       }).addTo(map);

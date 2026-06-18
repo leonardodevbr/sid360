@@ -550,7 +550,7 @@
                 :class="drawingZone?.id === zone.id ? 'bg-emerald-50 ring-1 ring-emerald-200' : ''"
                 @click="pickZoneForMapping(zone)"
               >
-                <span class="h-3 w-3 shrink-0 rounded-full" :style="{ background: zone.color }" />
+                <span class="h-3 w-3 shrink-0 rounded-full" :style="{ background: getZoneTypeMapStyle(zone.type).color }" />
                 <span class="min-w-0 flex-1">
                   <span class="block font-semibold tracking-wide text-slate-800">{{ buildZoneTitleLabel(zone) }}</span>
                   <span class="block text-slate-400">
@@ -830,7 +830,7 @@
             <div class="flex min-w-0 items-start gap-3 sm:flex-1">
               <div
                 class="mt-1 h-3 w-3 shrink-0 rounded-sm"
-                :style="{ background: street.color || defaultStreetColor }"
+                :style="{ background: STREET_MAP_STYLE.color }"
               />
               <div class="min-w-0 flex-1">
                 <p class="text-sm font-medium text-slate-800">{{ street.name }}</p>
@@ -922,7 +922,7 @@
                 class="mt-2 h-px w-3 shrink-0 bg-slate-300"
                 aria-hidden="true"
               />
-              <div class="mt-1 h-3 w-3 shrink-0 rounded-full" :style="{ background: zone.color }" />
+              <div class="mt-1 h-3 w-3 shrink-0 rounded-full" :style="{ background: getZoneTypeMapStyle(zone.type).color }" />
               <div class="min-w-0 flex-1">
                 <p class="text-sm font-semibold tracking-wide text-slate-800">{{ buildZoneTitleLabel(zone) }}</p>
                 <p class="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-slate-400">
@@ -1398,6 +1398,8 @@ import {
   hasLotDimensionsLabel,
   shouldShowLotDimensionLabelsAtZoom,
 } from '@/utils/mapLots';
+import { getZonePolygonMapOptions, getZoneTypeMapStyle } from '@/utils/mapFeatureColors';
+import { getStreetMapStyle, STREET_MAP_STYLE } from '@/utils/mapStreets';
 import { lotStatusLabel } from '@/utils/status';
 import {
   ALL_MAP_LAYER_IDS,
@@ -1567,16 +1569,11 @@ let firstVertexCloseTimer = null;
 const cursorPreview = createCursorPreviewController();
 
 function getDrawingStrokeColor() {
-  const lineColor = drawingMode.value === 'perimeter'
-    ? getPerimeterColor()
-    : drawingMode.value === 'street-axis'
-      ? getStreetColor(drawingStreet.value)
-      : drawingZone.value?.color ?? '#10B981';
   const zoneInvalid = drawingMode.value === 'zone'
     && getDevelopmentPerimeter()
     && getInvalidPointsInsidePolygon(perimeterPoints.value, getDevelopmentPerimeter()).length > 0;
 
-  return zoneInvalid ? '#DC2626' : lineColor;
+  return zoneInvalid ? '#DC2626' : getDrawingBaseColor();
 }
 
 function isDrawingStrokeInvalid() {
@@ -2654,32 +2651,8 @@ function getStreetColor(street) {
   return street?.color || defaultStreetColor;
 }
 
-function lightenHexColor(hex, amount = 0.22) {
-  const normalized = String(hex || '').replace('#', '');
-  if (normalized.length !== 6) {
-    return hex || defaultStreetColor;
-  }
-
-  const channels = normalized.match(/.{2}/g)?.map((part) => parseInt(part, 16)) ?? [];
-  if (channels.length !== 3) {
-    return hex || defaultStreetColor;
-  }
-
-  const mix = (channel) => Math.min(255, Math.round(channel + (255 - channel) * amount));
-
-  return `#${channels.map((channel) => mix(channel).toString(16).padStart(2, '0')).join('')}`;
-}
-
 function getStreetLayerStyle(street, { preview = false } = {}) {
-  const color = getStreetColor(street);
-
-  return {
-    color,
-    weight: preview ? 1.5 : 2,
-    fillColor: lightenHexColor(color),
-    fillOpacity: preview ? 0.48 : 0.42,
-    opacity: 0.95,
-  };
+  return getStreetMapStyle({ preview });
 }
 
 function getDrawingBaseColor() {
@@ -2688,10 +2661,12 @@ function getDrawingBaseColor() {
   }
 
   if (drawingMode.value === 'street-axis') {
-    return getStreetColor(drawingStreet.value);
+    return STREET_MAP_STYLE.color;
   }
 
-  return drawingZone.value?.color ?? '#10B981';
+  const zoneType = drawingZone.value?.type ?? zoneForm.type ?? 'quadra';
+
+  return getZoneTypeMapStyle(zoneType).color;
 }
 
 function canDragVertexMarkers() {
@@ -3251,11 +3226,7 @@ function onMapClick(e) {
 
   perimeterPoints.value.push([lat, lng]);
 
-  const markerColor = drawingMode.value === 'perimeter'
-    ? getPerimeterColor()
-    : drawingMode.value === 'street-axis'
-      ? getStreetColor(drawingStreet.value)
-      : drawingZone.value?.color ?? '#10B981';
+  const markerColor = getDrawingBaseColor();
 
   addDrawingMarker([lat, lng], markerColor, perimeterPoints.value.length - 1);
 
@@ -3343,15 +3314,7 @@ function refreshTempPolyline(closed = false, options = {}) {
     delete map._tempClosingLine;
   }
 
-  const lineColor = drawingMode.value === 'perimeter'
-    ? getPerimeterColor()
-    : drawingMode.value === 'street-axis'
-      ? getStreetColor(drawingStreet.value)
-      : drawingZone.value?.color ?? '#10B981';
-  const zoneInvalid = drawingMode.value === 'zone'
-    && getDevelopmentPerimeter()
-    && getInvalidPointsInsidePolygon(perimeterPoints.value, getDevelopmentPerimeter()).length > 0;
-  const strokeColor = zoneInvalid ? '#DC2626' : lineColor;
+  const strokeColor = getDrawingStrokeColor();
   const edgeInsertEnabled = canInsertVerticesOnEdge();
 
   const layerOptions = {
@@ -3563,13 +3526,7 @@ function drawZonesOnMap() {
   zones.value.forEach((zone) => {
     if (!zone.coordinates?.length) return;
 
-    const layer = L.polygon(zone.coordinates, {
-      color: zone.color,
-      weight: 2,
-      fillColor: zone.color,
-      fillOpacity: 0.15,
-      className: 'map-feature-polygon',
-    }).addTo(map);
+    const layer = L.polygon(zone.coordinates, getZonePolygonMapOptions(zone.type)).addTo(map);
 
     bindZoneLayerTooltip(layer, zone);
 
@@ -3644,7 +3601,7 @@ function startDrawZone(zone) {
       map?.removeLayer(zoneLayers[zone.id]);
       delete zoneLayers[zone.id];
     }
-    preloadDrawingPoints(zone.coordinates, zone.color ?? '#10B981');
+    preloadDrawingPoints(zone.coordinates, getZoneTypeMapStyle(zone.type).color);
     toast.info(`Área de "${zone.name}" carregada. Arraste vértices; duplo clique na linha adiciona ponto.`);
   } else {
     perimeterPoints.value = [];
@@ -4211,20 +4168,8 @@ function drawLotsOnMap() {
   syncMapLayerVisibility();
 }
 
-function getStreetUnionVisualStyle(mappedStreets) {
-  if (mappedStreets.length === 1) {
-    return getStreetLayerStyle(mappedStreets[0]);
-  }
-
-  const color = defaultStreetColor;
-
-  return {
-    color,
-    weight: 2,
-    fillColor: lightenHexColor(color),
-    fillOpacity: 0.42,
-    opacity: 0.95,
-  };
+function getStreetUnionVisualStyle() {
+  return getStreetMapStyle();
 }
 
 function drawStreetsOnMap(options = {}) {
@@ -4262,7 +4207,7 @@ function drawStreetsOnMap(options = {}) {
 
     mergedRings.forEach((ring) => {
       L.polygon(ring, {
-        ...getStreetUnionVisualStyle(mappedStreets),
+        ...getStreetUnionVisualStyle(),
         interactive: false,
         className: 'map-street-union-visual',
       }).addTo(streetUnionVisualLayer);
@@ -4274,10 +4219,10 @@ function drawStreetsOnMap(options = {}) {
   mappedStreets.forEach((street) => {
     const layer = L.polygon(street.coordinates, renderUnionVisual
       ? {
-        color: getStreetColor(street),
+        color: STREET_MAP_STYLE.color,
         weight: 0,
         opacity: 0,
-        fillColor: getStreetColor(street),
+        fillColor: STREET_MAP_STYLE.fill,
         fillOpacity: 0.001,
         className: 'map-feature-polygon map-street-feature map-street-feature-hit',
       }
@@ -4668,7 +4613,7 @@ function beginStreetAxisDrawing(street, { width, endCap }) {
   drawStreetsOnMap({ excludeStreetId: street.id });
 
   if (street.centerline?.length >= 2) {
-    preloadDrawingPoints(street.centerline, getStreetColor(street));
+    preloadDrawingPoints(street.centerline, STREET_MAP_STYLE.color);
     updateAxisPreviewFromPoints();
     refreshVertexMarkerStyles();
     bringVertexMarkersToFront();
