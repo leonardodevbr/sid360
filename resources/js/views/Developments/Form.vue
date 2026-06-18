@@ -263,7 +263,7 @@
                           : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
                         @click="setGeoWidthMode('custom')"
                       >
-                        Personalizadas
+                        Personalizar
                       </button>
                     </div>
                   </div>
@@ -4983,11 +4983,14 @@ function setGeoWidthMode(mode) {
   }
 
   const previousMode = geoForm.value.widthMode;
-  geoForm.value.widthMode = mode;
 
   if (mode === 'custom') {
-    fillCustomWidthsFromEqual();
-  } else if (mode === 'count') {
+    fillCustomWidthsFromPlan(previousMode);
+  }
+
+  geoForm.value.widthMode = mode;
+
+  if (mode === 'count') {
     const frontLength = geoFrontLengthM.value;
     const lotWidth = Number(geoForm.value.lotWidth) || 20;
 
@@ -5036,24 +5039,45 @@ function seedCustomWidthsIfNeeded() {
     return;
   }
 
-  fillCustomWidthsFromEqual();
+  fillCustomWidthsFromPlan(geoForm.value.widthMode === 'custom' ? 'equal' : geoForm.value.widthMode);
 }
 
-function fillCustomWidthsFromEqual() {
-  const frontLength = geoFrontLengthM.value;
-  const lotCount = Math.max(1, geoForm.value.customWidths.length);
-
-  if (!(frontLength > 0)) {
+function fillCustomWidthsFromPlan(sourceMode = 'equal') {
+  if (previewLots.value.length) {
+    geoForm.value.customWidths = previewLots.value.map((lot) => Number(lot.widthMeters));
+  } else {
+    const frontLength = geoFrontLengthM.value;
     const lotWidth = Number(geoForm.value.lotWidth) || 20;
-    geoForm.value.customWidths = divideFrontLengthEqually(lotWidth * lotCount, lotCount);
-    return;
-  }
+    const lotCount = Math.max(1, Number(geoForm.value.lotCount) || 1);
+    const resolvedMode = sourceMode === 'custom' ? 'equal' : sourceMode;
 
-  geoForm.value.customWidths = divideFrontLengthEqually(frontLength, lotCount);
+    if (!(frontLength > 0)) {
+      const fallbackCount = resolvedMode === 'count' ? lotCount : 2;
+      geoForm.value.customWidths = resolvedMode === 'count'
+        ? divideFrontLengthEqually(lotWidth * fallbackCount, fallbackCount)
+        : [lotWidth, lotWidth];
+    } else {
+      const plan = resolveSliceWidths(frontLength, {
+        widthMode: resolvedMode,
+        lotWidth,
+        lotCount,
+        customWidths: geoForm.value.customWidths,
+        remainderSide: geoForm.value.remainderSide,
+      });
+
+      geoForm.value.customWidths = plan.widths.length
+        ? [...plan.widths]
+        : divideFrontLengthEqually(frontLength, lotCount);
+    }
+  }
 
   if (geoForm.value.frontEdgeIndex != null) {
     scheduleGeoPreview();
   }
+}
+
+function fillCustomWidthsFromEqual() {
+  fillCustomWidthsFromPlan('equal');
 }
 
 function splitCustomWidthsHalfHalf() {
