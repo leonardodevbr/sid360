@@ -25,14 +25,9 @@ import { buildStreetNetworkVisualRings } from '@/utils/streetGeometry';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import { createGpsPreviewController, isCoarsePointerDevice } from '@/utils/mapGpsPreview';
 import {
-  collectMapSnapIntersectionTargets,
-  collectMapSnapSegmentTargets,
-  collectMapSnapTargets,
-  MAP_INTERSECTION_SNAP_PIXEL_RADIUS,
+  applyMapDrawingSnap,
   MAP_SEGMENT_SNAP_PIXEL_RADIUS,
-  MAP_SNAP_PIXEL_RADIUS,
   resolveSnapToleranceMeters,
-  resolveSnappedCoordinate,
   findNearestPolygonEdgeInsert,
 } from '@/utils/mapVertexSnap';
 import {
@@ -460,39 +455,10 @@ export function useMapDrawing(options) {
     };
   }
 
-  function applyDrawingSnap(lat, lng, {
-    excludeDrawingVertexIndex = null,
-    includeDrawingPoints = true,
-    includeDrawingSegments = true,
-  } = {}) {
-    const context = getDrawingSnapContext();
-    const targets = collectMapSnapTargets({
-      ...context,
-      includeDrawingPoints,
-      excludeDrawingVertexIndex,
-    });
-    const segmentTargets = collectMapSnapSegmentTargets({
-      ...context,
-      includeDrawingSegments,
-    });
-    const intersectionTargets = collectMapSnapIntersectionTargets(segmentTargets);
-    const vertexToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
-      pixelRadius: MAP_SNAP_PIXEL_RADIUS,
-    });
-    const intersectionToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
-      pixelRadius: MAP_INTERSECTION_SNAP_PIXEL_RADIUS,
-    });
-    const segmentToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
-      pixelRadius: MAP_SEGMENT_SNAP_PIXEL_RADIUS,
-    });
-
-    return resolveSnappedCoordinate(lat, lng, {
-      targets,
-      intersectionTargets,
-      segmentTargets,
-      vertexToleranceMeters,
-      intersectionToleranceMeters,
-      segmentToleranceMeters,
+  function applyDrawingSnap(lat, lng, overrides = {}) {
+    return applyMapDrawingSnap(lat, lng, map, {
+      ...getDrawingSnapContext(),
+      ...overrides,
     });
   }
 
@@ -510,6 +476,7 @@ export function useMapDrawing(options) {
         excludeDrawingVertexIndex: marker._vertexIndex,
         includeDrawingPoints: !startedFromExistingPolygon.value,
         includeDrawingSegments: !startedFromExistingPolygon.value,
+        dragMode: true,
       });
 
       marker.setLatLng({ lat: snapped.lat, lng: snapped.lng });

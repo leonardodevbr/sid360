@@ -1374,15 +1374,10 @@ import {
 } from '@/utils/zone';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import {
-  collectMapSnapIntersectionTargets,
-  collectMapSnapSegmentTargets,
-  collectMapSnapTargets,
-  MAP_INTERSECTION_SNAP_PIXEL_RADIUS,
+  applyMapDrawingSnap,
   MAP_SEGMENT_SNAP_PIXEL_RADIUS,
-  MAP_SNAP_PIXEL_RADIUS,
   rectangleFromOppositeCorners,
   resolveSnapToleranceMeters,
-  resolveSnappedCoordinate,
   findNearestPolygonEdgeInsert,
 } from '@/utils/mapVertexSnap';
 import {
@@ -1542,40 +1537,14 @@ function getDrawingSnapOptions(overrides = {}) {
   };
 }
 
-function applyDrawingSnap(lat, lng, {
-  excludeDrawingVertexIndex = null,
-  includeDrawingPoints = true,
-  includeDrawingSegments = true,
-} = {}) {
-  const context = getDrawingSnapContext();
-  const targets = collectMapSnapTargets({
-    ...context,
-    includeDrawingPoints,
-    excludeDrawingVertexIndex,
-  });
-  const segmentTargets = collectMapSnapSegmentTargets({
-    ...context,
-    includeDrawingSegments,
-  });
-  const intersectionTargets = collectMapSnapIntersectionTargets(segmentTargets);
-  const vertexToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
-    pixelRadius: MAP_SNAP_PIXEL_RADIUS,
-  });
-  const intersectionToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
-    pixelRadius: MAP_INTERSECTION_SNAP_PIXEL_RADIUS,
-  });
-  const segmentToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
-    pixelRadius: MAP_SEGMENT_SNAP_PIXEL_RADIUS,
-  });
+function applyDrawingSnap(lat, lng, overrides = {}) {
+  const snapOptions = {
+    ...getDrawingSnapContext(),
+    ...getDrawingSnapOptions(overrides),
+    ...overrides,
+  };
 
-  return resolveSnappedCoordinate(lat, lng, {
-    targets,
-    intersectionTargets,
-    segmentTargets,
-    vertexToleranceMeters,
-    intersectionToleranceMeters,
-    segmentToleranceMeters,
-  });
+  return applyMapDrawingSnap(lat, lng, map, snapOptions);
 }
 
 function normalizeMapCursorLatLng(cursorLatLng) {
@@ -2603,6 +2572,7 @@ function bindVertexMarkerDrag(marker) {
       excludeDrawingVertexIndex: marker._vertexIndex,
       includeDrawingPoints: !startedFromExistingPolygon.value,
       includeDrawingSegments: !startedFromExistingPolygon.value,
+      dragMode: true,
     });
     const nextLatLng = { lat: snapped.lat, lng: snapped.lng };
 

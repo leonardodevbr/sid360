@@ -2,12 +2,14 @@ import * as turf from '@turf/turf';
 
 import { distanceBetweenPointsMeters } from '@/utils/mapGeometry';
 
-export const MAP_VERTEX_SNAP_TOLERANCE_METERS = 12;
-export const MAP_SNAP_PIXEL_RADIUS = 28;
-export const MAP_SEGMENT_SNAP_PIXEL_RADIUS = 36;
-export const MAP_INTERSECTION_SNAP_PIXEL_RADIUS = 28;
-export const MAP_SNAP_MIN_METERS = 4;
-export const MAP_SNAP_MAX_METERS = 50;
+export const MAP_VERTEX_SNAP_TOLERANCE_METERS = 8;
+export const MAP_SNAP_PIXEL_RADIUS = 18;
+export const MAP_SEGMENT_SNAP_PIXEL_RADIUS = 22;
+export const MAP_INTERSECTION_SNAP_PIXEL_RADIUS = 16;
+export const MAP_DRAG_SNAP_PIXEL_RADIUS = 10;
+export const MAP_SNAP_MIN_METERS = 2;
+export const MAP_SNAP_MAX_METERS = 24;
+export const MAP_DRAG_SNAP_MAX_METERS = 8;
 
 export function metersPerPixelAtLatLng(lat, zoom) {
   const clampedLat = Math.max(Math.min(Number(lat), 85), -85);
@@ -593,6 +595,79 @@ export function resolveSnappedCoordinate(
   }
 
   return { lat, lng, snapped: false };
+}
+
+/**
+ * Snap unificado para desenho no mapa.
+ * No arraste de vértice (dragMode), considera só cantos muito próximos — sem linhas/interseções.
+ */
+export function applyMapDrawingSnap(lat, lng, map, {
+  perimeterCoordinates = [],
+  zones = [],
+  streets = [],
+  lots = [],
+  currentDrawingPoints = [],
+  excludeZoneId = null,
+  excludeStreetId = null,
+  excludeLotId = null,
+  excludeDrawingVertexIndex = null,
+  includeDrawingPoints = true,
+  includeDrawingSegments = true,
+  dragMode = false,
+} = {}) {
+  const context = {
+    perimeterCoordinates,
+    zones,
+    streets,
+    lots,
+    currentDrawingPoints,
+    excludeZoneId,
+    excludeStreetId,
+    excludeLotId,
+  };
+
+  const targets = collectMapSnapTargets({
+    ...context,
+    includeDrawingPoints,
+    excludeDrawingVertexIndex,
+  });
+
+  if (dragMode) {
+    const vertexToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
+      pixelRadius: MAP_DRAG_SNAP_PIXEL_RADIUS,
+      minMeters: 0.8,
+      maxMeters: MAP_DRAG_SNAP_MAX_METERS,
+    });
+
+    return resolveSnappedCoordinate(lat, lng, {
+      targets,
+      vertexToleranceMeters,
+    });
+  }
+
+  const segmentTargets = collectMapSnapSegmentTargets({
+    ...context,
+    includeDrawingSegments,
+  });
+  const intersectionTargets = collectMapSnapIntersectionTargets(segmentTargets);
+  const vertexToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
+    pixelRadius: MAP_SNAP_PIXEL_RADIUS,
+  });
+  const intersectionToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
+    pixelRadius: MAP_INTERSECTION_SNAP_PIXEL_RADIUS,
+  });
+  const segmentToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
+    pixelRadius: MAP_SEGMENT_SNAP_PIXEL_RADIUS,
+  });
+
+  return resolveSnappedCoordinate(lat, lng, {
+    targets,
+    intersectionTargets,
+    segmentTargets,
+    vertexToleranceMeters,
+    intersectionToleranceMeters,
+    segmentToleranceMeters,
+  });
 }
 
 /**
