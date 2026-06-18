@@ -18,18 +18,18 @@ import {
   computeGeodesicArea,
   getInvalidPointsInsidePolygon,
   getPolygonEdgesMeters,
-  getPolygonCentroid,
   isPointInsideOrOnPolygon,
   normalizePolygonCoordinates,
 } from '@/utils/mapGeometry';
 import { buildZoneTitleLabel } from '@/utils/zone';
-import { getLotMapStyle, buildLotDimensionLabelMarkerHtml, shouldShowLotDimensionLabelsAtZoom } from '@/utils/mapLots';
+import { getLotMapStyle, shouldShowLotDimensionLabelsAtZoom } from '@/utils/mapLots';
 import { getStreetMapStyle, getMappedStreets, hasValidStreetPolygon, STREET_MAP_STYLE } from '@/utils/mapStreets';
 import { getZoneNameLabelClassName, getZonePolygonMapOptions } from '@/utils/mapFeatureColors';
 import {
   buildStreetNetworkVisualRings,
 } from '@/utils/streetGeometry';
 import { createMapStreetNameOverlay } from '@/utils/mapStreetNameOverlay';
+import { createMapLotDimensionLabelOverlay } from '@/utils/mapLotDimensionLabelOverlay';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import { createGpsPreviewController, isCoarsePointerDevice } from '@/utils/mapGpsPreview';
 import {
@@ -97,7 +97,7 @@ export function useMapDrawing(options) {
   let contextStreetNameOverlay = null;
   const contextZoneLayerMap = {};
   const contextLotLayerMap = {};
-  const contextLotLabelMarkers = [];
+  let contextLotDimensionLabelOverlay = null;
   let savedFeatureLayer = null;
   let tempMarkers = [];
   let edgeLabelMarkers = [];
@@ -1077,45 +1077,17 @@ export function useMapDrawing(options) {
   }
 
   function clearContextLotLabelMarkers() {
-    contextLotLabelMarkers.forEach((marker) => map?.removeLayer(marker));
-    contextLotLabelMarkers.length = 0;
+    contextLotDimensionLabelOverlay?.setVisible(false);
   }
 
   function syncContextLotDimensionMarkers() {
-    clearContextLotLabelMarkers();
-
-    if (!L || !map || !shouldShowLotDimensionLabelsAtZoom(map.getZoom())) {
+    if (!L || !map || !contextLotDimensionLabelOverlay || !shouldShowLotDimensionLabelsAtZoom(map.getZoom())) {
+      clearContextLotLabelMarkers();
       return;
     }
 
-    const lots = contextLots?.value ?? [];
-    lots.forEach((lot) => {
-      const markerHtml = buildLotDimensionLabelMarkerHtml(lot);
-
-      if (!markerHtml) {
-        return;
-      }
-
-      const coords = normalizePolygonCoordinates(lot.coordinates);
-      const centroid = getPolygonCentroid(coords);
-
-      if (!centroid) {
-        return;
-      }
-
-      const marker = L.marker(centroid, {
-        interactive: false,
-        keyboard: false,
-        zIndexOffset: 500,
-        icon: L.divIcon({
-          className: 'map-fixed-label-icon',
-          html: markerHtml,
-          iconSize: [0, 0],
-        }),
-      }).addTo(map);
-
-      contextLotLabelMarkers.push(marker);
-    });
+    contextLotDimensionLabelOverlay.setLots(contextLots?.value ?? []);
+    contextLotDimensionLabelOverlay.setVisible(true);
   }
 
   function drawContextLots() {
@@ -2021,6 +1993,9 @@ export function useMapDrawing(options) {
 
     contextStreetNameOverlay = createMapStreetNameOverlay(map);
     contextStreetNameOverlay.bind();
+
+    contextLotDimensionLabelOverlay = createMapLotDimensionLabelOverlay(map);
+    contextLotDimensionLabelOverlay.bind();
   }
 
   function destroyMap() {
@@ -2040,6 +2015,8 @@ export function useMapDrawing(options) {
     lastMapContainerSizeKey = '';
     contextStreetNameOverlay?.destroy();
     contextStreetNameOverlay = null;
+    contextLotDimensionLabelOverlay?.destroy();
+    contextLotDimensionLabelOverlay = null;
     map?.remove();
     map = null;
     L = null;

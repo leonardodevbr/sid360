@@ -3,7 +3,6 @@ import { STREET_MAP_LABEL_BADGE_CLASS } from '@/utils/mapFeatureColors';
 import { resolveStreetLabelPathLatLng } from '@/utils/streetGeometry';
 
 const STREET_NAME_REPEAT_SPACING_METERS = 42;
-const STREET_NAME_SEPARATOR = '   ·   ';
 
 function normalizeStreetRing(ring) {
   if (!Array.isArray(ring) || ring.length < 3) {
@@ -37,10 +36,28 @@ function normalizeStreetRing(ring) {
   return isClosed ? points : [...points, points[0]];
 }
 
-function buildRepeatedStreetNameText(name, pathLengthMeters) {
+/**
+ * Monta os segmentos de texto repetidos ao longo do eixo da rua: 1 nome visível,
+ * seguido de um vão equivalente a 2x a largura do próprio nome antes de repetir.
+ * O vão é o nome novamente, porém com fill/stroke transparentes — assim a largura
+ * do espaçamento acompanha exatamente a largura renderizada do nome (sem precisar
+ * estimar largura de caractere/fonte), e não depende de espaços em branco (que o
+ * SVG colapsa por padrão).
+ */
+function buildRepeatedStreetNameSegments(name, pathLengthMeters) {
   const repeatCount = Math.max(1, Math.ceil(pathLengthMeters / STREET_NAME_REPEAT_SPACING_METERS));
+  const segments = [];
 
-  return Array.from({ length: repeatCount }, () => name).join(STREET_NAME_SEPARATOR);
+  for (let i = 0; i < repeatCount; i += 1) {
+    segments.push({ visible: true, text: name });
+
+    if (i < repeatCount - 1) {
+      segments.push({ visible: false, text: name });
+      segments.push({ visible: false, text: name });
+    }
+  }
+
+  return segments;
 }
 
 /**
@@ -160,7 +177,7 @@ export function createMapStreetNameOverlay(map) {
 
       const line = turf.lineString(pathLatLng.map(([lat, lng]) => [lng, lat]));
       const lengthMeters = turf.length(line, { units: 'meters' });
-      const repeated = buildRepeatedStreetNameText(name, lengthMeters);
+      const segments = buildRepeatedStreetNameSegments(name, lengthMeters);
 
       const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       text.setAttribute('class', STREET_MAP_LABEL_BADGE_CLASS);
@@ -172,7 +189,19 @@ export function createMapStreetNameOverlay(map) {
       const textPath = document.createElementNS('http://www.w3.org/2000/svg', 'textPath');
       textPath.setAttribute('href', `#${pathId}`);
       textPath.setAttribute('startOffset', '3%');
-      textPath.textContent = repeated;
+
+      segments.forEach((segment) => {
+        const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+        tspan.textContent = segment.text;
+
+        if (!segment.visible) {
+          tspan.setAttribute('fill', 'transparent');
+          tspan.setAttribute('stroke', 'none');
+        }
+
+        textPath.appendChild(tspan);
+      });
+
       text.appendChild(textPath);
       labelsEl.appendChild(text);
     });

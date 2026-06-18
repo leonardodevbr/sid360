@@ -1436,7 +1436,6 @@ import {
   formatAreaM2,
   formatPolygonAreaM2,
   getInvalidPointsInsidePolygon,
-  getPolygonCentroid,
   getPolygonEdgesMeters,
   isPointInsideOrOnPolygon,
   normalizePolygonCoordinates,
@@ -1444,11 +1443,11 @@ import {
 import {
   buildLotMapLabel,
   buildLotMapMetaText,
-  buildLotDimensionLabelMarkerHtml,
   formatLotDimensionsLabel,
   hasLotDimensionsLabel,
   shouldShowLotDimensionLabelsAtZoom,
 } from '@/utils/mapLots';
+import { createMapLotDimensionLabelOverlay } from '@/utils/mapLotDimensionLabelOverlay';
 import { getZoneNameLabelClassName, getZonePolygonMapOptions, getZoneTypeMapStyle } from '@/utils/mapFeatureColors';
 import { getStreetMapStyle, STREET_MAP_STYLE } from '@/utils/mapStreets';
 import { lotStatusLabel } from '@/utils/status';
@@ -1595,9 +1594,9 @@ let edgeLabelMarkers = [];
 let zoneLayers = {};
 let streetLayersMap = {};
 let streetNameOverlay = null;
+let lotDimensionLabelOverlay = null;
 let streetUnionVisualLayer = null;
 let lotLayersMap = {};
-let lotDimensionLabelMarkers = {};
 let previewLayerGroup = null;
 let blockEdgeLayerGroup = null;
 let snapHintLayerGroup = null;
@@ -2108,6 +2107,9 @@ async function initMap() {
   streetNameOverlay = createMapStreetNameOverlay(map);
   streetNameOverlay.bind();
 
+  lotDimensionLabelOverlay = createMapLotDimensionLabelOverlay(map);
+  lotDimensionLabelOverlay.bind();
+
   map.invalidateSize();
   mapReady.value = true;
 }
@@ -2384,11 +2386,6 @@ function buildLotTooltipHtml(lot) {
   return `<span class="map-lot-hover-label-title">${title}</span><span class="map-lot-hover-label-meta">${meta}</span>`;
 }
 
-function clearLotDimensionLabelMarkers() {
-  Object.values(lotDimensionLabelMarkers).forEach((marker) => map?.removeLayer(marker));
-  lotDimensionLabelMarkers = {};
-}
-
 function shouldShowLotDimensionLabels() {
   return showLotDimensionsOnMap.value
     && map
@@ -2412,8 +2409,6 @@ function bindLotLayerTooltips(layer, lot) {
 }
 
 function syncLotDimensionLabels() {
-  clearLotDimensionLabelMarkers();
-
   Object.entries(lotLayersMap).forEach(([lotId, layer]) => {
     const lot = lots.value.find((item) => String(item.id) === String(lotId));
     if (!lot) {
@@ -2423,37 +2418,17 @@ function syncLotDimensionLabels() {
     bindLotLayerTooltips(layer, lot);
   });
 
-  if (!shouldShowLotDimensionLabels() || !L || !map) {
+  if (!lotDimensionLabelOverlay) {
     return;
   }
 
-  lots.value.forEach((lot) => {
-    const markerHtml = buildLotDimensionLabelMarkerHtml(lot);
+  if (!shouldShowLotDimensionLabels()) {
+    lotDimensionLabelOverlay.setVisible(false);
+    return;
+  }
 
-    if (!markerHtml) {
-      return;
-    }
-
-    const coords = normalizePolygonCoordinates(lot.coordinates);
-    const centroid = getPolygonCentroid(coords);
-
-    if (!centroid) {
-      return;
-    }
-
-    const marker = L.marker(centroid, {
-      interactive: false,
-      keyboard: false,
-      zIndexOffset: 500,
-      icon: L.divIcon({
-        className: 'map-fixed-label-icon',
-        html: markerHtml,
-        iconSize: [0, 0],
-      }),
-    }).addTo(map);
-
-    lotDimensionLabelMarkers[lot.id] = marker;
-  });
+  lotDimensionLabelOverlay.setLots(lots.value);
+  lotDimensionLabelOverlay.setVisible(true);
 }
 
 function buildLotPopupHtml(lot) {
@@ -4245,7 +4220,6 @@ function drawLotsOnMap() {
 
   Object.values(lotLayersMap).forEach((layer) => map.removeLayer(layer));
   lotLayersMap = {};
-  clearLotDimensionLabelMarkers();
 
   lots.value.forEach((lot) => {
     const coords = normalizePolygonCoordinates(lot.coordinates);
@@ -5871,6 +5845,8 @@ onUnmounted(() => {
 
   streetNameOverlay?.destroy();
   streetNameOverlay = null;
+  lotDimensionLabelOverlay?.destroy();
+  lotDimensionLabelOverlay = null;
   map?.remove();
   map = null;
   cursorPreview.unbind();
