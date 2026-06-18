@@ -783,6 +783,20 @@
                   <span class="hidden sm:inline">Girar pra direita</span>
                 </button>
                 <button
+                  v-if="isEdit && !drawingMode"
+                  type="button"
+                  class="map-toolbar-btn map-toolbar-action-btn col-span-2 flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-1 sm:justify-start sm:px-3 sm:text-xs"
+                  :class="mapViewIsDirty
+                    ? 'map-toolbar-btn--save border-emerald-300 bg-emerald-50 text-emerald-800'
+                    : 'map-toolbar-btn--map border-slate-300 bg-white text-slate-700 hover:bg-slate-50'"
+                  :disabled="savingMapView || !mapViewIsDirty"
+                  @click="saveMapView"
+                >
+                  <BookmarkIcon class="h-3.5 w-3.5 shrink-0" />
+                  <span class="sm:hidden">{{ savingMapView ? 'Salvando...' : 'Salvar vis.' }}</span>
+                  <span class="hidden sm:inline">{{ savingMapView ? 'Salvando visualização...' : 'Salvar visualização' }}</span>
+                </button>
+                <button
                   type="button"
                   class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn col-span-2 flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium sm:col-span-1 sm:justify-start sm:px-3 sm:text-xs"
                   @click="toggleMapFullscreen"
@@ -1475,7 +1489,7 @@ import Button from '@/components/Common/Button.vue';
 import Modal from '@/components/Common/Modal.vue';
 import CurrencyInput from '@/components/Common/CurrencyInput.vue';
 import MediaGallery from '@/components/Common/MediaGallery.vue';
-import { ArrowLeftIcon, ArrowUturnLeftIcon, ArrowsPointingInIcon, ArrowsPointingOutIcon, ChevronDownIcon, MapIcon, MapPinIcon, PlusIcon, RectangleGroupIcon, Squares2X2Icon, TagIcon, XMarkIcon } from '@heroicons/vue/24/outline';
+import { ArrowLeftIcon, ArrowUturnLeftIcon, ArrowsPointingInIcon, ArrowsPointingOutIcon, BookmarkIcon, ChevronDownIcon, MapIcon, MapPinIcon, PlusIcon, RectangleGroupIcon, Squares2X2Icon, TagIcon, XMarkIcon } from '@heroicons/vue/24/outline';
 
 const route = useRoute();
 const router = useRouter();
@@ -1488,6 +1502,8 @@ const hasMappedZones = computed(() => zones.value.some(
 ));
 const loading = ref(false);
 const saving = ref(false);
+const savingMapView = ref(false);
+const savedMapViewSnapshot = ref(null);
 
 const form = ref({
   name: '',
@@ -2062,6 +2078,68 @@ function persistMapViewState() {
 
   if (typeof map.getBearing === 'function') {
     form.value.map_bearing = map.getBearing();
+  }
+}
+
+function buildMapViewSnapshot() {
+  return {
+    map_center: Array.isArray(form.value.map_center)
+      ? [Number(form.value.map_center[0]), Number(form.value.map_center[1])]
+      : null,
+    map_zoom: Number(form.value.map_zoom ?? 17),
+    map_bearing: Number(form.value.map_bearing ?? 0),
+  };
+}
+
+function mapViewSnapshotsEqual(left, right) {
+  if (!left || !right) {
+    return false;
+  }
+
+  const leftCenter = left.map_center;
+  const rightCenter = right.map_center;
+
+  const centersMatch = (!leftCenter && !rightCenter)
+    || (
+      Array.isArray(leftCenter)
+      && Array.isArray(rightCenter)
+      && Math.abs(leftCenter[0] - rightCenter[0]) < 0.000001
+      && Math.abs(leftCenter[1] - rightCenter[1]) < 0.000001
+    );
+
+  return centersMatch
+    && Number(left.map_zoom) === Number(right.map_zoom)
+    && Math.abs(Number(left.map_bearing) - Number(right.map_bearing)) < 0.01;
+}
+
+const mapViewIsDirty = computed(() => !mapViewSnapshotsEqual(
+  buildMapViewSnapshot(),
+  savedMapViewSnapshot.value,
+));
+
+function syncSavedMapViewSnapshot() {
+  savedMapViewSnapshot.value = buildMapViewSnapshot();
+}
+
+async function saveMapView() {
+  if (!isEdit.value) {
+    toast.info('Salve o empreendimento para gravar a visualização do mapa.');
+    return;
+  }
+
+  persistMapViewState();
+  savingMapView.value = true;
+
+  try {
+    const snapshot = buildMapViewSnapshot();
+
+    await api.post(`/developments/${route.params.id}/update`, snapshot);
+    syncSavedMapViewSnapshot();
+    toast.success('Visualização do mapa salva.');
+  } catch {
+    toast.error('Erro ao salvar visualização do mapa.');
+  } finally {
+    savingMapView.value = false;
   }
 }
 
@@ -3720,6 +3798,7 @@ async function persistPerimeterCoordinates(coords, { successMessage = 'Perímetr
       map_zoom: form.value.map_zoom ?? null,
       map_bearing: form.value.map_bearing ?? 0,
     });
+    syncSavedMapViewSnapshot();
     toast.success(successMessage);
   } catch {
     toast.error('Erro ao salvar perímetro.');
@@ -5649,6 +5728,7 @@ async function loadItem() {
       map_bearing: item.map_bearing ?? 0,
       map_color: item.map_color ?? defaultPerimeterColor,
     };
+    syncSavedMapViewSnapshot();
   } catch {
     toast.error('Erro ao carregar empreendimento');
     router.push({ name: 'developments.index' });
@@ -5667,6 +5747,7 @@ async function submit() {
 
     if (isEdit.value) {
       await api.post(`/developments/${route.params.id}/update`, payload);
+      syncSavedMapViewSnapshot();
       toast.success('Empreendimento atualizado.');
     } else {
       const { data } = await api.post('/developments', payload);
