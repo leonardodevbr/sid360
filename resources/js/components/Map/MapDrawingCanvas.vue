@@ -313,7 +313,7 @@ onMounted(async () => {
     >
       Para máxima precisão no GPS: ative <strong>Alta precisão</strong> nas configurações do celular,
       use em área aberta e aguarde o sinal estabilizar. Depois de capturar, <strong>arraste cada ponto</strong> no mapa para a posição correta.
-      <strong>Alt+clique</strong> (Option no Mac) em um vértice remove o ponto.
+      Shift, Alt ou clique direito remove o vértice. Com o cursor em cima, use Delete.
       Com o mapa <strong>travado</strong> (cadeado), o arraste move só o ponto — destrave para mover a visualização.
     </p>
 

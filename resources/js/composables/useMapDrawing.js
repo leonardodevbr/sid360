@@ -34,7 +34,16 @@ import {
   findNearestPolygonEdgeInsert,
 } from '@/utils/mapVertexSnap';
 import { withMapSnapSettings } from '@/utils/mapSnapSettings';
-import { bindAltClickVertexRemoval, setMapBoxZoomForDrawing, setMapDrawingCursor } from '@/utils/mapVertexRemoval';
+import {
+  bindVertexRemoveInteractions,
+  tryVertexRemoveOnPointerDown,
+  tryRemoveHoveredVertex,
+  isVertexDeleteKey,
+  VERTEX_HANDLE_HIT_SIZE,
+  VERTEX_HANDLE_ICON_ANCHOR,
+  setMapBoxZoomForDrawing,
+  setMapDrawingCursor,
+} from '@/utils/mapVertexRemoval';
 import {
   captureHighAccuracyPosition,
   formatAccuracyHint,
@@ -381,8 +390,8 @@ export function useMapDrawing(options) {
     return L.divIcon({
       className: `map-vertex-handle-icon${interactive ? ' map-vertex-handle-icon--interactive' : ''}`,
       html: `<span class="map-vertex-handle-wrap"><span class="map-vertex-handle${invalid ? ' map-vertex-handle--invalid' : ''}${closeTarget ? ' map-vertex-handle--close-target' : ''}${drawOnly ? ' map-vertex-handle--draw-only' : ''}" style="--vertex-color:${color}"></span></span>`,
-      iconSize: [32, 32],
-      iconAnchor: [16, 16],
+      iconSize: [VERTEX_HANDLE_HIT_SIZE, VERTEX_HANDLE_HIT_SIZE],
+      iconAnchor: [VERTEX_HANDLE_ICON_ANCHOR, VERTEX_HANDLE_ICON_ANCHOR],
     });
   }
 
@@ -532,11 +541,19 @@ export function useMapDrawing(options) {
     };
 
     const onStart = (startEvent) => {
-      if (!drawingMode.value || !canDragVertexMarkers()) {
+      if (!drawingMode.value) {
         return;
       }
 
-      if (startEvent.originalEvent?.altKey) {
+      if (tryVertexRemoveOnPointerDown(marker, startEvent, {
+        onRemove: removeVertexAtIndex,
+        onBeforeRemove: clearFirstVertexCloseTimer,
+        domEvent: L,
+      })) {
+        return;
+      }
+
+      if (!canDragVertexMarkers()) {
         return;
       }
 
@@ -615,7 +632,7 @@ export function useMapDrawing(options) {
     marker.setIcon(buildVertexIcon(markerColor, invalid, getVertexIconOptions(marker)));
     updateVertexHandleStyle(marker);
 
-    bindAltClickVertexRemoval(marker, {
+    bindVertexRemoveInteractions(marker, {
       onRemove: removeVertexAtIndex,
       onBeforeRemove: clearFirstVertexCloseTimer,
       domEvent: L,
@@ -1716,7 +1733,17 @@ export function useMapDrawing(options) {
   }
 
   function handleDrawingEscape(event) {
-    if (event.key !== 'Escape' || !drawingMode.value) {
+    if (!drawingMode.value) {
+      return;
+    }
+
+    if (isVertexDeleteKey(event) && tryRemoveHoveredVertex()) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+
+    if (event.key !== 'Escape') {
       return;
     }
 

@@ -159,7 +159,7 @@
               v-if="drawingMode"
               class="pointer-events-none absolute bottom-3 left-3 z-[1100] max-w-[min(20rem,calc(100%-1.5rem))] rounded-lg border border-slate-200/90 bg-white/95 px-2.5 py-1.5 text-[11px] leading-relaxed text-slate-600 shadow-sm"
             >
-              <strong>Alt+clique</strong> (Option no Mac) em um vértice para removê-lo.
+              Shift, Alt ou clique direito no vértice para removê-lo. Delete também funciona com o cursor em cima.
             </p>
 
             <div
@@ -1389,7 +1389,16 @@ import {
 } from '@/utils/zone';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import { withMapSnapSettings } from '@/utils/mapSnapSettings';
-import { bindAltClickVertexRemoval, setMapBoxZoomForDrawing, setMapDrawingCursor } from '@/utils/mapVertexRemoval';
+import {
+  bindVertexRemoveInteractions,
+  tryVertexRemoveOnPointerDown,
+  tryRemoveHoveredVertex,
+  isVertexDeleteKey,
+  VERTEX_HANDLE_HIT_SIZE,
+  VERTEX_HANDLE_ICON_ANCHOR,
+  setMapBoxZoomForDrawing,
+  setMapDrawingCursor,
+} from '@/utils/mapVertexRemoval';
 import MapSnapControls from '@/components/Map/MapSnapControls.vue';
 import {
   applyMapDrawingSnap,
@@ -2493,8 +2502,8 @@ function buildVertexIcon(color, invalid = false, options = {}) {
   return L.divIcon({
     className: `map-vertex-handle-icon${interactive ? ' map-vertex-handle-icon--interactive' : ''}`,
     html: `<span class="map-vertex-handle-wrap"><span class="map-vertex-handle${invalid ? ' map-vertex-handle--invalid' : ''}${closeTarget ? ' map-vertex-handle--close-target' : ''}${drawOnly ? ' map-vertex-handle--draw-only' : ''}" style="--vertex-color:${color}"></span></span>`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
+    iconSize: [VERTEX_HANDLE_HIT_SIZE, VERTEX_HANDLE_HIT_SIZE],
+    iconAnchor: [VERTEX_HANDLE_ICON_ANCHOR, VERTEX_HANDLE_ICON_ANCHOR],
   });
 }
 
@@ -2651,7 +2660,11 @@ function bindVertexMarkerDrag(marker) {
   const onStart = (startEvent) => {
     if (!drawingMode.value) return;
 
-    if (startEvent.originalEvent?.altKey) {
+    if (tryVertexRemoveOnPointerDown(marker, startEvent, {
+      onRemove: removeVertexAtIndex,
+      onBeforeRemove: clearFirstVertexCloseTimer,
+      domEvent: L,
+    })) {
       return;
     }
 
@@ -2735,7 +2748,7 @@ function addDrawingMarker(coord, color, index) {
   marker.setIcon(buildVertexIcon(markerColor, invalid, getVertexIconOptions(marker)));
   updateVertexHandleStyle(marker);
 
-  bindAltClickVertexRemoval(marker, {
+  bindVertexRemoveInteractions(marker, {
     onRemove: removeVertexAtIndex,
     onBeforeRemove: clearFirstVertexCloseTimer,
     domEvent: L,
@@ -2961,6 +2974,12 @@ function undoLastPoint() {
 }
 
 function handleMapInteractionEscape(event) {
+  if (drawingMode.value && isVertexDeleteKey(event) && tryRemoveHoveredVertex()) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    return;
+  }
+
   if (event.key !== 'Escape') {
     return;
   }
