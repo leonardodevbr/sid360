@@ -2316,6 +2316,38 @@ function bringLotLayersToFront() {
   });
 }
 
+function bindStreetLayerTooltip(layer, street) {
+  layer.unbindTooltip();
+
+  if (!street?.name) {
+    return;
+  }
+
+  if (visibleZoneNameTypes.value.includes('rua')) {
+    layer.bindTooltip(street.name, {
+      permanent: true,
+      direction: 'center',
+      className: 'map-zone-name-label',
+      opacity: 1,
+    });
+    layer.openTooltip();
+    return;
+  }
+
+  layer.bindTooltip(street.name, { sticky: true });
+}
+
+function syncStreetNameLabels() {
+  Object.entries(streetLayersMap).forEach(([streetId, layer]) => {
+    const street = streets.value.find((item) => String(item.id) === String(streetId));
+    if (!street) {
+      return;
+    }
+
+    bindStreetLayerTooltip(layer, street);
+  });
+}
+
 function bindZoneLayerTooltip(layer, zone) {
   layer.unbindTooltip();
 
@@ -2340,6 +2372,12 @@ function syncZoneNameLabels() {
 }
 
 function mappedZonesCountByType(type) {
+  if (type === 'rua') {
+    return mappedStreetsCount() + zones.value.filter(
+      (zone) => zone.type === type && Array.isArray(zone.coordinates) && zone.coordinates.length >= 3,
+    ).length;
+  }
+
   return zones.value.filter(
     (zone) => zone.type === type && Array.isArray(zone.coordinates) && zone.coordinates.length >= 3,
   ).length;
@@ -2380,6 +2418,7 @@ function applyZoneNamePicker() {
   showLotDimensionsOnMap.value = showLotDimensionsOnMapDraft.value;
   closeZoneNamePicker();
   syncZoneNameLabels();
+  syncStreetNameLabels();
   syncLotDimensionLabels();
 }
 
@@ -4152,8 +4191,9 @@ function drawStreetsOnMap(options = {}) {
         ...getStreetLayerStyle(street),
         className: 'map-feature-polygon map-street-feature',
       })
-      .bindTooltip(street.name, { sticky: true })
       .addTo(map);
+
+    bindStreetLayerTooltip(layer, street);
 
     resetMapFeatureLayerInteraction(layer);
 

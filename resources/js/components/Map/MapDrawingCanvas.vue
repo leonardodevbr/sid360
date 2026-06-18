@@ -155,6 +155,7 @@ const {
   hasMappedZones,
   mappedZonesCountByType,
   syncZoneNameLabels,
+  syncStreetNameLabels,
   computedArea,
 } = useMapDrawing({
   mode: props.mode,
@@ -220,6 +221,7 @@ function applyZoneNamePicker() {
   visibleZoneNameTypes.value = [...zoneNamePickerDraft.value];
   closeZoneNamePicker();
   syncZoneNameLabels();
+  syncStreetNameLabels();
 }
 
 async function confirmClearFeature() {

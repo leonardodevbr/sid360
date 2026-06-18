@@ -1229,11 +1229,46 @@ export function useMapDrawing(options) {
           interactive: false,
           className: 'map-lot-path',
         })
-        .bindTooltip(street.name, { sticky: true })
         .addTo(map);
+
+      bindStreetLayerTooltip(layer, street);
 
       configureMapPathLayer(layer);
       contextStreetLayerMap[String(street.id)] = layer;
+    });
+  }
+
+  function bindStreetLayerTooltip(layer, street) {
+    layer.unbindTooltip();
+
+    if (!street?.name) {
+      return;
+    }
+
+    if (visibleZoneNameTypes.value.includes('rua')) {
+      layer.bindTooltip(street.name, {
+        permanent: true,
+        direction: 'center',
+        className: 'map-zone-name-label',
+        opacity: 1,
+      });
+      layer.openTooltip();
+      return;
+    }
+
+    layer.bindTooltip(street.name, { sticky: true });
+  }
+
+  function syncStreetNameLabels() {
+    const streets = contextStreets?.value ?? [];
+
+    Object.entries(contextStreetLayerMap).forEach(([streetId, layer]) => {
+      const street = streets.find((item) => String(item.id) === String(streetId));
+      if (!street) {
+        return;
+      }
+
+      bindStreetLayerTooltip(layer, street);
     });
   }
 
@@ -1265,6 +1300,15 @@ export function useMapDrawing(options) {
   }
 
   function mappedZonesCountByType(type) {
+    if (type === 'rua') {
+      const streetCount = getMappedStreets(contextStreets?.value ?? []).length;
+      const zoneCount = (contextZones?.value ?? []).filter(
+        (zone) => zone.type === type && Array.isArray(zone.coordinates) && zone.coordinates.length >= 3,
+      ).length;
+
+      return streetCount + zoneCount;
+    }
+
     return (contextZones?.value ?? []).filter(
       (zone) => zone.type === type && Array.isArray(zone.coordinates) && zone.coordinates.length >= 3,
     ).length;
@@ -2131,6 +2175,7 @@ export function useMapDrawing(options) {
     hasMappedZones,
     mappedZonesCountByType,
     syncZoneNameLabels,
+    syncStreetNameLabels,
     computedArea: computed(() => {
       const coords = peekSavedCoordinates.value;
       if (!Array.isArray(coords) || coords.length < 3) return null;
