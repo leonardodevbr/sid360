@@ -58,6 +58,10 @@ const props = defineProps({
     type: Number,
     default: null,
   },
+  mapBearing: {
+    type: Number,
+    default: 0,
+  },
   fitContextOnLoad: {
     type: Boolean,
     default: true,
@@ -120,6 +124,7 @@ const featureLabelRef = computed(() => props.featureLabel);
 const boundaryPolygonRef = computed(() => props.boundaryPolygon);
 const mapCenterRef = computed(() => props.mapCenter);
 const mapZoomRef = computed(() => props.mapZoom);
+const mapBearingRef = computed(() => props.mapBearing);
 const editingLotIdRef = computed(() => props.editingLotId);
 
 const {
@@ -167,6 +172,7 @@ const {
   boundaryPolygon: boundaryPolygonRef,
   mapCenter: mapCenterRef,
   mapZoom: mapZoomRef,
+  mapBearing: mapBearingRef,
   savedCoordinates: savedCoordinatesRef,
   featureLabel: featureLabelRef,
   editingLotId: editingLotIdRef,

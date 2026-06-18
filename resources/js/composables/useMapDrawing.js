@@ -23,7 +23,7 @@ import {
   normalizePolygonCoordinates,
 } from '@/utils/mapGeometry';
 import { buildZoneTitleLabel } from '@/utils/zone';
-import { getLotMapStyle, buildMapFixedLabelIconHtml, formatLotDimensionsLabel } from '@/utils/mapLots';
+import { getLotMapStyle, buildLotDimensionLabelMarkerHtml, shouldShowLotDimensionLabelsAtZoom } from '@/utils/mapLots';
 import { getStreetColor, getMappedStreets, hasValidStreetPolygon, DEFAULT_STREET_COLOR } from '@/utils/mapStreets';
 import { buildStreetNetworkVisualRings } from '@/utils/streetGeometry';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
@@ -67,6 +67,7 @@ export function useMapDrawing(options) {
     boundaryPolygon,
     mapCenter,
     mapZoom,
+    mapBearing,
     persistMapView = false,
     fitContextOnLoad = true,
     onMapViewChange,
@@ -1075,6 +1076,43 @@ export function useMapDrawing(options) {
     contextLotLabelMarkers.length = 0;
   }
 
+  function syncContextLotDimensionMarkers() {
+    clearContextLotLabelMarkers();
+
+    if (!L || !map || !shouldShowLotDimensionLabelsAtZoom(map.getZoom())) {
+      return;
+    }
+
+    const lots = contextLots?.value ?? [];
+    lots.forEach((lot) => {
+      const markerHtml = buildLotDimensionLabelMarkerHtml(lot);
+
+      if (!markerHtml) {
+        return;
+      }
+
+      const coords = normalizePolygonCoordinates(lot.coordinates);
+      const centroid = getPolygonCentroid(coords);
+
+      if (!centroid) {
+        return;
+      }
+
+      const marker = L.marker(centroid, {
+        interactive: false,
+        keyboard: false,
+        zIndexOffset: 500,
+        icon: L.divIcon({
+          className: 'map-fixed-label-icon',
+          html: markerHtml,
+          iconSize: [0, 0],
+        }),
+      }).addTo(map);
+
+      contextLotLabelMarkers.push(marker);
+    });
+  }
+
   function drawContextLots() {
     if (!L || !map) return;
 
@@ -1101,29 +1139,11 @@ export function useMapDrawing(options) {
         className: 'map-lot-context-path',
       }).addTo(map);
 
-      const dimensionsLabel = formatLotDimensionsLabel(lot);
-      if (dimensionsLabel) {
-        const centroid = getPolygonCentroid(coords);
-
-        if (centroid) {
-          const marker = L.marker(centroid, {
-            interactive: false,
-            keyboard: false,
-            zIndexOffset: 500,
-            icon: L.divIcon({
-              className: 'map-fixed-label-icon',
-              html: buildMapFixedLabelIconHtml(dimensionsLabel),
-              iconSize: [0, 0],
-            }),
-          }).addTo(map);
-
-          contextLotLabelMarkers.push(marker);
-        }
-      }
-
       configureMapPathLayer(layer);
       contextLotLayerMap[String(lot.id)] = layer;
     });
+
+    syncContextLotDimensionMarkers();
   }
 
   function getContextLotCoordinatePoints() {
@@ -1945,12 +1965,13 @@ export function useMapDrawing(options) {
 
     const center = mapCenter?.value?.length === 2 ? mapCenter.value : [-11.4667, -39.9833];
     const zoom = mapZoom?.value ?? 17;
+    const bearing = Number(mapBearing?.value) || 0;
 
     map = L.map(mapContainer.value, {
       zoomControl: false,
       scrollWheelZoom: false,
       rotate: true,
-      bearing: 0,
+      bearing,
       rotateControl: false,
     }).setView(center, zoom);
 
@@ -1967,9 +1988,14 @@ export function useMapDrawing(options) {
         onMapViewChange?.({
           center: [centerPoint.lat, centerPoint.lng],
           zoom: map.getZoom(),
+          bearing: typeof map.getBearing === 'function' ? map.getBearing() : 0,
         });
       });
     }
+
+    map.on('zoomend', () => {
+      syncContextLotDimensionMarkers();
+    });
 
     refreshContextLayers({ fit: false });
     lastMapContainerSizeKey = '';

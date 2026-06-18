@@ -148,6 +148,7 @@
           :boundary-polygon="lotBoundaryPolygon"
           :map-center="developmentMapCenter"
           :map-zoom="developmentMapZoom"
+          :map-bearing="developmentMapBearing"
           :demarcation-saving="savingDemarcation"
           :editing-lot-id="isEdit ? route.params.id : null"
           :feature-label="activeLotMapLabel"
@@ -218,7 +219,7 @@ import { lotStatusFormOptions } from '@/utils/labels';
 import { buildZoneTitleLabel, compareZonesByName, isLotSelectableZone } from '@/utils/zone';
 import { getPolygonCentroid, normalizePolygonCoordinates } from '@/utils/mapGeometry';
 import { getMappedStreets } from '@/utils/mapStreets';
-import { buildLotMapLabel, formatLotDimensionsLabel } from '@/utils/mapLots';
+import { buildLotMapLabel, buildLotDimensionLabelTitle, formatLotDimensionsDisplay } from '@/utils/mapLots';
 import { getApiErrorMessage } from '@/utils/apiError';
 import Input from '@/components/Common/Input.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
@@ -266,6 +267,7 @@ const loadedLotCoordinates = ref(null);
 const developmentPerimeter = ref(null);
 const developmentMapCenter = ref(null);
 const developmentMapZoom = ref(null);
+const developmentMapBearing = ref(0);
 const mapContextReady = ref(false);
 const lotDataReady = ref(false);
 const gpsAccuracy = ref(null);
@@ -433,9 +435,11 @@ function getSelectedZone() {
 }
 
 const activeLotMapLabel = computed(() => {
-  const dimensionsLabel = formatLotDimensionsLabel({ size_label: form.value.size_label });
-  if (dimensionsLabel) {
-    return dimensionsLabel;
+  const size = formatLotDimensionsDisplay({ size_label: form.value.size_label });
+  const title = buildLotDimensionLabelTitle({ number: form.value.number });
+
+  if (size) {
+    return `${title}\n${size}`;
   }
 
   const number = String(form.value.number ?? '').trim();
@@ -496,6 +500,7 @@ async function loadDevelopmentMapContext() {
   developmentPerimeter.value = null;
   developmentMapCenter.value = null;
   developmentMapZoom.value = null;
+  developmentMapBearing.value = 0;
 
   if (!form.value.development_id) return;
 
@@ -535,6 +540,7 @@ async function loadDevelopmentMapContext() {
   developmentPerimeter.value = dev?.coordinates?.length ? dev.coordinates : null;
   developmentMapCenter.value = resolveDevelopmentMapCenter(dev);
   developmentMapZoom.value = dev?.map_zoom ?? 17;
+  developmentMapBearing.value = dev?.map_bearing ?? 0;
   syncCoordinatesFromDevelopmentLots();
   mapContextReady.value = true;
 }

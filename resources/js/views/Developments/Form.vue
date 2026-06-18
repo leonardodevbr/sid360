@@ -1385,6 +1385,7 @@ import {
   formatAreaM2,
   formatPolygonAreaM2,
   getInvalidPointsInsidePolygon,
+  getPolygonCentroid,
   getPolygonEdgesMeters,
   isPointInsideOrOnPolygon,
   normalizePolygonCoordinates,
@@ -1392,7 +1393,10 @@ import {
 import {
   buildLotMapLabel,
   buildLotMapMetaText,
+  buildLotDimensionLabelMarkerHtml,
   formatLotDimensionsLabel,
+  hasLotDimensionsLabel,
+  shouldShowLotDimensionLabelsAtZoom,
 } from '@/utils/mapLots';
 import { lotStatusLabel } from '@/utils/status';
 import {
@@ -1488,6 +1492,7 @@ const form = ref({
   coordinates: null,
   map_center: null,
   map_zoom: 17,
+  map_bearing: 0,
   map_color: '#1E5F8E',
 });
 
@@ -1524,6 +1529,7 @@ let zoneLayers = {};
 let streetLayersMap = {};
 let streetUnionVisualLayer = null;
 let lotLayersMap = {};
+let lotDimensionLabelMarkers = {};
 let previewLayerGroup = null;
 let blockEdgeLayerGroup = null;
 let snapHintLayerGroup = null;
@@ -1991,12 +1997,13 @@ async function initMap() {
 
   const center = form.value.map_center ?? [-11.4667, -39.9833];
   const zoom = form.value.map_zoom ?? 17;
+  const bearing = Number(form.value.map_bearing) || 0;
 
   map = L.map(mapContainer.value, {
     zoomControl: false,
     scrollWheelZoom: false,
     rotate: true,
-    bearing: 0,
+    bearing,
     rotateControl: false,
   }).setView(center, zoom);
 
@@ -2030,18 +2037,32 @@ async function initMap() {
     });
   });
   map.on('moveend zoomend', () => {
-    const c = map.getCenter();
-    form.value.map_center = [c.lat, c.lng];
-    form.value.map_zoom = map.getZoom();
+    persistMapViewState();
+    syncLotDimensionLabels();
   });
 
   map.invalidateSize();
   mapReady.value = true;
 }
 
+function persistMapViewState() {
+  if (!map) {
+    return;
+  }
+
+  const center = map.getCenter();
+  form.value.map_center = [center.lat, center.lng];
+  form.value.map_zoom = map.getZoom();
+
+  if (typeof map.getBearing === 'function') {
+    form.value.map_bearing = map.getBearing();
+  }
+}
+
 function rotateMapBy(degrees) {
   if (!map?.setBearing) return;
   map.setBearing(map.getBearing() + degrees);
+  persistMapViewState();
 }
 
 function zoomMapIn() {
@@ -2233,22 +2254,22 @@ function buildLotTooltipHtml(lot) {
   return `<span class="map-lot-hover-label-title">${title}</span><span class="map-lot-hover-label-meta">${meta}</span>`;
 }
 
+function clearLotDimensionLabelMarkers() {
+  Object.values(lotDimensionLabelMarkers).forEach((marker) => map?.removeLayer(marker));
+  lotDimensionLabelMarkers = {};
+}
+
+function shouldShowLotDimensionLabels() {
+  return showLotDimensionsOnMap.value
+    && map
+    && shouldShowLotDimensionLabelsAtZoom(map.getZoom());
+}
+
 function bindLotLayerTooltips(layer, lot) {
   layer.unbindTooltip();
 
-  if (showLotDimensionsOnMap.value) {
-    const dimensionsLabel = formatLotDimensionsLabel(lot);
-
-    if (dimensionsLabel) {
-      layer.bindTooltip(escapeHtml(dimensionsLabel), {
-        permanent: true,
-        direction: 'center',
-        className: 'map-lot-dimension-label',
-        opacity: 1,
-      });
-      layer.openTooltip();
-      return;
-    }
+  if (showLotDimensionsOnMap.value && shouldShowLotDimensionLabels()) {
+    return;
   }
 
   layer.bindTooltip(buildLotTooltipHtml(lot), {
@@ -2261,6 +2282,8 @@ function bindLotLayerTooltips(layer, lot) {
 }
 
 function syncLotDimensionLabels() {
+  clearLotDimensionLabelMarkers();
+
   Object.entries(lotLayersMap).forEach(([lotId, layer]) => {
     const lot = lots.value.find((item) => String(item.id) === String(lotId));
     if (!lot) {
@@ -2268,6 +2291,38 @@ function syncLotDimensionLabels() {
     }
 
     bindLotLayerTooltips(layer, lot);
+  });
+
+  if (!shouldShowLotDimensionLabels() || !L || !map) {
+    return;
+  }
+
+  lots.value.forEach((lot) => {
+    const markerHtml = buildLotDimensionLabelMarkerHtml(lot);
+
+    if (!markerHtml) {
+      return;
+    }
+
+    const coords = normalizePolygonCoordinates(lot.coordinates);
+    const centroid = getPolygonCentroid(coords);
+
+    if (!centroid) {
+      return;
+    }
+
+    const marker = L.marker(centroid, {
+      interactive: false,
+      keyboard: false,
+      zIndexOffset: 500,
+      icon: L.divIcon({
+        className: 'map-fixed-label-icon',
+        html: markerHtml,
+        iconSize: [0, 0],
+      }),
+    }).addTo(map);
+
+    lotDimensionLabelMarkers[lot.id] = marker;
   });
 }
 
@@ -2405,7 +2460,7 @@ function toggleZoneNameTypeDraft(type) {
 
 function selectAllZoneNameTypesInDraft() {
   zoneNamePickerDraft.value = zoneTypeOptions.map((option) => option.value);
-  showLotDimensionsOnMapDraft.value = mappedLotsWithDimensionsCount() > 0;
+  showLotDimensionsOnMapDraft.value = mappedLotsWithDimensionsCount.value > 0;
 }
 
 function clearAllZoneNameTypesInDraft() {
@@ -2435,12 +2490,10 @@ function mappedLotsCount() {
   }).length;
 }
 
-function mappedLotsWithDimensionsCount() {
-  return lots.value.filter((lot) => {
-    const coords = normalizePolygonCoordinates(lot.coordinates);
-    return coords && coords.length >= 3 && formatLotDimensionsLabel(lot);
-  }).length;
-}
+const mappedLotsWithDimensionsCount = computed(() => lots.value.filter((lot) => {
+  const coords = normalizePolygonCoordinates(lot.coordinates);
+  return coords && coords.length >= 3 && hasLotDimensionsLabel(lot);
+}).length);
 
 function mapLayerItemCount(layerId) {
   if (layerId === MAP_LAYER_PERIMETER) {
@@ -3671,6 +3724,7 @@ async function persistPerimeterCoordinates(coords, { successMessage = 'Perímetr
       coordinates: coords,
       map_center: form.value.map_center ?? null,
       map_zoom: form.value.map_zoom ?? null,
+      map_bearing: form.value.map_bearing ?? 0,
     });
     toast.success(successMessage);
   } catch {
@@ -4082,6 +4136,7 @@ function drawLotsOnMap() {
 
   Object.values(lotLayersMap).forEach((layer) => map.removeLayer(layer));
   lotLayersMap = {};
+  clearLotDimensionLabelMarkers();
 
   lots.value.forEach((lot) => {
     const coords = normalizePolygonCoordinates(lot.coordinates);
@@ -4114,6 +4169,7 @@ function drawLotsOnMap() {
     lotLayersMap[lot.id] = layer;
   });
 
+  syncLotDimensionLabels();
   bringLotLayersToFront();
   syncMapLayerVisibility();
 }
@@ -5608,6 +5664,7 @@ async function loadItem() {
       coordinates: item.coordinates ?? null,
       map_center: item.map_center ?? null,
       map_zoom: item.map_zoom ?? 17,
+      map_bearing: item.map_bearing ?? 0,
       map_color: item.map_color ?? defaultPerimeterColor,
     };
   } catch {
