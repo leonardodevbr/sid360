@@ -1,5 +1,5 @@
 <template>
-  <div class="select-input-wrap w-full min-w-0">
+  <div class="select-input-wrap w-full min-w-0" :class="{ 'select-input-wrap--compact': compact }">
     <label v-if="label" class="block text-sm font-medium text-slate-700 mb-1">
       {{ label }}
     </label>
@@ -79,6 +79,10 @@ export default defineComponent({
       type: Boolean,
       default: true,
     },
+    compact: {
+      type: Boolean,
+      default: false,
+    },
     error: {
       type: String,
       default: '',
@@ -136,6 +140,21 @@ export default defineComponent({
 <style scoped>
 .select-input-wrap :deep(.multiselect-container) {
   @apply relative min-w-[18rem] w-full;
+}
+
+.select-input-wrap--compact :deep(.multiselect-container) {
+  @apply min-w-[4.5rem] w-full;
+}
+
+.select-input-wrap--compact :deep(.multiselect-dropdown) {
+  min-width: 5rem;
+}
+
+.select-input-wrap--compact :deep(.multiselect-container .multiselect-single-label),
+.select-input-wrap--compact :deep(.multiselect-container .multiselect-placeholder) {
+  min-height: 2.25rem;
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
 }
 
 :deep(.multiselect-single-label),
