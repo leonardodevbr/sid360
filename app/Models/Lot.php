@@ -8,6 +8,8 @@ use App\Traits\HasMedia;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Unique;
 
 class Lot extends Model
 {
@@ -126,5 +128,28 @@ class Lot extends Model
         $parts[] = 'Lote ' . $this->number;
 
         return implode(', ', $parts);
+    }
+
+    public static function uniqueNumberInDevelopmentRule(
+        int $developmentId,
+        ?string $block,
+        ?int $ignoreLotId = null,
+    ): Unique {
+        $rule = Rule::unique('lots', 'number')
+            ->where(function ($query) use ($developmentId, $block): void {
+                $query->where('development_id', $developmentId);
+
+                if ($block === null || $block === '') {
+                    $query->whereNull('block');
+                } else {
+                    $query->where('block', $block);
+                }
+            });
+
+        if ($ignoreLotId !== null) {
+            $rule->ignore($ignoreLotId);
+        }
+
+        return $rule;
     }
 }

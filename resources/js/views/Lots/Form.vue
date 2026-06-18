@@ -60,7 +60,13 @@
             label="Bloco"
             placeholder="Ex: A"
           />
-          <Input v-model="form.number" label="Número" required placeholder="Ex: QA-L01" />
+          <Input
+            v-model="form.number"
+            label="Número"
+            required
+            placeholder="Ex: QA-L01"
+            :error="formErrors.number"
+          />
         </div>
 
         <SelectInput
@@ -204,7 +210,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, reactive, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import api from '@/services/api';
@@ -213,6 +219,7 @@ import { buildZoneTitleLabel, isLotSelectableZone } from '@/utils/zone';
 import { getPolygonCentroid, normalizePolygonCoordinates } from '@/utils/mapGeometry';
 import { getMappedStreets } from '@/utils/mapStreets';
 import { buildLotMapLabel } from '@/utils/mapLots';
+import { getApiErrorMessage } from '@/utils/apiError';
 import Input from '@/components/Common/Input.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
 import Button from '@/components/Common/Button.vue';
@@ -234,6 +241,7 @@ const loading = ref(false);
 const saving = ref(false);
 const savingDemarcation = ref(false);
 const useDevelopmentPaymentTerms = ref(true);
+const formErrors = reactive({ number: '' });
 
 const form = ref({
   development_id: route.query.development_id ? String(route.query.development_id) : '',
@@ -767,6 +775,23 @@ async function saveLotDemarcation(coords) {
   }
 }
 
+function clearFormErrors() {
+  formErrors.number = '';
+}
+
+function applyLotFormApiErrors(err) {
+  clearFormErrors();
+
+  const apiErrors = err?.response?.data?.errors;
+  if (!apiErrors || typeof apiErrors !== 'object') {
+    return;
+  }
+
+  if (apiErrors.number?.[0]) {
+    formErrors.number = apiErrors.number[0];
+  }
+}
+
 async function submit() {
   if (selectableZones.value.length && !form.value.zone_id) {
     toast.warning('Selecione a quadra do lote.');
@@ -793,6 +818,8 @@ async function submit() {
   }
 
   saving.value = true;
+  clearFormErrors();
+
   try {
     if (isEdit.value) {
       await api.post(`/lots/${route.params.id}/update`, payload);
@@ -803,7 +830,8 @@ async function submit() {
       goBack();
     }
   } catch (err) {
-    toast.error(err?.response?.data?.message ?? 'Erro ao salvar lote.');
+    applyLotFormApiErrors(err);
+    toast.error(getApiErrorMessage(err, 'Erro ao salvar lote.'));
   } finally {
     saving.value = false;
   }

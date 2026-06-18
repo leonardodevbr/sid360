@@ -20,11 +20,23 @@ class UpdateLotRequest extends FormRequest
      */
     public function rules(): array
     {
+        $lotId = (int) $this->route('id');
+        $lot = Lot::query()->find($lotId);
+
+        $developmentId = (int) ($this->input('development_id') ?? $lot?->development_id ?? 0);
+        $block = $this->has('block') ? $this->input('block') : $lot?->block;
+
+        $numberRules = ['sometimes', 'required', 'string', 'max:50'];
+
+        if ($developmentId > 0) {
+            $numberRules[] = Lot::uniqueNumberInDevelopmentRule($developmentId, $block, $lotId);
+        }
+
         return [
             'development_id' => ['sometimes', 'integer', 'exists:developments,id'],
             'zone_id' => ['nullable', 'integer', 'exists:development_zones,id'],
             'street_id' => ['nullable', 'integer', 'exists:development_streets,id'],
-            'number' => ['sometimes', 'required', 'string', 'max:50'],
+            'number' => $numberRules,
             'block' => ['nullable', 'string', 'max:50'],
             'area' => ['nullable', 'numeric', 'min:0'],
             'area_computed' => ['nullable', 'numeric', 'min:0'],
@@ -33,6 +45,16 @@ class UpdateLotRequest extends FormRequest
             'total_value' => ['nullable', 'integer', 'min:0'],
             'down_payment_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'status' => ['sometimes', 'string', Rule::in(Lot::STATUSES)],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'number.unique' => 'Já existe um lote com este número nesta quadra.',
         ];
     }
 }

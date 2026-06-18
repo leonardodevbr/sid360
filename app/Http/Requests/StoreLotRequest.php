@@ -20,11 +20,18 @@ class StoreLotRequest extends FormRequest
      */
     public function rules(): array
     {
+        $developmentId = (int) $this->input('development_id');
+
         return [
             'development_id' => ['required', 'integer', 'exists:developments,id'],
             'zone_id' => ['nullable', 'integer', 'exists:development_zones,id'],
             'street_id' => ['nullable', 'integer', 'exists:development_streets,id'],
-            'number' => ['required', 'string', 'max:50'],
+            'number' => [
+                'required',
+                'string',
+                'max:50',
+                Lot::uniqueNumberInDevelopmentRule($developmentId, $this->input('block')),
+            ],
             'block' => ['nullable', 'string', 'max:50'],
             'area' => ['nullable', 'numeric', 'min:0'],
             'area_computed' => ['nullable', 'numeric', 'min:0'],
@@ -33,6 +40,16 @@ class StoreLotRequest extends FormRequest
             'total_value' => ['nullable', 'integer', 'min:0'],
             'down_payment_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'status' => ['nullable', 'string', Rule::in(Lot::STATUSES)],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'number.unique' => 'Já existe um lote com este número nesta quadra.',
         ];
     }
 }
