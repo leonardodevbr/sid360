@@ -25,7 +25,11 @@ import {
 import { buildZoneTitleLabel } from '@/utils/zone';
 import { getLotMapStyle, buildLotDimensionLabelMarkerHtml, shouldShowLotDimensionLabelsAtZoom } from '@/utils/mapLots';
 import { getStreetColor, getMappedStreets, hasValidStreetPolygon, DEFAULT_STREET_COLOR } from '@/utils/mapStreets';
-import { buildStreetNetworkVisualRings } from '@/utils/streetGeometry';
+import {
+  buildStreetNetworkVisualRings,
+  buildStreetNameLabelMarkerHtml,
+  getStreetNameLabelPlacement,
+} from '@/utils/streetGeometry';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import { createGpsPreviewController, isCoarsePointerDevice } from '@/utils/mapGpsPreview';
 import {
@@ -90,6 +94,7 @@ export function useMapDrawing(options) {
   let contextPerimeterLayer = null;
   let contextStreetUnionLayer = null;
   const contextStreetLayerMap = {};
+  const contextStreetNameLabelMarkers = [];
   const contextZoneLayerMap = {};
   const contextLotLayerMap = {};
   const contextLotLabelMarkers = [];
@@ -1197,6 +1202,7 @@ export function useMapDrawing(options) {
     Object.keys(contextStreetLayerMap).forEach((key) => {
       delete contextStreetLayerMap[key];
     });
+    clearContextStreetNameLabelMarkers();
 
     const mappedStreets = getMappedStreets(contextStreets?.value ?? []);
     if (!mappedStreets.length) {
@@ -1251,28 +1257,22 @@ export function useMapDrawing(options) {
         })
         .addTo(map);
 
-      bindStreetLayerTooltip(layer, street);
-
       configureMapPathLayer(layer);
       contextStreetLayerMap[String(street.id)] = layer;
     });
+
+    syncStreetNameLabels();
+  }
+
+  function clearContextStreetNameLabelMarkers() {
+    contextStreetNameLabelMarkers.forEach((marker) => map?.removeLayer(marker));
+    contextStreetNameLabelMarkers.length = 0;
   }
 
   function bindStreetLayerTooltip(layer, street) {
     layer.unbindTooltip();
 
-    if (!street?.name) {
-      return;
-    }
-
-    if (visibleZoneNameTypes.value.includes('rua')) {
-      layer.bindTooltip(street.name, {
-        permanent: true,
-        direction: 'center',
-        className: 'map-zone-name-label',
-        opacity: 1,
-      });
-      layer.openTooltip();
+    if (!street?.name || visibleZoneNameTypes.value.includes('rua')) {
       return;
     }
 
@@ -1280,6 +1280,8 @@ export function useMapDrawing(options) {
   }
 
   function syncStreetNameLabels() {
+    clearContextStreetNameLabelMarkers();
+
     const streets = contextStreets?.value ?? [];
 
     Object.entries(contextStreetLayerMap).forEach(([streetId, layer]) => {
@@ -1289,6 +1291,37 @@ export function useMapDrawing(options) {
       }
 
       bindStreetLayerTooltip(layer, street);
+    });
+
+    if (!visibleZoneNameTypes.value.includes('rua') || !L || !map) {
+      return;
+    }
+
+    const mapBearing = typeof map.getBearing === 'function' ? map.getBearing() : 0;
+
+    streets.forEach((street) => {
+      if (!street?.name || !contextStreetLayerMap[String(street.id)]) {
+        return;
+      }
+
+      const placement = getStreetNameLabelPlacement(street, mapBearing);
+
+      if (!placement) {
+        return;
+      }
+
+      const marker = L.marker(placement.latLng, {
+        interactive: false,
+        keyboard: false,
+        zIndexOffset: 600,
+        icon: L.divIcon({
+          className: 'map-fixed-label-icon',
+          html: buildStreetNameLabelMarkerHtml(street.name, placement.rotation),
+          iconSize: [0, 0],
+        }),
+      }).addTo(map);
+
+      contextStreetNameLabelMarkers.push(marker);
     });
   }
 
@@ -1946,6 +1979,7 @@ export function useMapDrawing(options) {
   function rotateMapBy(degrees) {
     if (!map?.setBearing) return;
     map.setBearing(map.getBearing() + degrees);
+    syncStreetNameLabels();
   }
 
   function zoomMapIn() {
@@ -1995,6 +2029,11 @@ export function useMapDrawing(options) {
 
     map.on('zoomend', () => {
       syncContextLotDimensionMarkers();
+      syncStreetNameLabels();
+    });
+
+    map.on('moveend', () => {
+      syncStreetNameLabels();
     });
 
     refreshContextLayers({ fit: false });

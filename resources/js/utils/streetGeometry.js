@@ -510,3 +510,132 @@ export function mergeStreetPolygons(rings) {
 
   return turfPolygonFeatureToLatLngRings(merged);
 }
+
+function normalizeStreetAxisPoint(point) {
+  if (!Array.isArray(point) || point.length < 2) {
+    return null;
+  }
+
+  const lat = Number(point[0]);
+  const lng = Number(point[1]);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null;
+  }
+
+  return [lat, lng];
+}
+
+function resolveStreetAxisLatLng(street) {
+  if (Array.isArray(street?.centerline) && street.centerline.length >= 2) {
+    const axis = street.centerline
+      .map((point) => normalizeStreetAxisPoint(point))
+      .filter(Boolean);
+
+    return axis.length >= 2 ? axis : null;
+  }
+
+  const ring = street?.coordinates;
+  if (!Array.isArray(ring) || ring.length < 2) {
+    return null;
+  }
+
+  const points = ring
+    .map((point) => normalizeStreetAxisPoint(point))
+    .filter(Boolean);
+
+  if (points.length < 2) {
+    return null;
+  }
+
+  const isClosed = points.length >= 3
+    && Math.abs(points[0][0] - points[points.length - 1][0]) < 1e-9
+    && Math.abs(points[0][1] - points[points.length - 1][1]) < 1e-9;
+  const edgeCount = isClosed ? points.length - 1 : points.length - 1;
+  let longest = null;
+
+  for (let index = 0; index < edgeCount; index += 1) {
+    const start = points[index];
+    const end = points[index + 1];
+    const length = turf.distance(
+      turf.point([start[1], start[0]]),
+      turf.point([end[1], end[0]]),
+      { units: 'meters' },
+    );
+
+    if (!longest || length > longest.length) {
+      longest = { start, end, length };
+    }
+  }
+
+  return longest ? [longest.start, longest.end] : points.slice(0, 2);
+}
+
+function normalizeLabelBearing(bearing) {
+  let normalized = bearing % 360;
+
+  if (normalized < 0) {
+    normalized += 360;
+  }
+
+  if (normalized > 90 && normalized < 270) {
+    normalized = (normalized + 180) % 360;
+  }
+
+  return normalized;
+}
+
+/**
+ * @returns {{ latLng: [number, number], rotation: number } | null}
+ */
+export function getStreetNameLabelPlacement(street, mapBearing = 0) {
+  const axis = resolveStreetAxisLatLng(street);
+  if (!axis || axis.length < 2) {
+    return null;
+  }
+
+  const line = turf.lineString(toGeoJsonLine(axis));
+  const length = turf.length(line, { units: 'meters' });
+
+  if (!(length > 0)) {
+    return null;
+  }
+
+  const half = length / 2;
+  const midpoint = turf.along(line, half, { units: 'meters' });
+  const sampleBack = turf.along(line, Math.max(half - 2, 0), { units: 'meters' });
+  const sampleForward = turf.along(line, Math.min(half + 2, length), { units: 'meters' });
+
+  let geographicBearing = turf.bearing(sampleBack, sampleForward);
+
+  if (!Number.isFinite(geographicBearing)) {
+    geographicBearing = turf.bearing(
+      turf.point([axis[0][1], axis[0][0]]),
+      turf.point([axis[axis.length - 1][1], axis[axis.length - 1][0]]),
+    );
+  }
+
+  const readableBearing = normalizeLabelBearing(geographicBearing);
+  const rotation = readableBearing - (Number(mapBearing) || 0);
+  const [lng, lat] = midpoint.geometry.coordinates;
+
+  return {
+    latLng: [lat, lng],
+    rotation,
+  };
+}
+
+function escapeStreetLabelHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+export function buildStreetNameLabelMarkerHtml(name, rotationDeg = 0) {
+  const safeName = escapeStreetLabelHtml(name);
+  const rotation = Number.isFinite(Number(rotationDeg)) ? Number(rotationDeg) : 0;
+
+  return `<span class="map-street-name-label" style="transform: translate(-50%, -50%) rotate(${rotation}deg);">${safeName}</span>`;
+}
