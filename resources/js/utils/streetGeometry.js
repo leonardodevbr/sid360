@@ -526,20 +526,21 @@ function normalizeStreetAxisPoint(point) {
   return [lat, lng];
 }
 
-function resolveStreetAxisLatLng(street) {
-  if (Array.isArray(street?.centerline) && street.centerline.length >= 2) {
-    const axis = street.centerline
-      .map((point) => normalizeStreetAxisPoint(point))
-      .filter(Boolean);
+function projectPointOnAxisMeters(point, origin, axisBearingDeg) {
+  const originPoint = turf.point([origin[1], origin[0]]);
+  const targetPoint = turf.point([point[1], point[0]]);
+  const distance = turf.distance(originPoint, targetPoint, { units: 'meters' });
+  const bearingToPoint = turf.bearing(originPoint, targetPoint);
+  const angleDiffDeg = ((bearingToPoint - axisBearingDeg + 540) % 360) - 180;
 
-    return axis.length >= 2 ? axis : null;
-  }
+  return distance * Math.cos((angleDiffDeg * Math.PI) / 180);
+}
 
-  const ring = street?.coordinates;
-  if (!Array.isArray(ring) || ring.length < 2) {
-    return null;
-  }
+function getAxisBearingDiff(bearingA, bearingB) {
+  return Math.abs(((bearingA - bearingB + 540) % 360) - 180);
+}
 
+function getPolygonMajorAxisBearing(ring) {
   const points = ring
     .map((point) => normalizeStreetAxisPoint(point))
     .filter(Boolean);
@@ -551,24 +552,144 @@ function resolveStreetAxisLatLng(street) {
   const isClosed = points.length >= 3
     && Math.abs(points[0][0] - points[points.length - 1][0]) < 1e-9
     && Math.abs(points[0][1] - points[points.length - 1][1]) < 1e-9;
-  const edgeCount = isClosed ? points.length - 1 : points.length - 1;
-  let longest = null;
+  const vertices = isClosed ? points.slice(0, -1) : points;
 
-  for (let index = 0; index < edgeCount; index += 1) {
-    const start = points[index];
-    const end = points[index + 1];
-    const length = turf.distance(
+  if (vertices.length < 2) {
+    return null;
+  }
+
+  const origin = vertices[0];
+  const candidateBearings = new Set();
+
+  for (let index = 0; index < vertices.length; index += 1) {
+    const start = vertices[index];
+    const end = vertices[(index + 1) % vertices.length];
+    const edgeBearing = turf.bearing(
       turf.point([start[1], start[0]]),
       turf.point([end[1], end[0]]),
-      { units: 'meters' },
     );
 
-    if (!longest || length > longest.length) {
-      longest = { start, end, length };
+    if (!Number.isFinite(edgeBearing)) {
+      continue;
+    }
+
+    candidateBearings.add(((edgeBearing % 360) + 360) % 360);
+  }
+
+  let bestBearing = null;
+  let bestSpan = -1;
+
+  candidateBearings.forEach((bearing) => {
+    const projections = vertices.map((vertex) => projectPointOnAxisMeters(vertex, origin, bearing));
+    const span = Math.max(...projections) - Math.min(...projections);
+
+    if (span > bestSpan) {
+      bestSpan = span;
+      bestBearing = bearing;
+    }
+  });
+
+  return bestBearing;
+}
+
+function getCenterlineMajorBearing(centerline) {
+  const axis = centerline
+    .map((point) => normalizeStreetAxisPoint(point))
+    .filter(Boolean);
+
+  if (axis.length < 2) {
+    return null;
+  }
+
+  const line = turf.lineString(toGeoJsonLine(axis));
+  const length = turf.length(line, { units: 'meters' });
+
+  if (!(length > 0)) {
+    return null;
+  }
+
+  const startDist = Math.min(length * 0.15, Math.max(length - 4, 0));
+  const endDist = Math.max(length * 0.85, Math.min(4, length));
+
+  if (endDist <= startDist + 0.5) {
+    return turf.bearing(
+      turf.point([axis[0][1], axis[0][0]]),
+      turf.point([axis[axis.length - 1][1], axis[axis.length - 1][0]]),
+    );
+  }
+
+  const sampleBack = turf.along(line, startDist, { units: 'meters' });
+  const sampleForward = turf.along(line, endDist, { units: 'meters' });
+
+  return turf.bearing(sampleBack, sampleForward);
+}
+
+function resolveStreetMajorAxisBearing(street) {
+  const polygonBearing = Array.isArray(street?.coordinates) && street.coordinates.length >= 3
+    ? getPolygonMajorAxisBearing(street.coordinates)
+    : null;
+
+  const centerlineBearing = Array.isArray(street?.centerline) && street.centerline.length >= 2
+    ? getCenterlineMajorBearing(street.centerline)
+    : null;
+
+  if (polygonBearing != null && centerlineBearing != null) {
+    const diff = getAxisBearingDiff(polygonBearing, centerlineBearing);
+
+    if (diff > 45 && diff < 135) {
+      return polygonBearing;
+    }
+
+    return centerlineBearing;
+  }
+
+  return centerlineBearing ?? polygonBearing;
+}
+
+function resolveStreetLabelAnchorLatLng(street) {
+  if (Array.isArray(street?.centerline) && street.centerline.length >= 2) {
+    const axis = street.centerline
+      .map((point) => normalizeStreetAxisPoint(point))
+      .filter(Boolean);
+
+    if (axis.length >= 2) {
+      const line = turf.lineString(toGeoJsonLine(axis));
+      const length = turf.length(line, { units: 'meters' });
+
+      if (length > 0) {
+        const midpoint = turf.along(line, length / 2, { units: 'meters' });
+        const [lng, lat] = midpoint.geometry.coordinates;
+
+        return [lat, lng];
+      }
     }
   }
 
-  return longest ? [longest.start, longest.end] : points.slice(0, 2);
+  const ring = street?.coordinates;
+  if (!Array.isArray(ring) || ring.length < 3) {
+    return null;
+  }
+
+  const points = ring
+    .map((point) => normalizeStreetAxisPoint(point))
+    .filter(Boolean);
+
+  if (points.length < 3) {
+    return null;
+  }
+
+  const isClosed = Math.abs(points[0][0] - points[points.length - 1][0]) < 1e-9
+    && Math.abs(points[0][1] - points[points.length - 1][1]) < 1e-9;
+  const closedRing = isClosed ? points : [...points, points[0]];
+
+  try {
+    const centroid = turf.centroid(turf.polygon([toGeoJsonLine(closedRing)]));
+    const [lng, lat] = centroid.geometry.coordinates;
+
+    return [lat, lng];
+  } catch {
+    return null;
+  }
 }
 
 function normalizeLabelBearing(bearing) {
@@ -589,38 +710,18 @@ function normalizeLabelBearing(bearing) {
  * @returns {{ latLng: [number, number], rotation: number } | null}
  */
 export function getStreetNameLabelPlacement(street, mapBearing = 0) {
-  const axis = resolveStreetAxisLatLng(street);
-  if (!axis || axis.length < 2) {
+  const latLng = resolveStreetLabelAnchorLatLng(street);
+  const majorAxisBearing = resolveStreetMajorAxisBearing(street);
+
+  if (!latLng || !Number.isFinite(majorAxisBearing)) {
     return null;
   }
 
-  const line = turf.lineString(toGeoJsonLine(axis));
-  const length = turf.length(line, { units: 'meters' });
-
-  if (!(length > 0)) {
-    return null;
-  }
-
-  const half = length / 2;
-  const midpoint = turf.along(line, half, { units: 'meters' });
-  const sampleBack = turf.along(line, Math.max(half - 2, 0), { units: 'meters' });
-  const sampleForward = turf.along(line, Math.min(half + 2, length), { units: 'meters' });
-
-  let geographicBearing = turf.bearing(sampleBack, sampleForward);
-
-  if (!Number.isFinite(geographicBearing)) {
-    geographicBearing = turf.bearing(
-      turf.point([axis[0][1], axis[0][0]]),
-      turf.point([axis[axis.length - 1][1], axis[axis.length - 1][0]]),
-    );
-  }
-
-  const readableBearing = normalizeLabelBearing(geographicBearing);
+  const readableBearing = normalizeLabelBearing(majorAxisBearing);
   const rotation = readableBearing - (Number(mapBearing) || 0);
-  const [lng, lat] = midpoint.geometry.coordinates;
 
   return {
-    latLng: [lat, lng],
+    latLng,
     rotation,
   };
 }
