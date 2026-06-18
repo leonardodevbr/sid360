@@ -535,6 +535,11 @@ export function useMapDrawing(options) {
         return;
       }
 
+      if (startEvent.originalEvent?.shiftKey) {
+        L.DomEvent.stopPropagation(startEvent);
+        return;
+      }
+
       L.DomEvent.stopPropagation(startEvent);
       L.DomEvent.preventDefault(startEvent);
 
@@ -612,11 +617,18 @@ export function useMapDrawing(options) {
     bindVertexMarkerDrag(marker);
 
     marker.on('click', (event) => {
+      L.DomEvent.stopPropagation(event);
+
+      if (event.originalEvent?.shiftKey) {
+        clearFirstVertexCloseTimer();
+        removeVertexAtIndex(marker._vertexIndex);
+        return;
+      }
+
       if (!isFirstVertexClosable(marker)) {
         return;
       }
 
-      L.DomEvent.stopPropagation(event);
       L.DomEvent.preventDefault(event);
       tryClosePolygonOnFirstVertexTap(marker);
     });

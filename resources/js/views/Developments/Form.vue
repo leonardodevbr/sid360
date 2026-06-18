@@ -155,6 +155,13 @@
               {{ zoneInvalidHint }}
             </div>
 
+            <p
+              v-if="drawingMode"
+              class="pointer-events-none absolute bottom-3 left-3 z-[1100] max-w-[min(20rem,calc(100%-1.5rem))] rounded-lg border border-slate-200/90 bg-white/95 px-2.5 py-1.5 text-[11px] leading-relaxed text-slate-600 shadow-sm"
+            >
+              <strong>Shift+clique</strong> em um vértice para removê-lo.
+            </p>
+
             <div
               v-if="generateLotsZone && genMode === 'geometric'"
               class="map-lot-gen-panel"
@@ -2643,6 +2650,11 @@ function bindVertexMarkerDrag(marker) {
   const onStart = (startEvent) => {
     if (!drawingMode.value) return;
 
+    if (startEvent.originalEvent?.shiftKey) {
+      L.DomEvent.stopPropagation(startEvent);
+      return;
+    }
+
     L.DomEvent.stopPropagation(startEvent);
     L.DomEvent.preventDefault(startEvent);
 
@@ -2719,6 +2731,13 @@ function addDrawingMarker(coord, color, index) {
 
   marker.on('click', (e) => {
     L.DomEvent.stopPropagation(e);
+
+    if (e.originalEvent?.shiftKey) {
+      clearFirstVertexCloseTimer();
+      removeVertexAtIndex(marker._vertexIndex);
+      return;
+    }
+
     tryClosePolygonOnFirstVertexTap(marker);
   });
 
