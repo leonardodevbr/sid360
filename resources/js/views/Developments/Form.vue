@@ -1595,17 +1595,18 @@ function syncSnapHintMarkers(cursorLatLng = null, snapOptions = {}) {
   }
 
   const isIntersection = snapResult.snapKind === 'intersection';
+  const isVertex = snapResult.snapKind === 'vertex';
 
   snapHintLayerGroup = L.featureGroup();
   snapHintLayerGroup.addLayer(L.marker([snapResult.lat, snapResult.lng], {
     interactive: false,
     keyboard: false,
-    zIndexOffset: isIntersection ? 1250 : 1150,
+    zIndexOffset: isIntersection ? 1250 : (isVertex ? 1200 : 1150),
     icon: L.divIcon({
       className: 'map-snap-hint-icon',
-      html: `<span class="map-snap-hint-indicator${isIntersection ? ' map-snap-hint-indicator--intersection' : ''}"></span>`,
-      iconSize: isIntersection ? [12, 12] : [10, 10],
-      iconAnchor: isIntersection ? [6, 6] : [5, 5],
+      html: `<span class="map-snap-hint-indicator${isIntersection ? ' map-snap-hint-indicator--intersection' : ''}${isVertex ? ' map-snap-hint-indicator--vertex' : ''}"></span>`,
+      iconSize: isIntersection ? [12, 12] : (isVertex ? [12, 12] : [10, 10]),
+      iconAnchor: isIntersection ? [6, 6] : (isVertex ? [6, 6] : [5, 5]),
     }),
   }));
   snapHintLayerGroup.addTo(map);

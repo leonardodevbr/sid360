@@ -37,6 +37,48 @@ class ListLotsAction
             $query->where('lots.status', $request->string('status')->toString());
         }
 
+        if ($request->filled('zone_ids')) {
+            $zoneIds = collect((array) $request->input('zone_ids'))
+                ->map(static fn ($id) => (int) $id)
+                ->filter(static fn (int $id) => $id > 0)
+                ->values()
+                ->all();
+
+            if ($zoneIds !== []) {
+                $query->whereIn('lots.zone_id', $zoneIds);
+            }
+        }
+
+        if ($request->filled('block')) {
+            $block = $request->string('block')->toString();
+            $query->where('lots.block', 'like', "%{$block}%");
+        }
+
+        if ($request->filled('size_label')) {
+            $sizeLabel = $request->string('size_label')->toString();
+            $query->where('lots.size_label', 'like', "%{$sizeLabel}%");
+        }
+
+        if ($request->filled('area_min')) {
+            $query->whereRaw('COALESCE(lots.area, lots.area_computed) >= ?', [
+                (float) $request->input('area_min'),
+            ]);
+        }
+
+        if ($request->filled('area_max')) {
+            $query->whereRaw('COALESCE(lots.area, lots.area_computed) <= ?', [
+                (float) $request->input('area_max'),
+            ]);
+        }
+
+        if ($request->filled('value_min')) {
+            $query->where('lots.total_value', '>=', (int) $request->input('value_min'));
+        }
+
+        if ($request->filled('value_max')) {
+            $query->where('lots.total_value', '<=', (int) $request->input('value_max'));
+        }
+
         $query
             ->leftJoin('development_zones as lot_zones', 'lots.zone_id', '=', 'lot_zones.id')
             ->orderBy('lots.development_id')

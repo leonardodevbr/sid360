@@ -3,7 +3,7 @@ import * as turf from '@turf/turf';
 import { distanceBetweenPointsMeters } from '@/utils/mapGeometry';
 
 export const MAP_VERTEX_SNAP_TOLERANCE_METERS = 12;
-export const MAP_SNAP_PIXEL_RADIUS = 24;
+export const MAP_SNAP_PIXEL_RADIUS = 28;
 export const MAP_SEGMENT_SNAP_PIXEL_RADIUS = 36;
 export const MAP_INTERSECTION_SNAP_PIXEL_RADIUS = 28;
 export const MAP_SNAP_MIN_METERS = 4;
@@ -562,29 +562,37 @@ export function resolveSnappedCoordinate(
     ? findNearestSegmentSnap(lat, lng, segmentTargets, segmentToleranceMeters)
     : null;
 
-  let best = null;
-
-  [
-    vertexSnap ? { ...vertexSnap, snapKind: 'vertex' } : null,
-    intersectionSnap ? { ...intersectionSnap, snapKind: 'intersection' } : null,
-    segmentSnap ? { ...segmentSnap, snapKind: 'segment' } : null,
-  ].filter(Boolean).forEach((candidate) => {
-    if (!best || candidate.distanceMeters < best.distanceMeters) {
-      best = candidate;
-    }
-  });
-
-  if (!best) {
-    return { lat, lng, snapped: false };
+  if (vertexSnap) {
+    return {
+      lat: vertexSnap.lat,
+      lng: vertexSnap.lng,
+      snapped: true,
+      source: vertexSnap.source,
+      snapKind: 'vertex',
+    };
   }
 
-  return {
-    lat: best.lat,
-    lng: best.lng,
-    snapped: true,
-    source: best.source,
-    snapKind: best.snapKind,
-  };
+  if (intersectionSnap) {
+    return {
+      lat: intersectionSnap.lat,
+      lng: intersectionSnap.lng,
+      snapped: true,
+      source: intersectionSnap.source,
+      snapKind: 'intersection',
+    };
+  }
+
+  if (segmentSnap) {
+    return {
+      lat: segmentSnap.lat,
+      lng: segmentSnap.lng,
+      snapped: true,
+      source: segmentSnap.source,
+      snapKind: 'segment',
+    };
+  }
+
+  return { lat, lng, snapped: false };
 }
 
 /**
