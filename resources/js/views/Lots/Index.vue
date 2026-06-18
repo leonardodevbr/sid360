@@ -388,7 +388,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useAlert } from '@/composables/useAlert';
 import { formatCurrency } from '@/utils/format';
 import { lotStatusLabels, lotStatusOptions, lotStatusFormOptions } from '@/utils/labels';
-import { buildZoneTitleLabel } from '@/utils/zone';
+import { buildZoneTitleLabel, compareZonesByName } from '@/utils/zone';
 import { lotStatusClass } from '@/utils/status';
 import { buildLotDeleteConfirmMessage, formatLotDimensionsLabel } from '@/utils/mapLots';
 import { getApiErrorMessage } from '@/utils/apiError';
@@ -450,10 +450,12 @@ const developmentOptions = computed(() =>
 );
 
 const zoneOptions = computed(() =>
-  zones.value.map((zone) => ({
-    value: String(zone.id),
-    label: buildZoneTitleLabel(zone),
-  }))
+  [...zones.value]
+    .sort(compareZonesByName)
+    .map((zone) => ({
+      value: String(zone.id),
+      label: buildZoneTitleLabel(zone),
+    }))
 );
 
 const bulkZoneOptions = computed(() => zoneOptions.value);

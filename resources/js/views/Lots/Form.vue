@@ -215,7 +215,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import api from '@/services/api';
 import { lotStatusFormOptions } from '@/utils/labels';
-import { buildZoneTitleLabel, isLotSelectableZone } from '@/utils/zone';
+import { buildZoneTitleLabel, compareZonesByName, isLotSelectableZone } from '@/utils/zone';
 import { getPolygonCentroid, normalizePolygonCoordinates } from '@/utils/mapGeometry';
 import { getMappedStreets } from '@/utils/mapStreets';
 import { buildLotMapLabel } from '@/utils/mapLots';
@@ -362,10 +362,12 @@ const demarcationPointCount = computed(
 );
 
 const zoneOptions = computed(() =>
-  selectableZones.value.map((z) => ({
-    value: String(z.id),
-    label: buildZoneTitleLabel(z),
-  })),
+  [...selectableZones.value]
+    .sort(compareZonesByName)
+    .map((z) => ({
+      value: String(z.id),
+      label: buildZoneTitleLabel(z),
+    })),
 );
 
 const streetOptions = computed(() =>

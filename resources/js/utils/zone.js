@@ -177,6 +177,13 @@ export function buildZoneTitleLabel(zone) {
   return buildZoneMapLabel(zone).toLocaleUpperCase('pt-BR');
 }
 
+export function compareZonesByName(a, b) {
+  return buildZoneTitleLabel(a).localeCompare(buildZoneTitleLabel(b), 'pt-BR', {
+    sensitivity: 'base',
+    numeric: true,
+  });
+}
+
 export function canGenerateLotsInZone(zone) {
   return (
     ZONE_LOT_GENERATION_TYPES.includes(zone?.type)
