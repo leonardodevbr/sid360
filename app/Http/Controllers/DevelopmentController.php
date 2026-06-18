@@ -9,13 +9,16 @@ use App\Actions\Development\ListDevelopmentsAction;
 use App\Actions\Development\StoreDevelopmentAction;
 use App\Actions\Development\UpdateDevelopmentAction;
 use App\Actions\Lot\ListLotsAction;
+use App\Http\Requests\ExportTechnicalMapPdfRequest;
 use App\Http\Requests\StoreDevelopmentRequest;
 use App\Http\Requests\UpdateDevelopmentRequest;
 use App\Http\Resources\DevelopmentResource;
 use App\Http\Resources\LotResource;
 use App\Models\Development;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class DevelopmentController extends Controller
@@ -92,5 +95,26 @@ class DevelopmentController extends Controller
         }
 
         return LotResource::collection($result);
+    }
+
+    public function technicalMapPdf(
+        ExportTechnicalMapPdfRequest $request,
+        string|int $id,
+    ): Response {
+        $this->authorize('developments.view');
+
+        Development::query()->findOrFail((int) $id);
+
+        $paperSize = strtolower((string) $request->validated('paper_size', 'a3'));
+        $orientation = (string) $request->validated('orientation', 'landscape');
+
+        $pdf = Pdf::loadView('pdf.technical-map', [
+            'svg' => $request->validated('svg'),
+        ])->setPaper($paperSize, $orientation);
+
+        return response($pdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="planta-tecnica-'.$id.'.pdf"',
+        ]);
     }
 }

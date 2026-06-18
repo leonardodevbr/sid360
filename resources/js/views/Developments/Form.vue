@@ -783,6 +783,15 @@
                   <span class="hidden sm:inline">Girar pra direita</span>
                 </button>
                 <button
+                  v-if="isEdit && !drawingMode && canExportTechnicalMap"
+                  type="button"
+                  class="map-toolbar-btn map-toolbar-btn--map map-toolbar-action-btn col-span-2 flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50 sm:col-span-1 sm:justify-start sm:px-3 sm:text-xs"
+                  @click="openTechnicalMapExport"
+                >
+                  <DocumentArrowDownIcon class="h-3.5 w-3.5 shrink-0" />
+                  Planta técnica
+                </button>
+                <button
                   v-if="isEdit && !drawingMode"
                   type="button"
                   class="map-toolbar-btn map-toolbar-action-btn col-span-2 flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-1 sm:justify-start sm:px-3 sm:text-xs"
@@ -1379,6 +1388,16 @@
         </Button>
       </div>
     </Modal>
+
+    <TechnicalMapExportModal
+      :is-open="showTechnicalMapExport"
+      :development-id="isEdit ? route.params.id : null"
+      :development="form"
+      :zones="zones"
+      :streets="streets"
+      :lots="lots"
+      @close="showTechnicalMapExport = false"
+    />
   </div>
 </template>
 
@@ -1488,7 +1507,8 @@ import Button from '@/components/Common/Button.vue';
 import Modal from '@/components/Common/Modal.vue';
 import CurrencyInput from '@/components/Common/CurrencyInput.vue';
 import MediaGallery from '@/components/Common/MediaGallery.vue';
-import { ArrowLeftIcon, ArrowUturnLeftIcon, ArrowsPointingInIcon, ArrowsPointingOutIcon, BookmarkIcon, ChevronDownIcon, MapIcon, MapPinIcon, PlusIcon, RectangleGroupIcon, Squares2X2Icon, TagIcon, XMarkIcon } from '@heroicons/vue/24/outline';
+import { ArrowLeftIcon, ArrowUturnLeftIcon, ArrowsPointingInIcon, ArrowsPointingOutIcon, BookmarkIcon, ChevronDownIcon, DocumentArrowDownIcon, MapIcon, MapPinIcon, PlusIcon, RectangleGroupIcon, Squares2X2Icon, TagIcon, XMarkIcon } from '@heroicons/vue/24/outline';
+import TechnicalMapExportModal from '@/components/Map/TechnicalMapExportModal.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -3886,6 +3906,18 @@ const hasVisibleMapNameLabels = computed(() =>
 );
 const visibleMapLayers = ref([...DEFAULT_VISIBLE_MAP_LAYER_IDS]);
 const showMapLayerPicker = ref(false);
+const showTechnicalMapExport = ref(false);
+
+const canExportTechnicalMap = computed(() => {
+  const hasPerimeter = Array.isArray(form.value.coordinates) && form.value.coordinates.length >= 3;
+  const hasFeatures = zones.value.length > 0 || streets.value.length > 0 || lots.value.length > 0;
+
+  return hasPerimeter || hasFeatures;
+});
+
+function openTechnicalMapExport() {
+  showTechnicalMapExport.value = true;
+}
 const mapLayerPickerDraft = ref([]);
 const mapLayerOptions = MAP_LAYER_OPTIONS;
 const hasCustomMapLayerSelection = computed(() =>
