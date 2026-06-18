@@ -1,5 +1,7 @@
 import { formatAreaM2, formatPolygonAreaM2 } from '@/utils/mapGeometry';
 
+export const LOT_MAP_DIMENSION_LABEL_MIN_ZOOM = 17;
+
 const LOT_STATUS_MAP_STYLES = {
   available: { color: '#2d6a45', fill: '#3d8a5a' },
   reserved: { color: '#92400e', fill: '#f59e0b' },
@@ -18,25 +20,55 @@ export function buildLotMapLabel(lot) {
 }
 
 export function formatLotDimensionsLabel(lot) {
+  return formatLotDimensionsDisplay(lot)?.replace(/x/g, '×') ?? null;
+}
+
+export function formatLotDimensionsDisplay(lot) {
   const raw = String(lot?.size_label ?? '').trim();
 
   if (!raw) {
     return null;
   }
 
-  return raw.replace(/m$/i, '').replace(/x/gi, '×');
+  return raw.replace(/m$/i, '').replace(/×/gi, 'x').replace(/X/g, 'x');
 }
 
 export function hasLotDimensionsLabel(lot) {
-  return Boolean(formatLotDimensionsLabel(lot));
+  return Boolean(formatLotDimensionsDisplay(lot));
 }
 
-export function buildMapFixedLabelIconHtml(text, labelClass = 'map-lot-context-dimension-label') {
-  const safe = String(text)
+export function buildLotDimensionLabelTitle(lot) {
+  const number = String(lot?.number ?? '').trim();
+
+  return number ? `Lote ${number}` : 'Lote';
+}
+
+export function shouldShowLotDimensionLabelsAtZoom(zoom) {
+  return Number(zoom) >= LOT_MAP_DIMENSION_LABEL_MIN_ZOOM;
+}
+
+function escapeMapLabelHtml(value) {
+  return String(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+export function buildLotDimensionLabelMarkerHtml(lot) {
+  const size = formatLotDimensionsDisplay(lot);
+
+  if (!size) {
+    return null;
+  }
+
+  const title = buildLotDimensionLabelTitle(lot);
+
+  return `<span class="map-lot-dimension-label"><span class="map-lot-dimension-label-title">${escapeMapLabelHtml(title)}</span><span class="map-lot-dimension-label-size">${escapeMapLabelHtml(size)}</span></span>`;
+}
+
+export function buildMapFixedLabelIconHtml(text, labelClass = 'map-lot-context-dimension-label') {
+  const safe = escapeMapLabelHtml(text);
 
   return `<span class="${labelClass}">${safe}</span>`;
 }

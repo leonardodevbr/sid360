@@ -27,6 +27,7 @@ class Development extends Model
         'lot_number_pattern',
         'map_center',
         'map_zoom',
+        'map_bearing',
         'map_color',
     ];
 
@@ -40,6 +41,7 @@ class Development extends Model
             'base_price_per_m2' => 'integer',
             'coordinates' => 'array',
             'map_center' => 'array',
+            'map_bearing' => 'float',
             'is_featured' => 'boolean',
         ];
     }

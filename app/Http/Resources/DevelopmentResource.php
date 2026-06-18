@@ -30,6 +30,7 @@ class DevelopmentResource extends JsonResource
             'lot_number_pattern' => $this->lot_number_pattern,
             'map_center' => $this->map_center,
             'map_zoom' => $this->map_zoom ?? 17,
+            'map_bearing' => $this->map_bearing !== null ? (float) $this->map_bearing : 0,
             'map_color' => $this->map_color,
             'is_featured' => (bool) $this->is_featured,
             'cover_photo' => $this->coverPhoto()?->url,
