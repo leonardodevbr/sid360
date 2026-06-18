@@ -139,13 +139,16 @@
       </label>
     </div>
 
-    <Input
-      v-model="form.email"
-      label="E-mail"
-      type="email"
-      placeholder="email@exemplo.com"
-      :error="errors.email"
-    />
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <Flatpickr v-model="form.birth_date" label="Data de nascimento" :error="errors.birth_date" />
+      <Input
+        v-model="form.email"
+        label="E-mail"
+        type="email"
+        placeholder="email@exemplo.com"
+        :error="errors.email"
+      />
+    </div>
 
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <CepInput
@@ -197,6 +200,7 @@ import CpfInput from '@/components/Common/CpfInput.vue';
 import PhoneInput from '@/components/Common/PhoneInput.vue';
 import CepInput from '@/components/Common/CepInput.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
+import Flatpickr from '@/components/Common/Flatpickr.vue';
 import { maritalStatusOptions } from '@/constants/maritalStatus';
 import { confirmationBadgeClass, badgeColors } from '@/utils/status';
 

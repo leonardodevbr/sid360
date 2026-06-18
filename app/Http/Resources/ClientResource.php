@@ -21,6 +21,7 @@ class ClientResource extends JsonResource
             'cpf' => $this->cpf,
             'rg' => $this->rg,
             'rg_issuer' => $this->rg_issuer,
+            'birth_date' => $this->birth_date?->toDateString(),
             'profession' => $this->profession,
             'marital_status' => $this->marital_status,
             'marital_status_label' => Client::maritalStatusLabel($this->marital_status),

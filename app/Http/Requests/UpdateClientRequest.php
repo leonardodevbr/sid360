@@ -25,6 +25,7 @@ class UpdateClientRequest extends FormRequest
             'cpf' => ['sometimes', 'string', 'max:20', Rule::unique('clients', 'cpf')->ignore($this->route('id'))],
             'rg' => ['nullable', 'string', 'max:30'],
             'rg_issuer' => ['nullable', 'string', 'max:20'],
+            'birth_date' => ['nullable', 'date', 'before:today'],
             'profession' => ['nullable', 'string', 'max:120'],
             'marital_status' => ['nullable', 'string', Rule::in(Client::MARITAL_STATUSES)],
             'phone' => ['nullable', 'string', 'max:20'],

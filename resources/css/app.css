@@ -402,7 +402,7 @@
 }
 
 .map-lot-context-dimension-label--lot {
-  background: rgba(61, 138, 90, 0.18);
+  background: rgba(255, 255, 255, 0.92);
   border: 1px solid #2d6a45;
   color: #1a3a28;
 }
@@ -834,7 +834,7 @@
 }
 
 .leaflet-container .map-lot-dimension-label--lot {
-  background: rgba(61, 138, 90, 0.18);
+  background: rgba(255, 255, 255, 0.92);
   border: 1px solid #2d6a45;
   color: #1a3a28;
 }

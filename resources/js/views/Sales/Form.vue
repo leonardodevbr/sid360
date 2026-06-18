@@ -180,6 +180,10 @@
           </div>
 
           <div>
+            <Flatpickr v-model="novoCliente.birth_date" label="Data de nascimento" />
+          </div>
+
+          <div>
             <SelectInput
               v-model="novoCliente.marital_status"
               label="Estado civil"
@@ -794,6 +798,7 @@ const novoCliente = ref({
   cpf: '',
   rg: '',
   rg_issuer: '',
+  birth_date: '',
   profession: '',
   marital_status: '',
   phone: '',
@@ -1173,6 +1178,7 @@ function cancelarNovoCliente() {
     cpf: '',
     rg: '',
     rg_issuer: '',
+    birth_date: '',
     profession: '',
     marital_status: '',
     phone: '',

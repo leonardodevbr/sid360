@@ -194,6 +194,7 @@ return [
     'attributes' => [
         'address'   => 'endereço',
         'age'       => 'idade',
+        'birth_date' => 'data de nascimento',
         'body'      => 'conteúdo',
         'cell'      => 'célula',
         'city'      => 'cidade',

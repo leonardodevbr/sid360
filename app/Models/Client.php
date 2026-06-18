@@ -45,6 +45,7 @@ class Client extends Model
         'cpf',
         'rg',
         'rg_issuer',
+        'birth_date',
         'profession',
         'marital_status',
         'phone',
@@ -58,6 +59,16 @@ class Client extends Model
         'state',
         'notes',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'birth_date' => 'date',
+        ];
+    }
 
     /**
      * @return HasMany<Sale, $this>

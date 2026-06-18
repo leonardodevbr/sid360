@@ -8,6 +8,7 @@ export const defaultClientForm = () => ({
   cpf: '',
   rg: '',
   rg_issuer: '',
+  birth_date: '',
   profession: '',
   marital_status: '',
   phone: '',
