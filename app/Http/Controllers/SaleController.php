@@ -114,10 +114,11 @@ class SaleController extends Controller
             ->findOrFail((int) $id);
 
         $pdf = $action->execute($sale);
+        $filename = $action->filename($sale);
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => "attachment; filename=\"contrato-venda-{$sale->id}.pdf\"",
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
         ]);
     }
 
@@ -130,10 +131,11 @@ class SaleController extends Controller
             ->findOrFail((int) $id);
 
         $pdf = $action->execute($sale, isDraft: true);
+        $filename = $action->filename($sale, isDraft: true);
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => "inline; filename=\"minuta-venda-{$sale->id}.pdf\"",
+            'Content-Disposition' => "inline; filename=\"{$filename}\"",
         ]);
     }
 

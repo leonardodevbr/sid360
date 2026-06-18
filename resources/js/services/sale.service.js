@@ -1,8 +1,9 @@
 import api from './api';
 
-export async function getContractBlob(saleId) {
-  const { data } = await api.get(`/sales/${saleId}/contract`, { responseType: 'blob' });
-  return data;
+function filenameFromContentDisposition(headers) {
+  const raw = headers?.['content-disposition'];
+  const match = raw ? /filename="?([^";]+)"?/i.exec(raw) : null;
+  return match ? match[1] : null;
 }
 
 export async function getContractPreviewBlob(saleId) {
@@ -11,11 +12,14 @@ export async function getContractPreviewBlob(saleId) {
 }
 
 export async function downloadContract(saleId, filename) {
-  const blob = await getContractBlob(saleId);
-  const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+  const response = await api.get(`/sales/${saleId}/contract`, { responseType: 'blob' });
+  const resolvedFilename = filename
+    ?? filenameFromContentDisposition(response.headers)
+    ?? `contrato-venda-${saleId}.pdf`;
+  const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = filename ?? `contrato-venda-${saleId}.pdf`;
+  link.download = resolvedFilename;
   link.click();
   window.URL.revokeObjectURL(url);
 }
