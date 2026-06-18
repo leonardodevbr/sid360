@@ -63,3 +63,14 @@ export function buildLotMapMetaParts(lot, statusLabel = null) {
 export function buildLotMapMetaText(lot, statusLabel = null) {
   return buildLotMapMetaParts(lot, statusLabel).join(' · ');
 }
+
+export function buildLotDeleteConfirmMessage(lot) {
+  const number = String(lot?.number ?? '—').trim();
+  const location = lot?.zone?.name || lot?.block || null;
+
+  if (location) {
+    return `Excluir o lote ${number} alocado em ${location}?`;
+  }
+
+  return `Excluir o lote ${number}?`;
+}

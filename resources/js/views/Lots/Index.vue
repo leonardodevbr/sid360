@@ -121,7 +121,7 @@ import { formatCurrency } from '@/utils/format';
 import { lotStatusLabels, lotStatusOptions } from '@/utils/labels';
 import { buildZoneTitleLabel } from '@/utils/zone';
 import { lotStatusClass } from '@/utils/status';
-import { getApiErrorMessage } from '@/utils/apiError';
+import { buildLotDeleteConfirmMessage } from '@/utils/mapLots';
 import Button from '@/components/Common/Button.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
 import PaginationBar from '@/components/Common/PaginationBar.vue';
@@ -212,7 +212,7 @@ function onPerPageChange(value) {
 }
 
 async function confirmDelete(item) {
-  const ok = await confirm('Excluir lote', `Excluir lote ${item.number}?`);
+  const ok = await confirm('Excluir lote', buildLotDeleteConfirmMessage(item));
   if (!ok) return;
   try {
     await api.post(`/lots/${item.id}/delete`);
