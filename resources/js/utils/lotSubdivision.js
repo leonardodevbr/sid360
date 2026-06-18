@@ -124,6 +124,8 @@ export function getBlockInwardDepthMeters(blockLatLng, frontEdgeIndex, reverseFr
     frontStart,
     frontEnd,
     frontMid,
+    frontEdgeIndex,
+    ring,
   });
 
   const depth = measureInwardDepthLimit(blockPolygon, frontStart, frontEnd, depthBearing);
@@ -373,20 +375,66 @@ export function subdivideBlockIntoLots({
   });
 }
 
-/**
- * Direção de profundidade perpendicular à frente selecionada (para dentro da quadra).
- */
-function pickPerpendicularDepthBearing(blockPolygon, frontStart, frontEnd, frontMid) {
-  const frontBearing = turf.bearing(turf.point(frontStart), turf.point(frontEnd));
+function getEdgeBearingFromRing(ring, edgeIndex) {
+  const start = turf.point(ring[edgeIndex]);
+  const end = turf.point(ring[edgeIndex + 1]);
 
-  return pickInsideBearing(
-    frontBearing + 90,
-    frontBearing - 90,
+  return turf.bearing(start, end);
+}
+
+function bearingsAreParallel(bearingA, bearingB, toleranceDeg = 12) {
+  const diff = normalizeBearingDifference(bearingA, bearingB);
+
+  return diff < toleranceDeg || diff > 180 - toleranceDeg;
+}
+
+/**
+ * Direção de profundidade paralela às laterais da quadra (arestas adjacentes à frente).
+ */
+function pickParallelDepthBearing(ring, frontEdgeIndex, blockPolygon, frontStart, frontEnd, frontMid) {
+  const vertexCount = ring.length - 1;
+  const prevEdgeIndex = (frontEdgeIndex - 1 + vertexCount) % vertexCount;
+  const nextEdgeIndex = (frontEdgeIndex + 1) % vertexCount;
+
+  const frontBearing = turf.bearing(turf.point(frontStart), turf.point(frontEnd));
+  const prevBearing = getEdgeBearingFromRing(ring, prevEdgeIndex);
+  const nextBearing = getEdgeBearingFromRing(ring, nextEdgeIndex);
+
+  if (
+    bearingsAreParallel(frontBearing, prevBearing)
+    && bearingsAreParallel(frontBearing, nextBearing)
+  ) {
+    return pickInsideBearing(
+      frontBearing + 90,
+      frontBearing - 90,
+      blockPolygon,
+      frontStart,
+      frontEnd,
+      frontMid,
+    );
+  }
+
+  const prevInside = pickInsideBearing(
+    prevBearing,
+    prevBearing + 180,
     blockPolygon,
     frontStart,
     frontEnd,
     frontMid,
   );
+  const nextInside = pickInsideBearing(
+    nextBearing,
+    nextBearing + 180,
+    blockPolygon,
+    frontStart,
+    frontEnd,
+    frontMid,
+  );
+
+  const prevDepth = measureTypicalInwardDepth(blockPolygon, frontStart, frontEnd, prevInside);
+  const nextDepth = measureTypicalInwardDepth(blockPolygon, frontStart, frontEnd, nextInside);
+
+  return prevDepth >= nextDepth ? prevInside : nextInside;
 }
 
 function resolveDepthBearing({
@@ -394,8 +442,17 @@ function resolveDepthBearing({
   frontStart,
   frontEnd,
   frontMid,
+  frontEdgeIndex,
+  ring,
 }) {
-  return pickPerpendicularDepthBearing(blockPolygon, frontStart, frontEnd, frontMid);
+  return pickParallelDepthBearing(
+    ring,
+    frontEdgeIndex,
+    blockPolygon,
+    frontStart,
+    frontEnd,
+    frontMid,
+  );
 }
 
 function normalizeBearingDifference(bearingA, bearingB) {
@@ -559,6 +616,8 @@ function buildLotsFromSlices({
     frontStart,
     frontEnd,
     frontMid,
+    frontEdgeIndex,
+    ring,
   });
 
   let distCursor = 0;
