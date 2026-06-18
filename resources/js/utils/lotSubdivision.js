@@ -91,6 +91,49 @@ export function getFrontEdgeLengthMeters(blockLatLng, frontEdgeIndex) {
 }
 
 /**
+ * Profundidade máxima disponível para lotes, perpendicular à frente selecionada.
+ */
+export function getBlockInwardDepthMeters(blockLatLng, frontEdgeIndex, reverseFrontEdge = false) {
+  if (!Array.isArray(blockLatLng) || blockLatLng.length < 3) {
+    return 0;
+  }
+
+  if (frontEdgeIndex == null || frontEdgeIndex < 0) {
+    return 0;
+  }
+
+  const ring = toGeoJsonRing(blockLatLng);
+  const blockPolygon = turf.polygon([ring]);
+
+  const aIdx = frontEdgeIndex;
+  const bIdx = frontEdgeIndex + 1;
+  let frontStart = ring[aIdx];
+  let frontEnd = ring[bIdx];
+
+  if (reverseFrontEdge) {
+    frontStart = ring[bIdx];
+    frontEnd = ring[aIdx];
+  }
+
+  const startPt = turf.point(frontStart);
+  const endPt = turf.point(frontEnd);
+  const frontMid = turf.midpoint(startPt, endPt);
+
+  const depthBearing = resolveDepthBearing({
+    blockPolygon,
+    frontStart,
+    frontEnd,
+    frontMid,
+    frontEdgeIndex,
+    ring,
+  });
+
+  const depth = measureMaxInwardDepth(blockPolygon, frontStart, frontEnd, depthBearing);
+
+  return Math.round(depth * 100) / 100;
+}
+
+/**
  * Divide o comprimento da frente em partes iguais entre N lotes.
  * O arredondamento residual fica no último lote.
  */
@@ -136,6 +179,7 @@ export function suggestEqualSliceWidths(frontLengthM, lotWidth, maxLots = 200) {
 export function resolveSliceWidths(frontLengthM, {
   widthMode = 'equal',
   lotWidth = 20,
+  lotCount = 10,
   customWidths = [],
   remainderSide = 'end',
   maxLots = 200,
@@ -146,6 +190,19 @@ export function resolveSliceWidths(frontLengthM, {
 
   if (widthMode === 'custom') {
     return resolveCustomSliceWidths(frontLengthM, customWidths, remainderSide);
+  }
+
+  if (widthMode === 'count') {
+    const count = Math.min(maxLots, Math.max(1, Math.floor(Number(lotCount) || 1)));
+    const widths = divideFrontLengthEqually(frontLengthM, count);
+    const definedTotal = widths.reduce((sum, width) => sum + width, 0);
+
+    return {
+      widths,
+      definedTotal: Math.round(definedTotal * 100) / 100,
+      remainder: Math.round(Math.max(0, frontLengthM - definedTotal) * 100) / 100,
+      trimmed: false,
+    };
   }
 
   return resolveEqualSliceWidths(frontLengthM, lotWidth, maxLots, remainderSide);
@@ -249,8 +306,9 @@ function resolveCustomSliceWidths(frontLengthM, customWidths, remainderSide) {
  * @param {Object} params
  * @param {Array<[number,number]>} params.blockLatLng - polígono da quadra [lat,lng]
  * @param {number} params.frontEdgeIndex - índice da aresta de frente (getBlockEdges)
- * @param {'equal'|'custom'} [params.widthMode]
+ * @param {'equal'|'count'|'custom'} [params.widthMode]
  * @param {number} params.lotWidth - largura do lote em metros (modo igual)
+ * @param {number} [params.lotCount] - quantidade de lotes (modo por quantidade)
  * @param {number[]} [params.customWidths] - larguras individuais (modo personalizado)
  * @param {'start'|'end'} [params.remainderSide] - onde aplicar a sobra
  * @param {number} params.lotDepth - profundidade do lote em metros (paralela às laterais da quadra)
@@ -262,6 +320,7 @@ export function subdivideBlockIntoLots({
   frontEdgeIndex,
   lotWidth,
   lotDepth,
+  lotCount = 10,
   widthMode = 'equal',
   customWidths = [],
   remainderSide = 'end',
@@ -294,6 +353,7 @@ export function subdivideBlockIntoLots({
   const { widths: sliceWidths } = resolveSliceWidths(frontLengthM, {
     widthMode,
     lotWidth,
+    lotCount,
     customWidths,
     remainderSide,
     maxLots,

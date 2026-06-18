@@ -185,31 +185,65 @@
 
                 <template v-else>
                   <div class="grid grid-cols-2 gap-2">
-                    <Input v-model.number="geoForm.lotDepth" type="number" label="Profundidade (m)" />
+                    <Input
+                      v-model.number="geoForm.lotDepth"
+                      type="number"
+                      :label="geoDepthLabel"
+                      min="0.5"
+                      step="0.01"
+                      :max="geoMaxDepthM > 0 ? geoMaxDepthM : undefined"
+                      :disabled="geoForm.frontEdgeIndex == null"
+                    />
                     <Input
                       v-if="geoForm.widthMode === 'equal'"
                       v-model.number="geoForm.lotWidth"
                       type="number"
                       label="Largura (m)"
+                      min="0.5"
+                      step="0.01"
+                    />
+                    <Input
+                      v-else-if="geoForm.widthMode === 'count'"
+                      v-model.number="geoForm.lotCount"
+                      type="number"
+                      label="Quantidade de lotes"
+                      min="1"
+                      step="1"
                     />
                   </div>
+                  <p
+                    v-if="geoForm.frontEdgeIndex == null"
+                    class="mt-1 text-[11px] text-amber-700"
+                  >
+                    Selecione o lado da rua para calcular a profundidade máxima da quadra.
+                  </p>
 
                   <div class="mt-3">
                     <p class="text-xs font-semibold text-slate-700">Divisão ao longo da frente</p>
-                    <div class="mt-1.5 grid grid-cols-2 gap-1.5">
+                    <div class="mt-1.5 grid grid-cols-3 gap-1.5">
                       <button
                         type="button"
-                        class="rounded-lg border px-2 py-1.5 text-xs font-semibold transition-colors"
+                        class="rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition-colors"
                         :class="geoForm.widthMode === 'equal'
                           ? 'border-[#c9a84c] bg-amber-50 text-[#1a3a28]'
                           : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
                         @click="setGeoWidthMode('equal')"
                       >
-                        Larguras iguais
+                        Por largura
                       </button>
                       <button
                         type="button"
-                        class="rounded-lg border px-2 py-1.5 text-xs font-semibold transition-colors"
+                        class="rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition-colors"
+                        :class="geoForm.widthMode === 'count'
+                          ? 'border-[#c9a84c] bg-amber-50 text-[#1a3a28]'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
+                        @click="setGeoWidthMode('count')"
+                      >
+                        Por quantidade
+                      </button>
+                      <button
+                        type="button"
+                        class="rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition-colors"
                         :class="geoForm.widthMode === 'custom'
                           ? 'border-[#c9a84c] bg-amber-50 text-[#1a3a28]'
                           : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
@@ -1356,6 +1390,7 @@ import {
   enrichBlockEdgesWithStreets,
   resolveSliceWidths,
   divideFrontLengthEqually,
+  getBlockInwardDepthMeters,
 } from '@/utils/lotSubdivision';
 import {
   computeLotTotalValueFromArea,
@@ -4584,7 +4619,8 @@ const generateForm = ref({
 });
 const geoForm = ref({
   lotWidth: 20,
-  lotDepth: 30,
+  lotCount: 10,
+  lotDepth: null,
   widthMode: 'equal',
   customWidths: [20, 20],
   remainderSide: 'end',
@@ -4687,9 +4723,31 @@ const geoFrontLengthM = computed(() => {
   return edge?.lengthMeters ?? 0;
 });
 
+const geoMaxDepthM = computed(() => {
+  const zone = generateLotsZone.value;
+  if (!zone?.coordinates || geoForm.value.frontEdgeIndex == null) {
+    return 0;
+  }
+
+  return getBlockInwardDepthMeters(
+    zone.coordinates,
+    geoForm.value.frontEdgeIndex,
+    geoForm.value.reverseFrontEdge,
+  );
+});
+
+const geoDepthLabel = computed(() => {
+  if (geoMaxDepthM.value > 0) {
+    return `Profundidade (m) · máx. ${formatMeters(geoMaxDepthM.value)}`;
+  }
+
+  return 'Profundidade (m)';
+});
+
 const geoSlicePlan = computed(() => resolveSliceWidths(geoFrontLengthM.value, {
   widthMode: geoForm.value.widthMode,
   lotWidth: Number(geoForm.value.lotWidth),
+  lotCount: Number(geoForm.value.lotCount),
   customWidths: geoForm.value.customWidths,
   remainderSide: geoForm.value.remainderSide,
 }));
@@ -4710,6 +4768,7 @@ const geoCustomWidthsRemainder = computed(() => {
 watch(
   () => [
     geoForm.value.lotWidth,
+    geoForm.value.lotCount,
     geoForm.value.lotDepth,
     geoForm.value.widthMode,
     geoForm.value.customWidths,
@@ -4722,6 +4781,27 @@ watch(
     }
   },
   { deep: true },
+);
+
+watch(geoMaxDepthM, (max) => {
+  if (!(max > 0)) {
+    return;
+  }
+
+  const depth = Number(geoForm.value.lotDepth);
+
+  if (!Number.isFinite(depth) || depth <= 0) {
+    geoForm.value.lotDepth = max;
+  } else if (depth > max) {
+    geoForm.value.lotDepth = max;
+  }
+});
+
+watch(
+  () => geoForm.value.lotDepth,
+  () => {
+    clampGeoLotDepth();
+  },
 );
 
 watch(
@@ -4743,6 +4823,37 @@ watch(
   { deep: true },
 );
 
+function clampGeoLotDepth() {
+  const max = geoMaxDepthM.value;
+
+  if (!(max > 0)) {
+    return;
+  }
+
+  const depth = Number(geoForm.value.lotDepth);
+  let next = depth;
+
+  if (!Number.isFinite(depth) || depth <= 0) {
+    next = max;
+  } else if (depth > max) {
+    next = max;
+  } else if (depth < 0.5) {
+    next = 0.5;
+  }
+
+  if (next !== geoForm.value.lotDepth) {
+    geoForm.value.lotDepth = next;
+  }
+}
+
+function syncGeoDepthFromBlock() {
+  const max = geoMaxDepthM.value;
+
+  if (max > 0) {
+    geoForm.value.lotDepth = max;
+  }
+}
+
 function loadBlockEdges() {
   const zone = generateLotsZone.value;
   if (!zone?.coordinates || zone.coordinates.length < 3) {
@@ -4755,7 +4866,9 @@ function loadBlockEdges() {
     const edgeWithStreet = blockEdges.value.find((edge) => edge.nearestStreet);
     if (edgeWithStreet) {
       geoForm.value.frontEdgeIndex = edgeWithStreet.index;
+      syncGeoDepthFromBlock();
       scheduleGeoPreview();
+    }
     }
   }
 
@@ -4839,6 +4952,7 @@ function drawBlockEdgesOnMap() {
 function selectFrontEdge(index) {
   geoForm.value.frontEdgeIndex = index;
   hoveredEdgeIndex.value = null;
+  syncGeoDepthFromBlock();
   if (geoForm.value.widthMode === 'custom' && geoFrontLengthM.value > 0) {
     seedCustomWidthsIfNeeded();
   }
@@ -4851,10 +4965,32 @@ function setGeoWidthMode(mode) {
     return;
   }
 
+  const previousMode = geoForm.value.widthMode;
   geoForm.value.widthMode = mode;
 
   if (mode === 'custom') {
     fillCustomWidthsFromEqual();
+  } else if (mode === 'count') {
+    const frontLength = geoFrontLengthM.value;
+    const lotWidth = Number(geoForm.value.lotWidth) || 20;
+
+    if (frontLength > 0 && lotWidth > 0) {
+      geoForm.value.lotCount = Math.max(1, Math.ceil(frontLength / lotWidth));
+    } else if (!Number.isFinite(Number(geoForm.value.lotCount)) || Number(geoForm.value.lotCount) < 1) {
+      geoForm.value.lotCount = 10;
+    }
+  } else if (mode === 'equal' && previousMode === 'count') {
+    const frontLength = geoFrontLengthM.value;
+    const lotCount = Math.max(1, Number(geoForm.value.lotCount) || 1);
+
+    if (frontLength > 0) {
+      const widths = divideFrontLengthEqually(frontLength, lotCount);
+      const firstWidth = widths[0];
+
+      if (firstWidth > 0) {
+        geoForm.value.lotWidth = firstWidth;
+      }
+    }
   }
 
   if (geoForm.value.frontEdgeIndex != null) {
@@ -4938,6 +5074,7 @@ function removeCustomWidthRow(index) {
 
 function toggleGeoReverseFrontEdge() {
   geoForm.value.reverseFrontEdge = !geoForm.value.reverseFrontEdge;
+  syncGeoDepthFromBlock();
   if (geoForm.value.frontEdgeIndex != null) {
     if (geoPreviewTimer) {
       clearTimeout(geoPreviewTimer);
@@ -5049,6 +5186,7 @@ function buildPreview({ silent = false } = {}) {
       blockLatLng: zone.coordinates,
       frontEdgeIndex: geoForm.value.frontEdgeIndex,
       lotWidth: Number(geoForm.value.lotWidth),
+      lotCount: Number(geoForm.value.lotCount),
       lotDepth: Number(geoForm.value.lotDepth),
       widthMode: geoForm.value.widthMode,
       customWidths: geoForm.value.customWidths,
@@ -5123,7 +5261,8 @@ function openGenerateLots(zone, { preferGeometric = false } = {}) {
   };
   geoForm.value = {
     lotWidth: 20,
-    lotDepth: 30,
+    lotCount: 10,
+    lotDepth: null,
     widthMode: 'equal',
     customWidths: [20, 20],
     remainderSide: 'end',
