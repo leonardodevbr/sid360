@@ -85,7 +85,7 @@
             :searchable="true"
             :close-on-select="false"
             :disabled="!developmentId"
-            @update:model-value="onFiltersChange"
+            @update:model-value="debouncedAdvancedFilter"
           />
           <Input
             v-model="blockFilter"

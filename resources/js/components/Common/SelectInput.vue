@@ -17,7 +17,9 @@
         :placeholder="placeholder"
         :disabled="disabled"
         :close-on-select="resolvedCloseOnSelect"
+        :clear-on-select="false"
         :can-clear="canClear"
+        :hide-selected="false"
         :multiple-label="multipleLabelFn"
         no-options-text="Nenhuma opção"
         no-results-text="Nenhum resultado"
@@ -26,13 +28,13 @@
         <template #multiplelabel="{ values }">
           <span
             v-if="!values || !values.length"
-            class="multiselect-placeholder px-2.5 py-2 text-sm text-slate-400"
+            class="multiselect-placeholder pointer-events-none px-2.5 py-2 text-sm text-slate-400"
           >
             {{ placeholder }}
           </span>
           <span
             v-else
-            class="multiselect-tags-inline flex flex-wrap items-center gap-1.5 px-0.5 py-1"
+            class="multiselect-tags-inline pointer-events-none flex flex-wrap items-center gap-1.5 px-0.5 py-1"
           >
             <span
               v-for="(val, i) in values"
@@ -192,6 +194,7 @@ export default defineComponent({
   max-width: calc(100% - 2.25rem);
   padding-left: 0.625rem;
   padding-right: 2rem;
+  pointer-events: none;
 }
 
 .select-input-wrap :deep(.multiselect-placeholder) {
