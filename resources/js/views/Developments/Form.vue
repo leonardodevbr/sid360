@@ -1295,6 +1295,10 @@ import {
   isPointInsideOrOnPolygon,
   normalizePolygonCoordinates,
 } from '@/utils/mapGeometry';
+import {
+  buildLotMapLabel,
+  buildLotMapMetaText,
+} from '@/utils/mapLots';
 import { lotStatusLabel } from '@/utils/status';
 import {
   ALL_MAP_LAYER_IDS,
@@ -2092,22 +2096,25 @@ function getLotMapStyle(status) {
   return LOT_STATUS_MAP_STYLES[status] ?? LOT_STATUS_MAP_STYLES.available;
 }
 
-function buildLotLabel(lot) {
-  const blockLabel = lot.block || lot.zone?.name;
-  return blockLabel ? `${blockLabel} · Lote ${lot.number}` : `Lote ${lot.number}`;
+function buildLotTooltipHtml(lot) {
+  const title = escapeHtml(buildLotMapLabel(lot));
+  const meta = escapeHtml(buildLotMapMetaText(lot, lotStatusLabel(lot.status)));
+
+  if (!meta) {
+    return title;
+  }
+
+  return `<span class="map-lot-hover-label-title">${title}</span><span class="map-lot-hover-label-meta">${meta}</span>`;
 }
 
 function buildLotPopupHtml(lot) {
-  const storedArea = lot.area_computed ?? lot.area;
-  const areaLabel = storedArea != null && storedArea !== ''
-    ? formatAreaM2(storedArea, { approximate: false })
-    : formatPolygonAreaM2(lot.coordinates);
+  const meta = buildLotMapMetaText(lot, lotStatusLabel(lot.status));
 
   return `
     <div class="map-feature-popup">
-      <p class="map-feature-popup-title">${escapeHtml(buildLotLabel(lot))}</p>
+      <p class="map-feature-popup-title">${escapeHtml(buildLotMapLabel(lot))}</p>
       <p class="map-feature-popup-meta">
-        ${escapeHtml(lotStatusLabel(lot.status))}${areaLabel ? ` · ${areaLabel}` : ''}
+        ${escapeHtml(meta)}
       </p>
       <div class="map-feature-popup-actions">
         <button type="button" class="map-feature-popup-btn" data-map-edit>
@@ -3845,10 +3852,10 @@ function drawLotsOnMap() {
       className: 'map-feature-polygon map-lot-context-path',
     }).addTo(map);
 
-    layer.bindTooltip(buildLotLabel(lot), {
+    layer.bindTooltip(buildLotTooltipHtml(lot), {
       sticky: true,
       direction: 'center',
-      className: 'map-lot-context-label',
+      className: 'map-lot-hover-label',
     });
 
     resetMapFeatureLayerInteraction(layer);

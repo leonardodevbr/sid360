@@ -63,7 +63,7 @@
   <script setup>
   import { ref, onMounted, onUnmounted, watch, computed, nextTick } from 'vue'
   import { setupMapBaseLayers } from '@/utils/mapLayers'
-  import { formatAreaM2, formatPolygonAreaM2 } from '@/utils/mapGeometry'
+  import { buildLotMapMetaText } from '@/utils/mapLots'
   
   // NOTE: instalar via npm install leaflet leaflet-draw
   // e importar CSS no app.js:
@@ -321,10 +321,7 @@
     lots.forEach((lot) => {
       if (!lot.coordinates?.length) return
       const style = colorByStatus[lot.status] ?? colorByStatus.available
-      const storedArea = lot.area_computed ?? lot.area
-      const areaLabel = storedArea != null && storedArea !== ''
-        ? formatAreaM2(storedArea, { approximate: false })
-        : formatPolygonAreaM2(lot.coordinates)
+      const meta = buildLotMapMetaText(lot, statusLabel(lot.status))
 
       const polygon = L.polygon(lot.coordinates, {
         color: style.color,
@@ -337,7 +334,7 @@
       polygon.bindPopup(`
         <div style="font-family:system-ui;font-size:13px;min-width:120px">
           <strong>Lote ${lot.number}${lot.block ? ' · Qd. ' + lot.block : ''}</strong><br>
-          <span style="color:#64748b">${statusLabel(lot.status)}${areaLabel ? ` · ${areaLabel}` : ''}</span>
+          <span style="color:#64748b">${meta}</span>
         </div>
       `)
   
