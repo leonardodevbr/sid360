@@ -6,7 +6,7 @@
     <label v-if="label" class="mb-1 block text-sm font-medium text-slate-700">
       {{ label }}
     </label>
-    <div class="select-input-field">
+    <div class="select-input-field" @mousedown="handleFieldMouseDown">
       <Multiselect
         :model-value="modelValue"
         :options="options"
@@ -154,11 +154,41 @@ export default defineComponent({
       return opt ? opt[props.labelProp] : String(val);
     };
 
+    const handleFieldMouseDown = (event) => {
+      if (props.disabled) {
+        return;
+      }
+
+      if (event.target.closest('[data-clear]') || event.target.closest('.multiselect-option')) {
+        return;
+      }
+
+      const multiselect = event.currentTarget.querySelector('.multiselect');
+      if (!multiselect || multiselect.classList.contains('is-disabled')) {
+        return;
+      }
+
+      const searchInput = multiselect.querySelector('.multiselect-search, .multiselect-tags-search');
+      const wrapper = multiselect.querySelector('.multiselect-wrapper');
+
+      if (props.searchable && searchInput) {
+        if (document.activeElement !== searchInput) {
+          searchInput.focus({ preventScroll: true });
+        }
+        return;
+      }
+
+      if (wrapper && document.activeElement !== wrapper) {
+        wrapper.focus({ preventScroll: true });
+      }
+    };
+
     return {
       resolvedCloseOnSelect,
       handleUpdate,
       multipleLabelFn,
       getOptionLabel,
+      handleFieldMouseDown,
     };
   },
 });
@@ -208,12 +238,39 @@ export default defineComponent({
   white-space: nowrap;
 }
 
-.select-input-wrap :deep(.multiselect:not(.is-active) .multiselect-search) {
-  display: none;
+.select-input-wrap :deep(.multiselect-search),
+.select-input-wrap :deep(.multiselect-tags-search-wrapper) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.select-input-wrap :deep(.multiselect:not(.is-active) .multiselect-search),
+.select-input-wrap :deep(.multiselect:not(.is-active) .multiselect-tags-search) {
+  opacity: 0;
+  caret-color: transparent;
+}
+
+.select-input-wrap :deep(.multiselect.is-active .multiselect-search),
+.select-input-wrap :deep(.multiselect.is-active .multiselect-tags-search) {
+  opacity: 1;
+  caret-color: auto;
+}
+
+.select-input-wrap :deep(.multiselect:not(.is-active) .multiselect-tags) {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding-left: 0.375rem;
+  padding-right: 2.25rem;
+  align-items: center;
+}
+
+.select-input-wrap :deep(.multiselect:not(.is-active) .multiselect-tags-search-wrapper) {
+  width: 100%;
+  height: 100%;
 }
 
 .select-input-wrap :deep(.multiselect.is-active .multiselect-search) {
-  display: block;
   width: 100%;
   padding-left: 0.625rem;
   padding-right: 2rem;

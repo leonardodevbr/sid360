@@ -283,10 +283,10 @@
                   </div>
 
                   <div
-                    v-if="geoForm.widthMode === 'equal' && geoSlicePlan.remainder >= 0.5"
+                    v-if="geoForm.widthMode === 'equal' && geoEqualSliceRemainder >= 0.5"
                     class="mt-2"
                   >
-                    <p class="text-[11px] font-medium text-slate-600">Sobra de {{ formatMeters(geoSlicePlan.remainder) }}</p>
+                    <p class="text-[11px] font-medium text-slate-600">Sobra de {{ formatMeters(geoEqualSliceRemainder) }}</p>
                     <div class="mt-1 grid grid-cols-2 gap-1.5">
                       <button
                         type="button"
@@ -296,7 +296,7 @@
                           : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
                         @click="setGeoRemainderSide('start')"
                       >
-                        No início
+                        Somar no 1º lote
                       </button>
                       <button
                         type="button"
@@ -306,7 +306,7 @@
                           : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
                         @click="setGeoRemainderSide('end')"
                       >
-                        No final
+                        Somar no último
                       </button>
                     </div>
                   </div>
@@ -4770,6 +4770,21 @@ const geoSlicePlan = computed(() => resolveSliceWidths(geoFrontLengthM.value, {
   remainderSide: geoForm.value.remainderSide,
 }));
 
+const geoEqualSliceRemainder = computed(() => {
+  if (geoForm.value.widthMode !== 'equal' || !(geoFrontLengthM.value > 0)) {
+    return 0;
+  }
+
+  const lotWidth = Number(geoForm.value.lotWidth);
+  if (!(lotWidth > 0)) {
+    return 0;
+  }
+
+  const fullCount = Math.max(0, Math.ceil(geoFrontLengthM.value / lotWidth) - 1);
+
+  return Math.round(Math.max(0, geoFrontLengthM.value - fullCount * lotWidth) * 100) / 100;
+});
+
 const geoCustomWidthsRemainder = computed(() => {
   if (geoForm.value.widthMode !== 'custom' || !(geoFrontLengthM.value > 0)) {
     return 0;
@@ -5042,33 +5057,66 @@ function seedCustomWidthsIfNeeded() {
   fillCustomWidthsFromPlan(geoForm.value.widthMode === 'custom' ? 'equal' : geoForm.value.widthMode);
 }
 
+function buildEqualCustomWidths(frontLength, lotWidth) {
+  const width = Number(lotWidth) || 20;
+
+  if (!(frontLength > 0) || !(width > 0)) {
+    return [width, width];
+  }
+
+  const sliceCount = Math.ceil(frontLength / width);
+  const fullCount = Math.max(1, sliceCount - 1);
+  const rawRemainder = Math.round((frontLength - fullCount * width) * 100) / 100;
+
+  if (rawRemainder >= 0.5) {
+    return Array.from({ length: fullCount }, () => width);
+  }
+
+  return Array.from({ length: sliceCount }, () => width);
+}
+
+function extractCustomWidthsFromPreview(lots, lotWidth) {
+  const width = Number(lotWidth) || 20;
+  const tolerance = 0.5;
+  const previewWidths = lots.map((lot) => Number(lot.widthMeters));
+  const equalWidths = previewWidths.filter((value) => Math.abs(value - width) < tolerance);
+
+  if (equalWidths.length >= 1 && equalWidths.length < previewWidths.length) {
+    return equalWidths.map(() => width);
+  }
+
+  return previewWidths;
+}
+
 function fillCustomWidthsFromPlan(sourceMode = 'equal') {
+  const lotWidth = Number(geoForm.value.lotWidth) || 20;
+  const frontLength = geoFrontLengthM.value;
+  const lotCount = Math.max(1, Number(geoForm.value.lotCount) || 1);
+  const resolvedMode = sourceMode === 'custom' ? 'equal' : sourceMode;
+
   if (previewLots.value.length) {
-    geoForm.value.customWidths = previewLots.value.map((lot) => Number(lot.widthMeters));
+    geoForm.value.customWidths = extractCustomWidthsFromPreview(previewLots.value, lotWidth);
+  } else if (!(frontLength > 0)) {
+    const fallbackCount = resolvedMode === 'count' ? lotCount : 2;
+    geoForm.value.customWidths = resolvedMode === 'count'
+      ? divideFrontLengthEqually(lotWidth * fallbackCount, fallbackCount)
+      : [lotWidth, lotWidth];
+  } else if (resolvedMode === 'equal') {
+    geoForm.value.customWidths = buildEqualCustomWidths(frontLength, lotWidth);
+  } else if (resolvedMode === 'count') {
+    geoForm.value.customWidths = divideFrontLengthEqually(frontLength, lotCount);
   } else {
-    const frontLength = geoFrontLengthM.value;
-    const lotWidth = Number(geoForm.value.lotWidth) || 20;
-    const lotCount = Math.max(1, Number(geoForm.value.lotCount) || 1);
-    const resolvedMode = sourceMode === 'custom' ? 'equal' : sourceMode;
+    const plan = resolveSliceWidths(frontLength, {
+      widthMode: resolvedMode,
+      lotWidth,
+      lotCount,
+      customWidths: geoForm.value.customWidths,
+      remainderSide: geoForm.value.remainderSide,
+    });
 
-    if (!(frontLength > 0)) {
-      const fallbackCount = resolvedMode === 'count' ? lotCount : 2;
-      geoForm.value.customWidths = resolvedMode === 'count'
-        ? divideFrontLengthEqually(lotWidth * fallbackCount, fallbackCount)
-        : [lotWidth, lotWidth];
-    } else {
-      const plan = resolveSliceWidths(frontLength, {
-        widthMode: resolvedMode,
-        lotWidth,
-        lotCount,
-        customWidths: geoForm.value.customWidths,
-        remainderSide: geoForm.value.remainderSide,
-      });
-
-      geoForm.value.customWidths = plan.widths.length
-        ? [...plan.widths]
-        : divideFrontLengthEqually(frontLength, lotCount);
-    }
+    geoForm.value.customWidths = plan.widths.length
+      ? [...plan.widths]
+      : divideFrontLengthEqually(frontLength, lotCount);
   }
 
   if (geoForm.value.frontEdgeIndex != null) {
