@@ -1340,11 +1340,9 @@ import {
 } from '@/utils/zone';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import {
-  collectMapSnapHintPoints,
   collectMapSnapIntersectionTargets,
   collectMapSnapSegmentTargets,
   collectMapSnapTargets,
-  findNearestMapSnapHint,
   MAP_INTERSECTION_SNAP_PIXEL_RADIUS,
   MAP_SEGMENT_SNAP_PIXEL_RADIUS,
   MAP_SNAP_PIXEL_RADIUS,
@@ -1499,6 +1497,16 @@ function getDrawingSnapContext() {
   };
 }
 
+function getDrawingSnapOptions(overrides = {}) {
+  const editingClosedPolygon = startedFromExistingPolygon.value;
+
+  return {
+    includeDrawingPoints: overrides.includeDrawingPoints ?? !editingClosedPolygon,
+    includeDrawingSegments: overrides.includeDrawingSegments ?? !editingClosedPolygon,
+    excludeDrawingVertexIndex: overrides.excludeDrawingVertexIndex ?? null,
+  };
+}
+
 function applyDrawingSnap(lat, lng, {
   excludeDrawingVertexIndex = null,
   includeDrawingPoints = true,
@@ -1557,7 +1565,7 @@ function clearSnapHintMarkers() {
   }
 }
 
-function syncSnapHintMarkers(cursorLatLng = null) {
+function syncSnapHintMarkers(cursorLatLng = null, snapOptions = {}) {
   if (!map || !L) {
     return;
   }
@@ -1576,27 +1584,20 @@ function syncSnapHintMarkers(cursorLatLng = null) {
     return;
   }
 
-  const hints = collectMapSnapHintPoints(getDrawingSnapContext());
-  const nearest = findNearestMapSnapHint(normalizedCursor.lat, normalizedCursor.lng, hints);
+  const snapResult = applyDrawingSnap(
+    normalizedCursor.lat,
+    normalizedCursor.lng,
+    getDrawingSnapOptions(snapOptions),
+  );
 
-  if (!nearest) {
+  if (!snapResult.snapped) {
     return;
   }
 
-  const maxDisplayMeters = resolveSnapToleranceMeters(map, normalizedCursor.lat, normalizedCursor.lng, {
-    pixelRadius: 48,
-    maxMeters: 80,
-  });
-
-  if (nearest.distanceMeters > maxDisplayMeters) {
-    return;
-  }
-
-  const [lat, lng] = nearest.coord;
-  const isIntersection = nearest.kind === 'intersection';
+  const isIntersection = snapResult.snapKind === 'intersection';
 
   snapHintLayerGroup = L.featureGroup();
-  snapHintLayerGroup.addLayer(L.marker([lat, lng], {
+  snapHintLayerGroup.addLayer(L.marker([snapResult.lat, snapResult.lng], {
     interactive: false,
     keyboard: false,
     zIndexOffset: isIntersection ? 1250 : 1150,
@@ -1725,10 +1726,10 @@ function syncDrawingCursorPreview() {
           return cursorLatLng;
         }
 
-        return applyDrawingSnap(cursorLatLng.lat, cursorLatLng.lng, {
+        return applyDrawingSnap(cursorLatLng.lat, cursorLatLng.lng, getDrawingSnapOptions({
           includeDrawingPoints: false,
           includeDrawingSegments: false,
-        });
+        }));
       },
       getStrokeColor: getDrawingStrokeColor,
       getInvalid: () => false,
@@ -2571,7 +2572,6 @@ function bindVertexMarkerDrag(marker) {
 
     marker.setLatLng(nextLatLng);
     perimeterPoints.value[marker._vertexIndex] = [snapped.lat, snapped.lng];
-    syncSnapHintMarkers(latLng);
     cursorPreview.showSnapIndicator(nextLatLng, snapped.snapped);
     refreshTempPolyline(
       startedFromExistingPolygon.value && perimeterPoints.value.length >= 3,
