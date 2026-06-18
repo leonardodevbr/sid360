@@ -149,7 +149,7 @@ export function formatMeters(lengthMeters) {
     return `${(lengthMeters / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} km`;
   }
 
-  return `${Math.round(lengthMeters).toLocaleString('pt-BR')} m`;
+  return `${lengthMeters.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} m`;
 }
 
 const SHORT_EDGE_LABEL_OFFSET_THRESHOLD_METERS = 15;

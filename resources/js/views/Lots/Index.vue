@@ -10,9 +10,9 @@
       </Button>
     </div>
 
-    <div class="card p-4 sm:p-6">
-      <div class="mb-4 space-y-3">
-        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+    <div class="card overflow-visible p-4 sm:p-6">
+      <div class="mb-4 space-y-3 overflow-visible">
+        <div class="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
           <div class="w-full sm:max-w-xs">
             <SelectInput
               v-model="developmentId"
@@ -23,13 +23,13 @@
               @update:model-value="onDevelopmentFilterChange"
             />
           </div>
-          <div class="min-w-0 flex-1 sm:max-w-xs">
+          <div class="min-w-0 w-full sm:max-w-xs lg:flex-1">
             <label class="mb-1 block text-sm font-medium text-slate-700">Buscar</label>
             <input
               v-model="searchQuery"
               type="search"
               placeholder="Número ou zona..."
-              class="w-full rounded border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sid-accent"
               @input="debouncedSearch"
             >
           </div>
@@ -43,25 +43,38 @@
               @update:model-value="onFiltersChange"
             />
           </div>
-          <button
-            type="button"
-            class="flex items-center gap-1.5 self-end rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
-            @click="showAdvancedFilters = !showAdvancedFilters"
-          >
-            <FunnelIcon class="h-4 w-4" />
-            {{ showAdvancedFilters ? 'Menos filtros' : 'Mais filtros' }}
-            <span
-              v-if="activeAdvancedFilterCount > 0"
-              class="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800"
+          <div class="flex w-full flex-wrap items-end gap-2 sm:w-auto lg:ml-auto">
+            <div class="min-w-[9rem]">
+              <SelectInput
+                :model-value="String(perPage)"
+                label="Itens por página"
+                :options="perPageOptions"
+                :searchable="false"
+                :can-clear="false"
+                compact
+                @update:model-value="onPerPageChange"
+              />
+            </div>
+            <button
+              type="button"
+              class="flex h-[2.5rem] items-center gap-1.5 rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              @click="showAdvancedFilters = !showAdvancedFilters"
             >
-              {{ activeAdvancedFilterCount }}
-            </span>
-          </button>
+              <FunnelIcon class="h-4 w-4" />
+              {{ showAdvancedFilters ? 'Menos filtros' : 'Mais filtros' }}
+              <span
+                v-if="activeAdvancedFilterCount > 0"
+                class="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800"
+              >
+                {{ activeAdvancedFilterCount }}
+              </span>
+            </button>
+          </div>
         </div>
 
         <div
           v-if="showAdvancedFilters"
-          class="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          class="grid grid-cols-1 gap-3 overflow-visible rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
         >
           <SelectInput
             v-model="zoneFilter"
@@ -70,6 +83,7 @@
             placeholder="Todas"
             mode="multiple"
             :searchable="true"
+            :close-on-select="false"
             :disabled="!developmentId"
             @update:model-value="onFiltersChange"
           />
@@ -261,8 +275,8 @@
       <PaginationBar
         v-if="!loading && pagination"
         :pagination="pagination"
+        :show-per-page-selector="false"
         @page-change="(page) => loadItems(page)"
-        @per-page-change="onPerPageChange"
       />
     </div>
 
@@ -410,6 +424,13 @@ const areaMax = ref('');
 const valueMin = ref(0);
 const valueMax = ref(0);
 const perPage = ref(15);
+const perPageOptions = [
+  { value: '10', label: '10' },
+  { value: '15', label: '15' },
+  { value: '30', label: '30' },
+  { value: '50', label: '50' },
+  { value: '100', label: '100' },
+];
 const pagination = ref(null);
 const selectedIds = ref(new Set());
 let searchTimeout = null;
@@ -671,7 +692,12 @@ function clearAdvancedFilters() {
 }
 
 function onPerPageChange(value) {
-  perPage.value = value;
+  const next = Number(value);
+  if (!Number.isFinite(next) || next <= 0) {
+    return;
+  }
+
+  perPage.value = next;
   clearSelection();
   loadItems(1);
 }

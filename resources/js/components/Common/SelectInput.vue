@@ -1,40 +1,56 @@
 <template>
-  <div class="select-input-wrap w-full min-w-0" :class="{ 'select-input-wrap--compact': compact }">
-    <label v-if="label" class="block text-sm font-medium text-slate-700 mb-1">
+  <div
+    class="select-input-wrap w-full min-w-0"
+    :class="{ 'select-input-wrap--compact': compact }"
+  >
+    <label v-if="label" class="mb-1 block text-sm font-medium text-slate-700">
       {{ label }}
     </label>
-    <Multiselect
-      :model-value="modelValue"
-      :options="options"
-      :mode="mode"
-      :value-prop="valueProp"
-      :label="labelProp"
-      :searchable="searchable"
-      :placeholder="placeholder"
-      :disabled="disabled"
-      :close-on-select="closeOnSelect"
-      :can-clear="canClear"
-      :multiple-label="multipleLabelFn"
-      @update:model-value="handleUpdate"
-    >
-      <template #multiplelabel="{ values }">
-        <span class="multiselect-tags-inline flex flex-wrap gap-1.5 items-center py-1 px-0.5">
+    <div class="select-input-field">
+      <Multiselect
+        :model-value="modelValue"
+        :options="options"
+        :mode="mode"
+        :value-prop="valueProp"
+        :label="labelProp"
+        :searchable="searchable"
+        :placeholder="placeholder"
+        :disabled="disabled"
+        :close-on-select="resolvedCloseOnSelect"
+        :can-clear="canClear"
+        :multiple-label="multipleLabelFn"
+        no-options-text="Nenhuma opção"
+        no-results-text="Nenhum resultado"
+        @update:model-value="handleUpdate"
+      >
+        <template #multiplelabel="{ values }">
           <span
-            v-for="(val, i) in values"
-            :key="typeof val === 'object' && val && (val.id ?? val.value) !== undefined ? (val.id ?? val.value) : i"
-            class="multiselect-tag select-input-tag inline-flex items-center rounded-md bg-blue-100 text-blue-900 px-2.5 py-1 text-xs font-medium"
+            v-if="!values || !values.length"
+            class="multiselect-placeholder px-2.5 py-2 text-sm text-slate-400"
           >
-            {{ getOptionLabel(val) }}
+            {{ placeholder }}
           </span>
-        </span>
-      </template>
-    </Multiselect>
+          <span
+            v-else
+            class="multiselect-tags-inline flex flex-wrap items-center gap-1.5 px-0.5 py-1"
+          >
+            <span
+              v-for="(val, i) in values"
+              :key="typeof val === 'object' && val && (val.id ?? val.value) !== undefined ? (val.id ?? val.value) : i"
+              class="multiselect-tag select-input-tag inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium"
+            >
+              {{ getOptionLabel(val) }}
+            </span>
+          </span>
+        </template>
+      </Multiselect>
+    </div>
     <p v-if="error" class="mt-1 text-xs text-red-600">{{ error }}</p>
   </div>
 </template>
 
 <script>
-import { defineComponent } from 'vue';
+import { computed, defineComponent } from 'vue';
 import Multiselect from '@vueform/multiselect';
 
 export default defineComponent({
@@ -73,7 +89,7 @@ export default defineComponent({
     },
     closeOnSelect: {
       type: Boolean,
-      default: true,
+      default: null,
     },
     canClear: {
       type: Boolean,
@@ -98,6 +114,14 @@ export default defineComponent({
   },
   emits: ['update:modelValue'],
   setup(props, { emit }) {
+    const resolvedCloseOnSelect = computed(() => {
+      if (props.closeOnSelect != null) {
+        return props.closeOnSelect;
+      }
+
+      return props.mode !== 'multiple';
+    });
+
     const handleUpdate = (value) => {
       if (props.mode === 'multiple' && Array.isArray(value)) {
         value = value.map((v) => (v != null && typeof v === 'object' && props.valueProp in v ? v[props.valueProp] : v));
@@ -114,7 +138,7 @@ export default defineComponent({
         if (v != null && typeof v === 'object') {
           return v[props.labelProp] ?? v.label ?? v.name ?? v.symbol ?? '';
         }
-        const opt = opts.find((o) => o[props.valueProp] === v);
+        const opt = opts.find((o) => String(o[props.valueProp]) === String(v));
         return opt ? opt[props.labelProp] : String(v);
       });
       return labels.join(', ');
@@ -124,11 +148,12 @@ export default defineComponent({
       if (val != null && typeof val === 'object') {
         return val[props.labelProp] ?? val.label ?? val.name ?? val.symbol ?? String(val);
       }
-      const opt = (props.options || []).find((o) => o[props.valueProp] === val);
+      const opt = (props.options || []).find((o) => String(o[props.valueProp]) === String(val));
       return opt ? opt[props.labelProp] : String(val);
     };
 
     return {
+      resolvedCloseOnSelect,
       handleUpdate,
       multipleLabelFn,
       getOptionLabel,
@@ -138,137 +163,102 @@ export default defineComponent({
 </script>
 
 <style scoped>
-.select-input-wrap :deep(.multiselect-container) {
-  @apply relative min-w-[18rem] w-full;
+.select-input-field {
+  position: relative;
+  overflow: visible;
 }
 
-.select-input-wrap--compact :deep(.multiselect-container) {
-  @apply min-w-[4.5rem] w-full;
+.select-input-wrap :deep(.multiselect) {
+  min-height: 2.5rem;
+  width: 100%;
+  min-width: 0;
+  font-size: 0.875rem;
+  border-color: #cbd5e1;
+  border-radius: 0.5rem;
+}
+
+.select-input-wrap--compact :deep(.multiselect) {
+  min-height: 2.25rem;
+  min-width: 4.5rem;
+}
+
+.select-input-wrap :deep(.multiselect-single-label),
+.select-input-wrap :deep(.multiselect-placeholder),
+.select-input-wrap :deep(.multiselect-multiple-label) {
+  color: #0f172a;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  max-width: calc(100% - 2.25rem);
+  padding-left: 0.625rem;
+  padding-right: 2rem;
+}
+
+.select-input-wrap :deep(.multiselect-placeholder) {
+  color: #94a3b8;
+}
+
+.select-input-wrap :deep(.multiselect-single-label-text) {
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select-input-wrap :deep(.multiselect:not(.is-active) .multiselect-search) {
+  display: none;
+}
+
+.select-input-wrap :deep(.multiselect.is-active .multiselect-search) {
+  display: block;
+  width: 100%;
+  padding-left: 0.625rem;
+  padding-right: 2rem;
+}
+
+.select-input-wrap :deep(.multiselect-dropdown) {
+  z-index: 200;
+  max-height: 16rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  min-width: 100%;
+  border-color: #cbd5e1;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.1), 0 4px 6px -2px rgba(15, 23, 42, 0.05);
 }
 
 .select-input-wrap--compact :deep(.multiselect-dropdown) {
   min-width: 5rem;
 }
 
-.select-input-wrap--compact :deep(.multiselect-container .multiselect-single-label),
-.select-input-wrap--compact :deep(.multiselect-container .multiselect-placeholder) {
-  min-height: 2.25rem;
-  padding-top: 0.375rem;
-  padding-bottom: 0.375rem;
+.select-input-wrap :deep(.multiselect-option) {
+  font-size: 0.875rem;
+  color: #1e293b;
 }
 
-:deep(.multiselect-single-label),
-:deep(.multiselect-placeholder) {
-  @apply text-sm text-slate-900;
+.select-input-wrap :deep(.multiselect-option.is-pointed) {
+  background-color: #faf5ee;
+  color: #1c0a06;
 }
 
-:deep(.multiselect-container .multiselect-single-label),
-:deep(.multiselect-container .multiselect-placeholder) {
-  @apply px-3 py-2 border border-slate-300 rounded-lg text-sm;
-  min-height: 2.5rem;
-  display: flex;
-  align-items: center;
-}
-
-:deep(.multiselect-container .multiselect-search) {
-  @apply px-3 py-2 text-sm border-0 outline-none;
-  width: 100%;
-}
-
-:deep(.multiselect-container-open .multiselect-search) {
-  display: block !important;
-  opacity: 1 !important;
-}
-
-:deep(.multiselect-container .multiselect-single-label .multiselect-search) {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-}
-
-:deep(.multiselect-dropdown) {
-  @apply border border-slate-300 rounded-lg bg-white mt-1 z-50;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  min-width: 22rem;
-  white-space: nowrap;
-}
-
-:deep(.multiselect-option) {
-  @apply px-3 py-2 text-sm cursor-pointer text-slate-800 font-medium;
-  white-space: nowrap;
-}
-
-:deep(.multiselect-option:hover) {
-  @apply bg-slate-50;
-}
-
-:deep(.multiselect-option-pointed) {
-  background-color: #fdf3f2;
-  color: #0f172a;
-}
-
-:deep(.multiselect-option.is-pointed),
-:deep(.multiselect-option-pointed) {
-  background-color: #fdf3f2 !important;
-  color: #1c0a06 !important;
-}
-
-:deep(.multiselect-container-active .multiselect-single-label),
-:deep(.multiselect-container-active .multiselect-placeholder) {
-  border-color: #c23028;
-  box-shadow: 0 0 0 2px #fbe4e2;
-}
-
-:deep(.multiselect-caret) {
-  @apply text-slate-400;
-}
-
-:deep(.multiselect-clear) {
-  @apply text-slate-400 hover:text-slate-600;
-}
-
-:deep(.multiselect-tag) {
+.select-input-wrap :deep(.multiselect-option.is-selected) {
   background-color: #fbe4e2;
   color: #1c0a06;
-  border-radius: 0.375rem;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 500;
 }
 
-:deep(.multiselect-tag-remove) {
-  color: #c23028;
-  border-radius: 0.25rem;
+.select-input-wrap :deep(.multiselect-option.is-selected.is-pointed) {
+  background-color: #f5d5d2;
+  color: #1c0a06;
 }
 
-:deep(.multiselect-tag-remove:hover) {
-  color: #d44840;
-  background-color: #fbe4e2;
-}
-
-:deep(.multiselect-multiple-label) {
-  min-height: 2.5rem;
-  padding: 0.5rem 0.75rem;
-  @apply flex flex-wrap items-center gap-1.5;
-}
-
-:deep(.multiselect-tags-inline) {
-  flex-wrap: wrap;
-  padding: 0.125rem;
-}
-
-:deep(.multiselect-tag),
-:deep(.select-input-tag) {
+.select-input-wrap :deep(.multiselect-tag),
+.select-input-wrap :deep(.select-input-tag) {
   background-color: #fbe4e2 !important;
   color: #1c0a06 !important;
 }
 
-:deep(.multiselect-option.is-selected),
-:deep(.multiselect-option-selected),
-:deep(.multiselect-option-selected-pointed) {
-  background-color: #fbe4e2 !important;
-  color: #1c0a06 !important;
+.select-input-wrap :deep(.multiselect-tags) {
+  padding-left: 0.375rem;
+  padding-right: 0.375rem;
 }
 </style>

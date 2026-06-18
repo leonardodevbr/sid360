@@ -1,7 +1,7 @@
 <template>
   <div
     v-if="pagination"
-    class="mt-4 flex flex-col gap-4 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between"
+    class="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between"
   >
     <p class="text-sm text-slate-500">
       <template v-if="totalCount > 0">
@@ -13,16 +13,18 @@
     </p>
 
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-      <label class="flex items-center gap-2 text-sm text-slate-600">
+      <label
+        v-if="showPerPageSelector"
+        class="flex items-center gap-2 text-sm text-slate-600"
+      >
         <span class="shrink-0 whitespace-nowrap">Itens por página:</span>
         <SelectInput
-          :model-value="currentPerPage"
+          :model-value="String(currentPerPage)"
           :options="perPageSelectOptions"
           :searchable="false"
           :can-clear="false"
           compact
-          placeholder=""
-          class="w-[4.75rem] shrink-0"
+          class="w-20 shrink-0"
           @update:model-value="onPerPageChange"
         />
       </label>
@@ -63,7 +65,11 @@ const props = defineProps({
   },
   perPageOptions: {
     type: Array,
-    default: () => [15, 30, 50],
+    default: () => [10, 15, 30, 50, 100],
+  },
+  showPerPageSelector: {
+    type: Boolean,
+    default: true,
   },
 });
 
@@ -83,7 +89,7 @@ const perPageSelectOptions = computed(() => {
 
   return [...values]
     .sort((a, b) => a - b)
-    .map((value) => ({ value, label: String(value) }));
+    .map((value) => ({ value: String(value), label: String(value) }));
 });
 
 function goToPage(page) {
