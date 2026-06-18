@@ -610,6 +610,7 @@
                 >
                   Retângulo
                 </button>
+                <MapSnapControls v-if="drawingMode || measureMode" />
                 <button
                   v-if="drawingMode && (perimeterPoints.length || rectangleAnchor)"
                   type="button"
@@ -1380,6 +1381,8 @@ import {
   zoneTypeLabel as zoneTypeLabelHelper,
 } from '@/utils/zone';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
+import { withMapSnapSettings } from '@/utils/mapSnapSettings';
+import MapSnapControls from '@/components/Map/MapSnapControls.vue';
 import {
   applyMapDrawingSnap,
   MAP_SEGMENT_SNAP_PIXEL_RADIUS,
@@ -1545,11 +1548,11 @@ function getDrawingSnapOptions(overrides = {}) {
 }
 
 function applyDrawingSnap(lat, lng, overrides = {}) {
-  const snapOptions = {
+  const snapOptions = withMapSnapSettings({
     ...getDrawingSnapContext(),
     ...getDrawingSnapOptions(overrides),
     ...overrides,
-  };
+  });
 
   return applyMapDrawingSnap(lat, lng, map, snapOptions);
 }

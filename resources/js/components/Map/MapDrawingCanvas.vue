@@ -7,6 +7,7 @@ import { isCoarsePointerDevice } from '@/utils/mapGpsPreview';
 import { ZONE_TYPE_OPTIONS } from '@/utils/zone';
 import Button from '@/components/Common/Button.vue';
 import Modal from '@/components/Common/Modal.vue';
+import MapSnapControls from '@/components/Map/MapSnapControls.vue';
 import {
   ArrowsPointingInIcon,
   ArrowsPointingOutIcon,
@@ -355,6 +356,8 @@ onMounted(async () => {
               <LockOpenIcon v-else class="h-3.5 w-3.5" />
               {{ mapPanLocked ? 'Mapa travado' : 'Travar mapa' }}
             </button>
+
+            <MapSnapControls v-if="isDrawing" />
 
             <button
               v-if="isDrawing"

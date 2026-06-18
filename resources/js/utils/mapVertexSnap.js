@@ -556,13 +556,17 @@ export function resolveSnappedCoordinate(
     vertexToleranceMeters = MAP_VERTEX_SNAP_TOLERANCE_METERS,
     intersectionToleranceMeters = MAP_VERTEX_SNAP_TOLERANCE_METERS,
     segmentToleranceMeters = MAP_VERTEX_SNAP_TOLERANCE_METERS,
+    snapPoints = true,
+    snapLines = true,
   } = {},
 ) {
-  const vertexSnap = findNearestVertexSnap(lat, lng, targets, vertexToleranceMeters);
-  const intersectionSnap = intersectionTargets.length
+  const vertexSnap = snapPoints
+    ? findNearestVertexSnap(lat, lng, targets, vertexToleranceMeters)
+    : null;
+  const intersectionSnap = snapPoints && intersectionTargets.length
     ? findNearestVertexSnap(lat, lng, intersectionTargets, intersectionToleranceMeters)
     : null;
-  const segmentSnap = segmentTargets.length
+  const segmentSnap = snapLines && segmentTargets.length
     ? findNearestSegmentSnap(lat, lng, segmentTargets, segmentToleranceMeters)
     : null;
 
@@ -616,7 +620,14 @@ export function applyMapDrawingSnap(lat, lng, map, {
   includeDrawingPoints = true,
   includeDrawingSegments = true,
   dragMode = false,
+  snapEnabled = true,
+  snapPoints = true,
+  snapLines = true,
 } = {}) {
+  if (!snapEnabled) {
+    return { lat, lng, snapped: false };
+  }
+
   const context = {
     perimeterCoordinates,
     zones,
@@ -635,58 +646,66 @@ export function applyMapDrawingSnap(lat, lng, map, {
   });
 
   if (dragMode) {
-    const vertexToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
-      pixelRadius: MAP_DRAG_SNAP_PIXEL_RADIUS,
-      minMeters: 0.8,
-      maxMeters: MAP_DRAG_SNAP_MAX_METERS,
-    });
+    if (snapPoints) {
+      const vertexToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
+        pixelRadius: MAP_DRAG_SNAP_PIXEL_RADIUS,
+        minMeters: 0.8,
+        maxMeters: MAP_DRAG_SNAP_MAX_METERS,
+      });
 
-    const vertexSnap = findNearestVertexSnap(lat, lng, targets, vertexToleranceMeters);
+      const vertexSnap = findNearestVertexSnap(lat, lng, targets, vertexToleranceMeters);
 
-    if (vertexSnap) {
-      return {
-        lat: vertexSnap.lat,
-        lng: vertexSnap.lng,
-        snapped: true,
-        source: vertexSnap.source,
-        snapKind: 'vertex',
-      };
+      if (vertexSnap) {
+        return {
+          lat: vertexSnap.lat,
+          lng: vertexSnap.lng,
+          snapped: true,
+          source: vertexSnap.source,
+          snapKind: 'vertex',
+        };
+      }
     }
 
-    const segmentTargets = collectMapSnapSegmentTargets({
-      ...context,
-      includeDrawingSegments,
-    });
-    const segmentToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
-      pixelRadius: MAP_DRAG_SEGMENT_SNAP_PIXEL_RADIUS,
-      minMeters: 0.8,
-      maxMeters: MAP_DRAG_SEGMENT_SNAP_MAX_METERS,
-    });
-    const segmentSnap = findNearestSegmentSnap(
-      lat,
-      lng,
-      segmentTargets,
-      segmentToleranceMeters,
-    );
+    if (snapLines) {
+      const segmentTargets = collectMapSnapSegmentTargets({
+        ...context,
+        includeDrawingSegments,
+      });
+      const segmentToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
+        pixelRadius: MAP_DRAG_SEGMENT_SNAP_PIXEL_RADIUS,
+        minMeters: 0.8,
+        maxMeters: MAP_DRAG_SEGMENT_SNAP_MAX_METERS,
+      });
+      const segmentSnap = findNearestSegmentSnap(
+        lat,
+        lng,
+        segmentTargets,
+        segmentToleranceMeters,
+      );
 
-    if (segmentSnap) {
-      return {
-        lat: segmentSnap.lat,
-        lng: segmentSnap.lng,
-        snapped: true,
-        source: segmentSnap.source,
-        snapKind: 'segment',
-      };
+      if (segmentSnap) {
+        return {
+          lat: segmentSnap.lat,
+          lng: segmentSnap.lng,
+          snapped: true,
+          source: segmentSnap.source,
+          snapKind: 'segment',
+        };
+      }
     }
 
     return { lat, lng, snapped: false };
   }
 
-  const segmentTargets = collectMapSnapSegmentTargets({
-    ...context,
-    includeDrawingSegments,
-  });
-  const intersectionTargets = collectMapSnapIntersectionTargets(segmentTargets);
+  const segmentTargets = snapLines
+    ? collectMapSnapSegmentTargets({
+      ...context,
+      includeDrawingSegments,
+    })
+    : [];
+  const intersectionTargets = snapPoints && segmentTargets.length
+    ? collectMapSnapIntersectionTargets(segmentTargets)
+    : [];
   const vertexToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
     pixelRadius: MAP_SNAP_PIXEL_RADIUS,
   });
@@ -698,12 +717,14 @@ export function applyMapDrawingSnap(lat, lng, map, {
   });
 
   return resolveSnappedCoordinate(lat, lng, {
-    targets,
+    targets: snapPoints ? targets : [],
     intersectionTargets,
     segmentTargets,
     vertexToleranceMeters,
     intersectionToleranceMeters,
     segmentToleranceMeters,
+    snapPoints,
+    snapLines,
   });
 }
 

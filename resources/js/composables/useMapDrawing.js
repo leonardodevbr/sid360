@@ -33,6 +33,7 @@ import {
   resolveSnapToleranceMeters,
   findNearestPolygonEdgeInsert,
 } from '@/utils/mapVertexSnap';
+import { withMapSnapSettings } from '@/utils/mapSnapSettings';
 import {
   captureHighAccuracyPosition,
   formatAccuracyHint,
@@ -459,10 +460,10 @@ export function useMapDrawing(options) {
   }
 
   function applyDrawingSnap(lat, lng, overrides = {}) {
-    return applyMapDrawingSnap(lat, lng, map, {
+    return applyMapDrawingSnap(lat, lng, map, withMapSnapSettings({
       ...getDrawingSnapContext(),
       ...overrides,
-    });
+    }));
   }
 
   function bindVertexMarkerDrag(marker) {
