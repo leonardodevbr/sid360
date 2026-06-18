@@ -1334,7 +1334,7 @@ import { useAlert, swalDefaultConfig } from '@/composables/useAlert';
 import Swal from 'sweetalert2';
 import { useMapFullscreen } from '@/composables/useMapFullscreen';
 import { developmentStatusFormOptions } from '@/utils/labels';
-import { setupMapBaseLayers, ensureMapRotation, configureMapRotation, refreshMapDisplay, hideMapScrollZoomHint, showMapScrollZoomHint, eventToMapLatLng } from '@/utils/mapLayers';
+import { setupMapBaseLayers, ensureMapRotation, configureMapRotation, refreshMapDisplay, hideMapScrollZoomHint, showMapScrollZoomHint, eventToMapLatLng, applyMapEditingZoom, restoreMapDefaultZoom, MAP_EDITING_MAX_ZOOM } from '@/utils/mapLayers';
 import {
   arePointsInsideOrOnPolygon,
   formatMeters,
@@ -2669,6 +2669,7 @@ function bindVertexMarkerDrag(marker) {
 function prepareMapForVertexEditing() {
   if (!map) return;
 
+  applyMapEditingZoom(map, mapLayersSetup ?? {});
   map.touchRotate?.disable?.();
 
   const bearing = typeof map.getBearing === 'function' ? map.getBearing() : 0;
@@ -2680,6 +2681,10 @@ function prepareMapForVertexEditing() {
 
 function restoreMapInteractionAfterDrawing() {
   if (!map) return;
+
+  if (!drawingMode.value && !measureMode.value) {
+    restoreMapDefaultZoom(map, mapLayersSetup ?? {});
+  }
 
   map._vertexDragActiveCount = 0;
   map.dragging.enable();
@@ -3401,7 +3406,7 @@ function startDrawZone(zone) {
 
   if (zone.coordinates?.length >= 3) {
     try {
-      map.fitBounds(L.polygon(zone.coordinates).getBounds(), { padding: [48, 48], maxZoom: 19 });
+      map.fitBounds(L.polygon(zone.coordinates).getBounds(), { padding: [48, 48], maxZoom: MAP_EDITING_MAX_ZOOM });
     } catch {
       /* geometria inválida */
     }
@@ -4326,6 +4331,7 @@ function startMeasureMode() {
   measureMode.value = true;
   measurePoints.value = [];
   clearMeasureTempLayers();
+  applyMapEditingZoom(map, mapLayersSetup ?? {});
   map?.closePopup();
   syncMapOverlayInteraction();
   focusMapForDrawing();
@@ -4340,6 +4346,9 @@ function stopMeasureMode({ discardInProgress = true, silent = false } = {}) {
   }
 
   measureMode.value = false;
+  if (!drawingMode.value) {
+    restoreMapDefaultZoom(map, mapLayersSetup ?? {});
+  }
   map?.getContainer()?.style.removeProperty('cursor');
   syncMapOverlayInteraction();
   syncMeasureCursorPreview();
@@ -5066,7 +5075,7 @@ function fitMapToGenerateLotsZone() {
   }
 
   try {
-    map.fitBounds(L.polygon(coords).getBounds(), { padding: [80, 80], maxZoom: 19 });
+    map.fitBounds(L.polygon(coords).getBounds(), { padding: [80, 80], maxZoom: MAP_EDITING_MAX_ZOOM });
   } catch {
     /* geometria inválida */
   }
@@ -5132,7 +5141,7 @@ function drawPreviewLotsOnMap({ fitView = false } = {}) {
     try {
       const bounds = previewLayerGroup.getBounds();
       if (bounds.isValid()) {
-        map.fitBounds(bounds, { padding: [80, 80], maxZoom: 20 });
+        map.fitBounds(bounds, { padding: [80, 80], maxZoom: MAP_EDITING_MAX_ZOOM });
       }
     } catch {
       /* geometria inválida */

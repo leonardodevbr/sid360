@@ -7,9 +7,11 @@ export const MAP_SNAP_PIXEL_RADIUS = 18;
 export const MAP_SEGMENT_SNAP_PIXEL_RADIUS = 22;
 export const MAP_INTERSECTION_SNAP_PIXEL_RADIUS = 16;
 export const MAP_DRAG_SNAP_PIXEL_RADIUS = 10;
+export const MAP_DRAG_SEGMENT_SNAP_PIXEL_RADIUS = 14;
 export const MAP_SNAP_MIN_METERS = 2;
 export const MAP_SNAP_MAX_METERS = 24;
 export const MAP_DRAG_SNAP_MAX_METERS = 8;
+export const MAP_DRAG_SEGMENT_SNAP_MAX_METERS = 12;
 
 export function metersPerPixelAtLatLng(lat, zoom) {
   const clampedLat = Math.max(Math.min(Number(lat), 85), -85);
@@ -599,7 +601,7 @@ export function resolveSnappedCoordinate(
 
 /**
  * Snap unificado para desenho no mapa.
- * No arraste de vértice (dragMode), considera só cantos muito próximos — sem linhas/interseções.
+ * No arraste: cantos bem próximos têm prioridade; sem canto, gruda em linha próxima.
  */
 export function applyMapDrawingSnap(lat, lng, map, {
   perimeterCoordinates = [],
@@ -639,10 +641,45 @@ export function applyMapDrawingSnap(lat, lng, map, {
       maxMeters: MAP_DRAG_SNAP_MAX_METERS,
     });
 
-    return resolveSnappedCoordinate(lat, lng, {
-      targets,
-      vertexToleranceMeters,
+    const vertexSnap = findNearestVertexSnap(lat, lng, targets, vertexToleranceMeters);
+
+    if (vertexSnap) {
+      return {
+        lat: vertexSnap.lat,
+        lng: vertexSnap.lng,
+        snapped: true,
+        source: vertexSnap.source,
+        snapKind: 'vertex',
+      };
+    }
+
+    const segmentTargets = collectMapSnapSegmentTargets({
+      ...context,
+      includeDrawingSegments,
     });
+    const segmentToleranceMeters = resolveSnapToleranceMeters(map, lat, lng, {
+      pixelRadius: MAP_DRAG_SEGMENT_SNAP_PIXEL_RADIUS,
+      minMeters: 0.8,
+      maxMeters: MAP_DRAG_SEGMENT_SNAP_MAX_METERS,
+    });
+    const segmentSnap = findNearestSegmentSnap(
+      lat,
+      lng,
+      segmentTargets,
+      segmentToleranceMeters,
+    );
+
+    if (segmentSnap) {
+      return {
+        lat: segmentSnap.lat,
+        lng: segmentSnap.lng,
+        snapped: true,
+        source: segmentSnap.source,
+        snapKind: 'segment',
+      };
+    }
+
+    return { lat, lng, snapped: false };
   }
 
   const segmentTargets = collectMapSnapSegmentTargets({

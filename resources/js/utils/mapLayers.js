@@ -2,6 +2,10 @@ import GoogleMutant from 'leaflet.gridlayer.googlemutant/src/Leaflet.GoogleMutan
 
 const OPEN_STREET_MAP_MAX_ZOOM = 19;
 
+export const MAP_DEFAULT_MAX_ZOOM = 21;
+export const MAP_EDITING_MAX_ZOOM = 24;
+export const MAP_SATELLITE_NATIVE_MAX_ZOOM = 21;
+
 let googleMutantRegistered = false;
 let googleMapsLoadPromise = null;
 
@@ -156,12 +160,51 @@ async function ensureGoogleMutant(leaflet) {
   }
 }
 
-function createGoogleSatelliteLayer(L) {
+function createGoogleSatelliteLayer(L, maxZoom = MAP_DEFAULT_MAX_ZOOM) {
   return L.gridLayer.googleMutant({
     type: 'satellite',
-    maxZoom: 21,
-    maxNativeZoom: 21,
+    maxZoom,
+    maxNativeZoom: MAP_SATELLITE_NATIVE_MAX_ZOOM,
   });
+}
+
+function updateLayerMaxZoom(layer, maxZoom) {
+  if (!layer) {
+    return;
+  }
+
+  if (layer.options) {
+    layer.options.maxZoom = maxZoom;
+  }
+
+  if (typeof layer.setMaxZoom === 'function') {
+    layer.setMaxZoom(maxZoom);
+  }
+}
+
+export function applyMapMaxZoom(map, layers = {}, maxZoom = MAP_DEFAULT_MAX_ZOOM) {
+  if (!map || !Number.isFinite(maxZoom)) {
+    return;
+  }
+
+  if (typeof map.setMaxZoom === 'function') {
+    map.setMaxZoom(maxZoom);
+  }
+
+  updateLayerMaxZoom(layers.satelliteLayer, maxZoom);
+  updateLayerMaxZoom(layers.streetLayer, maxZoom);
+
+  Object.values(layers.baseLayers ?? {}).forEach((layer) => {
+    updateLayerMaxZoom(layer, maxZoom);
+  });
+}
+
+export function applyMapEditingZoom(map, layers = {}) {
+  applyMapMaxZoom(map, layers, MAP_EDITING_MAX_ZOOM);
+}
+
+export function restoreMapDefaultZoom(map, layers = {}) {
+  applyMapMaxZoom(map, layers, MAP_DEFAULT_MAX_ZOOM);
 }
 
 /**
@@ -172,12 +215,10 @@ function createGoogleSatelliteLayer(L) {
 export async function setupMapBaseLayers(map, leaflet, options = {}) {
   const L = leaflet.default ?? leaflet;
   const streetMaxZoom = options.streetMaxZoom ?? OPEN_STREET_MAP_MAX_ZOOM;
-  const mapMaxZoom = options.maxZoom ?? 21;
+  const mapMaxZoom = options.maxZoom ?? MAP_DEFAULT_MAX_ZOOM;
   const defaultBaseLayer = options.defaultBaseLayer ?? 'satellite';
 
-  if (typeof map.setMaxZoom === 'function') {
-    map.setMaxZoom(mapMaxZoom);
-  }
+  applyMapMaxZoom(map, {}, mapMaxZoom);
 
   const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap',
@@ -196,7 +237,7 @@ export async function setupMapBaseLayers(map, leaflet, options = {}) {
   let satelliteLayer = null;
 
   if (hasGoogleSatellite) {
-    satelliteLayer = createGoogleSatelliteLayer(L);
+    satelliteLayer = createGoogleSatelliteLayer(L, mapMaxZoom);
     baseLayers.Satélite = satelliteLayer;
   }
 

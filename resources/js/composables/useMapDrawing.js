@@ -3,6 +3,9 @@ import { useToast } from 'vue-toastification';
 import { useMapFullscreen } from '@/composables/useMapFullscreen';
 import {
   setupMapBaseLayers,
+  applyMapEditingZoom,
+  restoreMapDefaultZoom,
+  MAP_EDITING_MAX_ZOOM,
   ensureMapRotation,
   configureMapRotation,
   refreshMapDisplay,
@@ -969,6 +972,7 @@ export function useMapDrawing(options) {
   function prepareMapForVertexEditing() {
     if (!map) return;
 
+    applyMapEditingZoom(map, mapLayersSetup ?? {});
     map.touchRotate?.disable?.();
 
     const bearing = typeof map.getBearing === 'function' ? map.getBearing() : 0;
@@ -981,6 +985,7 @@ export function useMapDrawing(options) {
   function restoreMapInteractionAfterDrawing() {
     if (!map) return;
 
+    restoreMapDefaultZoom(map, mapLayersSetup ?? {});
     map._vertexDragActiveCount = 0;
     mapPanLocked.value = false;
     applyMapPanLockState();
@@ -1278,13 +1283,20 @@ export function useMapDrawing(options) {
     return Array.isArray(coords) && coords.length >= 3;
   }
 
-  function fitMapToPolygonCoords(coords, padding = [30, 30]) {
+  function fitMapToPolygonCoords(coords, padding = [30, 30], { maxZoom = null } = {}) {
     const normalized = normalizePolygonCoordinates(coords);
     if (!map || !L || !normalized || normalized.length < 3) {
       return false;
     }
 
-    map.fitBounds(L.polygon(normalized).getBounds(), { padding });
+    const fitOptions = { padding };
+    const resolvedMaxZoom = maxZoom ?? (drawingMode.value ? MAP_EDITING_MAX_ZOOM : null);
+
+    if (resolvedMaxZoom != null) {
+      fitOptions.maxZoom = resolvedMaxZoom;
+    }
+
+    map.fitBounds(L.polygon(normalized).getBounds(), fitOptions);
     return true;
   }
 
