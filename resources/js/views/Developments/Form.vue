@@ -210,6 +210,13 @@
                       min="1"
                       step="1"
                     />
+                    <Input
+                      v-else-if="geoForm.widthMode === 'custom'"
+                      :model-value="geoSlicePlan.widths.length"
+                      type="number"
+                      label="Quantidade de lotes"
+                      disabled
+                    />
                   </div>
                   <p
                     v-if="geoForm.frontEdgeIndex == null"
@@ -4848,7 +4855,6 @@ function loadBlockEdges() {
       syncGeoDepthFromBlock();
       scheduleGeoPreview();
     }
-    }
   }
 
   nextTick(() => drawBlockEdgesOnMap());
@@ -5218,7 +5224,7 @@ function closeGenerateLotsModal() {
   generateLotsZone.value = null;
 }
 
-function openGenerateLots(zone, { preferGeometric = false } = {}) {
+function openGenerateLots(zone, { preferGeometric = true } = {}) {
   if (!canGenerateLotsInZone(zone)) {
     toast.warning(generateLotsBlockedReason(zone));
     return;
