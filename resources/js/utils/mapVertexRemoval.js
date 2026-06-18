@@ -1,14 +1,18 @@
 /**
- * Remoção de vértice com Shift+clique.
- * O arraste customizado usa preventDefault no mousedown e bloqueia click/dblclick do Leaflet.
+ * Remoção de vértice com Alt+clique (Option no Mac).
+ * Shift fica reservado ao zoom por retângulo do Leaflet.
  */
-export function bindShiftClickVertexRemoval(marker, {
+export function isVertexRemoveModifierActive(originalEvent) {
+  return Boolean(originalEvent?.altKey);
+}
+
+export function bindAltClickVertexRemoval(marker, {
   onRemove,
   onBeforeRemove = null,
   domEvent = null,
 } = {}) {
   marker.on('mousedown', (event) => {
-    if (!event.originalEvent?.shiftKey) {
+    if (!isVertexRemoveModifierActive(event.originalEvent)) {
       return;
     }
 
@@ -45,4 +49,34 @@ export function bindShiftClickVertexRemoval(marker, {
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   });
+}
+
+export function setMapBoxZoomForDrawing(map, enabled) {
+  if (!map?.boxZoom) {
+    return;
+  }
+
+  if (enabled) {
+    if (map._boxZoomDisabledForDrawing) {
+      map.boxZoom.enable();
+      map._boxZoomDisabledForDrawing = false;
+    }
+
+    return;
+  }
+
+  if (!map._boxZoomDisabledForDrawing) {
+    map.boxZoom.disable();
+    map._boxZoomDisabledForDrawing = true;
+  }
+}
+
+export function setMapDrawingCursor(map, active) {
+  const container = map?.getContainer?.();
+
+  if (!container) {
+    return;
+  }
+
+  container.classList.toggle('map-drawing-active', Boolean(active));
 }

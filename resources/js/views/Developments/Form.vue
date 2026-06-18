@@ -159,7 +159,7 @@
               v-if="drawingMode"
               class="pointer-events-none absolute bottom-3 left-3 z-[1100] max-w-[min(20rem,calc(100%-1.5rem))] rounded-lg border border-slate-200/90 bg-white/95 px-2.5 py-1.5 text-[11px] leading-relaxed text-slate-600 shadow-sm"
             >
-              <strong>Shift+clique</strong> em um vértice para removê-lo.
+              <strong>Alt+clique</strong> (Option no Mac) em um vértice para removê-lo.
             </p>
 
             <div
@@ -1389,7 +1389,7 @@ import {
 } from '@/utils/zone';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import { withMapSnapSettings } from '@/utils/mapSnapSettings';
-import { bindShiftClickVertexRemoval } from '@/utils/mapVertexRemoval';
+import { bindAltClickVertexRemoval, setMapBoxZoomForDrawing, setMapDrawingCursor } from '@/utils/mapVertexRemoval';
 import MapSnapControls from '@/components/Map/MapSnapControls.vue';
 import {
   applyMapDrawingSnap,
@@ -2651,7 +2651,7 @@ function bindVertexMarkerDrag(marker) {
   const onStart = (startEvent) => {
     if (!drawingMode.value) return;
 
-    if (startEvent.originalEvent?.shiftKey) {
+    if (startEvent.originalEvent?.altKey) {
       return;
     }
 
@@ -2691,6 +2691,8 @@ function bindVertexMarkerDrag(marker) {
 function prepareMapForVertexEditing() {
   if (!map) return;
 
+  setMapBoxZoomForDrawing(map, false);
+  setMapDrawingCursor(map, true);
   applyMapEditingZoom(map, mapLayersSetup ?? {});
   map.touchRotate?.disable?.();
 
@@ -2705,7 +2707,12 @@ function restoreMapInteractionAfterDrawing() {
   if (!map) return;
 
   if (!drawingMode.value && !measureMode.value) {
+    setMapBoxZoomForDrawing(map, true);
+    setMapDrawingCursor(map, false);
     restoreMapDefaultZoom(map, mapLayersSetup ?? {});
+  } else {
+    setMapBoxZoomForDrawing(map, false);
+    setMapDrawingCursor(map, true);
   }
 
   map._vertexDragActiveCount = 0;
@@ -2728,7 +2735,7 @@ function addDrawingMarker(coord, color, index) {
   marker.setIcon(buildVertexIcon(markerColor, invalid, getVertexIconOptions(marker)));
   updateVertexHandleStyle(marker);
 
-  bindShiftClickVertexRemoval(marker, {
+  bindAltClickVertexRemoval(marker, {
     onRemove: removeVertexAtIndex,
     onBeforeRemove: clearFirstVertexCloseTimer,
     domEvent: L,
@@ -4348,6 +4355,8 @@ function startMeasureMode() {
   measureMode.value = true;
   measurePoints.value = [];
   clearMeasureTempLayers();
+  setMapBoxZoomForDrawing(map, false);
+  setMapDrawingCursor(map, true);
   applyMapEditingZoom(map, mapLayersSetup ?? {});
   map?.closePopup();
   syncMapOverlayInteraction();
@@ -4364,6 +4373,8 @@ function stopMeasureMode({ discardInProgress = true, silent = false } = {}) {
 
   measureMode.value = false;
   if (!drawingMode.value) {
+    setMapBoxZoomForDrawing(map, true);
+    setMapDrawingCursor(map, false);
     restoreMapDefaultZoom(map, mapLayersSetup ?? {});
   }
   map?.getContainer()?.style.removeProperty('cursor');

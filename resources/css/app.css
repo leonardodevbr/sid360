@@ -773,6 +773,14 @@
   filter: drop-shadow(0 0 2px rgba(201, 168, 76, 0.65));
 }
 
+.leaflet-container.map-drawing-active {
+  cursor: crosshair !important;
+}
+
+.leaflet-container.map-drawing-active.leaflet-dragging {
+  cursor: grabbing !important;
+}
+
 .map-vertex-handle-icon {
   background: transparent !important;
   border: none !important;
@@ -784,28 +792,28 @@
 
 .leaflet-marker-icon.map-vertex-handle-icon.map-vertex-handle-icon--interactive {
   pointer-events: auto !important;
-  cursor: grab;
+  cursor: crosshair;
 }
 
 .map-vertex-handle-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   pointer-events: auto;
 }
 
 .map-vertex-handle {
   display: block;
   box-sizing: border-box;
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   border: 2px solid var(--vertex-color, #1e5f8e);
   background: #fff;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
-  cursor: grab;
+  cursor: crosshair;
   touch-action: none;
 }
 
@@ -823,7 +831,7 @@
 }
 
 .map-vertex-handle--close-target:not(.map-vertex-handle--draw-only) {
-  cursor: grab;
+  cursor: crosshair;
 }
 
 .leaflet-dragging .map-vertex-handle {

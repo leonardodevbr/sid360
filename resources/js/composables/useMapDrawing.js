@@ -34,7 +34,7 @@ import {
   findNearestPolygonEdgeInsert,
 } from '@/utils/mapVertexSnap';
 import { withMapSnapSettings } from '@/utils/mapSnapSettings';
-import { bindShiftClickVertexRemoval } from '@/utils/mapVertexRemoval';
+import { bindAltClickVertexRemoval, setMapBoxZoomForDrawing, setMapDrawingCursor } from '@/utils/mapVertexRemoval';
 import {
   captureHighAccuracyPosition,
   formatAccuracyHint,
@@ -536,7 +536,7 @@ export function useMapDrawing(options) {
         return;
       }
 
-      if (startEvent.originalEvent?.shiftKey) {
+      if (startEvent.originalEvent?.altKey) {
         return;
       }
 
@@ -615,7 +615,7 @@ export function useMapDrawing(options) {
     marker.setIcon(buildVertexIcon(markerColor, invalid, getVertexIconOptions(marker)));
     updateVertexHandleStyle(marker);
 
-    bindShiftClickVertexRemoval(marker, {
+    bindAltClickVertexRemoval(marker, {
       onRemove: removeVertexAtIndex,
       onBeforeRemove: clearFirstVertexCloseTimer,
       domEvent: L,
@@ -977,6 +977,8 @@ export function useMapDrawing(options) {
   function prepareMapForVertexEditing() {
     if (!map) return;
 
+    setMapBoxZoomForDrawing(map, false);
+    setMapDrawingCursor(map, true);
     applyMapEditingZoom(map, mapLayersSetup ?? {});
     map.touchRotate?.disable?.();
 
@@ -990,6 +992,8 @@ export function useMapDrawing(options) {
   function restoreMapInteractionAfterDrawing() {
     if (!map) return;
 
+    setMapBoxZoomForDrawing(map, true);
+    setMapDrawingCursor(map, false);
     restoreMapDefaultZoom(map, mapLayersSetup ?? {});
     map._vertexDragActiveCount = 0;
     mapPanLocked.value = false;
