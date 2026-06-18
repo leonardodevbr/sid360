@@ -34,6 +34,7 @@ import {
   findNearestPolygonEdgeInsert,
 } from '@/utils/mapVertexSnap';
 import { withMapSnapSettings } from '@/utils/mapSnapSettings';
+import { bindShiftClickVertexRemoval } from '@/utils/mapVertexRemoval';
 import {
   captureHighAccuracyPosition,
   formatAccuracyHint,
@@ -536,7 +537,6 @@ export function useMapDrawing(options) {
       }
 
       if (startEvent.originalEvent?.shiftKey) {
-        L.DomEvent.stopPropagation(startEvent);
         return;
       }
 
@@ -614,21 +614,20 @@ export function useMapDrawing(options) {
     marker._vertexIndex = index;
     marker.setIcon(buildVertexIcon(markerColor, invalid, getVertexIconOptions(marker)));
     updateVertexHandleStyle(marker);
+
+    bindShiftClickVertexRemoval(marker, {
+      onRemove: removeVertexAtIndex,
+      onBeforeRemove: clearFirstVertexCloseTimer,
+      domEvent: L,
+    });
     bindVertexMarkerDrag(marker);
 
     marker.on('click', (event) => {
-      L.DomEvent.stopPropagation(event);
-
-      if (event.originalEvent?.shiftKey) {
-        clearFirstVertexCloseTimer();
-        removeVertexAtIndex(marker._vertexIndex);
-        return;
-      }
-
       if (!isFirstVertexClosable(marker)) {
         return;
       }
 
+      L.DomEvent.stopPropagation(event);
       L.DomEvent.preventDefault(event);
       tryClosePolygonOnFirstVertexTap(marker);
     });
@@ -641,13 +640,6 @@ export function useMapDrawing(options) {
       L.DomEvent.stopPropagation(event);
       L.DomEvent.preventDefault(event);
       tryClosePolygonOnFirstVertexTap(marker);
-    });
-
-    marker.on('dblclick', (event) => {
-      L.DomEvent.stopPropagation(event);
-      L.DomEvent.preventDefault(event);
-      clearFirstVertexCloseTimer();
-      removeVertexAtIndex(marker._vertexIndex);
     });
 
     tempMarkers.push(marker);

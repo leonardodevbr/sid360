@@ -1389,6 +1389,7 @@ import {
 } from '@/utils/zone';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import { withMapSnapSettings } from '@/utils/mapSnapSettings';
+import { bindShiftClickVertexRemoval } from '@/utils/mapVertexRemoval';
 import MapSnapControls from '@/components/Map/MapSnapControls.vue';
 import {
   applyMapDrawingSnap,
@@ -2651,7 +2652,6 @@ function bindVertexMarkerDrag(marker) {
     if (!drawingMode.value) return;
 
     if (startEvent.originalEvent?.shiftKey) {
-      L.DomEvent.stopPropagation(startEvent);
       return;
     }
 
@@ -2727,17 +2727,16 @@ function addDrawingMarker(coord, color, index) {
   marker._vertexIndex = index;
   marker.setIcon(buildVertexIcon(markerColor, invalid, getVertexIconOptions(marker)));
   updateVertexHandleStyle(marker);
+
+  bindShiftClickVertexRemoval(marker, {
+    onRemove: removeVertexAtIndex,
+    onBeforeRemove: clearFirstVertexCloseTimer,
+    domEvent: L,
+  });
   bindVertexMarkerDrag(marker);
 
   marker.on('click', (e) => {
     L.DomEvent.stopPropagation(e);
-
-    if (e.originalEvent?.shiftKey) {
-      clearFirstVertexCloseTimer();
-      removeVertexAtIndex(marker._vertexIndex);
-      return;
-    }
-
     tryClosePolygonOnFirstVertexTap(marker);
   });
 
@@ -2746,17 +2745,6 @@ function addDrawingMarker(coord, color, index) {
 
     L.DomEvent.stopPropagation(e);
     tryClosePolygonOnFirstVertexTap(marker);
-  });
-
-  marker.on('dblclick', (e) => {
-    L.DomEvent.stopPropagation(e);
-    L.DomEvent.preventDefault(e);
-    clearFirstVertexCloseTimer();
-    removeVertexAtIndex(marker._vertexIndex);
-  });
-
-  marker.on('mousedown', (e) => {
-    L.DomEvent.stopPropagation(e);
   });
 
   tempMarkers.push(marker);
