@@ -28,6 +28,10 @@ export const MAP_LAYER_OPTIONS = [
 
 export const ALL_MAP_LAYER_IDS = MAP_LAYER_OPTIONS.map((option) => option.id);
 
+export const DEFAULT_VISIBLE_MAP_LAYER_IDS = ALL_MAP_LAYER_IDS.filter(
+  (layerId) => layerId !== MAP_LAYER_LOTS,
+);
+
 export function isMapLayerVisible(visibleLayers, layerId) {
   return Array.isArray(visibleLayers) && visibleLayers.includes(layerId);
 }

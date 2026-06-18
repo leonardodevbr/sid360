@@ -1367,6 +1367,7 @@ import {
 import { lotStatusLabel } from '@/utils/status';
 import {
   ALL_MAP_LAYER_IDS,
+  DEFAULT_VISIBLE_MAP_LAYER_IDS,
   getZoneMapLayerId,
   isMapLayerVisible,
   MAP_LAYER_LOTS,
@@ -3651,7 +3652,7 @@ const lots = ref([]);
 const visibleZoneNameTypes = ref([]);
 const showZoneNamePicker = ref(false);
 const zoneNamePickerDraft = ref([]);
-const visibleMapLayers = ref([...ALL_MAP_LAYER_IDS]);
+const visibleMapLayers = ref([...DEFAULT_VISIBLE_MAP_LAYER_IDS]);
 const showMapLayerPicker = ref(false);
 const mapLayerPickerDraft = ref([]);
 const mapLayerOptions = MAP_LAYER_OPTIONS;
