@@ -414,10 +414,18 @@
                     />
                   </div>
                   <div class="mt-2">
-                    <CurrencyInput v-model="geoForm.total_value" label="Valor/lote" />
+                    <CurrencyInput
+                      v-model="geoForm.total_value"
+                      label="Valor/lote"
+                      placeholder="Automático por m²"
+                    />
                   </div>
-                  <p v-if="generateLotsEffectivePricePerM2" class="mt-1 text-[11px] text-slate-400">
-                    Calculado com {{ formatPricePerM2Label(generateLotsEffectivePricePerM2) }}/m²
+                  <p class="mt-1 text-[11px] text-slate-400">
+                    Deixe R$ 0,00 para calcular automaticamente pela área de cada lote.
+                  </p>
+                  <p v-if="generateLotsEffectivePricePerM2" class="mt-0.5 text-[11px] text-slate-400">
+                    Valor do m²: {{ formatPricePerM2Label(generateLotsEffectivePricePerM2) }}
+                    <span v-if="geoAutoLotValueHint"> · Estimativa: {{ geoAutoLotValueHint }} por lote</span>
                   </p>
 
                   <div
@@ -1245,10 +1253,18 @@
           type="number"
           step="0.01"
         />
-        <CurrencyInput v-model="generateForm.total_value" label="Valor de cada lote" />
+        <CurrencyInput
+          v-model="generateForm.total_value"
+          label="Valor de cada lote"
+          placeholder="Automático por m²"
+        />
+        <p class="text-xs text-slate-400">
+          Deixe R$ 0,00 para calcular automaticamente pela área × valor do m².
+        </p>
         <p v-if="generateLotsEffectivePricePerM2" class="text-xs text-slate-400">
-          Calculado com {{ formatPricePerM2Label(generateLotsEffectivePricePerM2) }}/m²
+          Valor do m²: {{ formatPricePerM2Label(generateLotsEffectivePricePerM2) }}
           <span v-if="generateForm.area"> · {{ generateForm.area }} m²</span>
+          <span v-if="simpleAutoLotValueHint"> · Estimativa: {{ simpleAutoLotValueHint }} por lote</span>
         </p>
         <div>
           <label class="mb-1 block text-xs font-medium text-slate-600">Padrão de numeração</label>
@@ -3854,7 +3870,9 @@ function drawLotsOnMap() {
 
     layer.bindTooltip(buildLotTooltipHtml(lot), {
       sticky: true,
-      direction: 'center',
+      direction: 'top',
+      offset: [0, -16],
+      opacity: 1,
       className: 'map-lot-hover-label',
     });
 
@@ -4557,6 +4575,47 @@ const generateLotsEffectivePricePerM2 = computed(() => {
   return resolveEffectivePricePerM2(zone, form.value.base_price_per_m2);
 });
 
+const simpleAutoLotValueHint = computed(() => {
+  if (resolveManualGenerateLotValue(generateForm.value.total_value) !== null) {
+    return null;
+  }
+
+  const area = parseFloat(generateForm.value.area);
+  if (!generateLotsZone.value || !Number.isFinite(area) || area <= 0) {
+    return null;
+  }
+
+  const value = computeLotValueForZone(generateLotsZone.value, area);
+  return value > 0 ? formatMoneyMaskFromCents(value) : null;
+});
+
+const geoAutoLotValueHint = computed(() => {
+  if (resolveManualGenerateLotValue(geoForm.value.total_value) !== null) {
+    return null;
+  }
+
+  if (!generateLotsZone.value || !previewLots.value.length) {
+    return null;
+  }
+
+  const values = previewLots.value
+    .map((lot) => computeLotValueForZone(generateLotsZone.value, lot.area))
+    .filter((value) => value > 0);
+
+  if (!values.length) {
+    return null;
+  }
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+
+  if (min === max) {
+    return formatMoneyMaskFromCents(min);
+  }
+
+  return `${formatMoneyMaskFromCents(min)} a ${formatMoneyMaskFromCents(max)}`;
+});
+
 function formatPricePerM2Label(cents) {
   return formatMoneyMaskFromCents(cents);
 }
@@ -4565,40 +4624,8 @@ function computeLotValueForZone(zone, areaM2) {
   return computeLotTotalValueFromArea(areaM2, resolveEffectivePricePerM2(zone, form.value.base_price_per_m2));
 }
 
-function resolveLotTotalValueForGeneration(zone, areaM2, fallbackTotalValue = 0) {
-  const computedValue = computeLotValueForZone(zone, areaM2);
-  if (computedValue > 0) {
-    return computedValue;
-  }
-
-  return fallbackTotalValue > 0 ? fallbackTotalValue : null;
-}
-
-function syncSimpleGenerateLotValue() {
-  const zone = generateLotsZone.value;
-  const area = parseFloat(generateForm.value.area);
-
-  if (!zone || !Number.isFinite(area) || area <= 0) {
-    return;
-  }
-
-  const value = computeLotValueForZone(zone, area);
-  if (value > 0) {
-    generateForm.value.total_value = value;
-  }
-}
-
-function syncGeoGenerateLotValue() {
-  const zone = generateLotsZone.value;
-  if (!zone || !previewLots.value.length) {
-    return;
-  }
-
-  const firstArea = previewLots.value[0]?.area;
-  const value = computeLotValueForZone(zone, firstArea);
-  if (value > 0) {
-    geoForm.value.total_value = value;
-  }
+function resolveManualGenerateLotValue(value) {
+  return Number(value) > 0 ? Number(value) : null;
 }
 
 const geoFrontLengthM = computed(() => {
@@ -4652,15 +4679,6 @@ watch(
   () => {
     if (genMode.value === 'geometric' && previewLots.value.length) {
       drawPreviewLotsOnMap({ fitView: false });
-    }
-  },
-);
-
-watch(
-  () => generateForm.value.area,
-  () => {
-    if (generateLotsZone.value && genMode.value === 'simple') {
-      syncSimpleGenerateLotValue();
     }
   },
 );
@@ -4990,7 +5008,6 @@ function buildPreview({ silent = false } = {}) {
     if (!previewLots.value.length && !silent) {
       toast.warning('Nenhum lote gerado. Verifique as dimensões e o lado selecionado.');
     }
-    syncGeoGenerateLotValue();
     drawPreviewLotsOnMap({ fitView: false });
   } finally {
     previewing.value = false;
@@ -5099,12 +5116,14 @@ async function doGenerateGeometricLots() {
 
   generating.value = true;
   try {
+    const manualTotalValue = resolveManualGenerateLotValue(geoForm.value.total_value);
+
     const { data } = await api.post(
       `/developments/${route.params.id}/zones/${generateLotsZone.value.id}/generate-lots-geometric`,
       {
         start_from: parseInt(geoForm.value.start_from, 10) || 1,
         number_parity: geoForm.value.number_parity || 'all',
-        total_value: geoForm.value.total_value || null,
+        total_value: manualTotalValue,
         pattern: geoForm.value.pattern || null,
         lot_width: Number(geoForm.value.lotWidth),
         lot_depth: Number(geoForm.value.lotDepth),
@@ -5113,11 +5132,7 @@ async function doGenerateGeometricLots() {
           area_computed: l.area,
           width_meters: l.widthMeters,
           depth_meters: l.depthMeters,
-          total_value: resolveLotTotalValueForGeneration(
-            generateLotsZone.value,
-            l.area,
-            geoForm.value.total_value,
-          ),
+          total_value: manualTotalValue,
         })),
       },
     );
@@ -5147,6 +5162,8 @@ async function doGenerateGeometricLots() {
 async function doGenerateLots() {
   generating.value = true;
   try {
+    const manualTotalValue = resolveManualGenerateLotValue(generateForm.value.total_value);
+
     const { data } = await api.post(
       `/developments/${route.params.id}/zones/${generateLotsZone.value.id}/generate-lots`,
       {
@@ -5154,7 +5171,7 @@ async function doGenerateLots() {
         start_from: parseInt(generateForm.value.start_from, 10) || 1,
         number_parity: generateForm.value.number_parity || 'all',
         area: generateForm.value.area ? parseFloat(generateForm.value.area) : null,
-        total_value: generateForm.value.total_value || null,
+        total_value: manualTotalValue,
         pattern: generateForm.value.pattern || null,
       },
     );
