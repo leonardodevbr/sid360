@@ -536,10 +536,6 @@ function projectPointOnAxisMeters(point, origin, axisBearingDeg) {
   return distance * Math.cos((angleDiffDeg * Math.PI) / 180);
 }
 
-function getAxisBearingDiff(bearingA, bearingB) {
-  return Math.abs(((bearingA - bearingB + 540) % 360) - 180);
-}
-
 function getPolygonMajorAxisBearing(ring) {
   const points = ring
     .map((point) => normalizeStreetAxisPoint(point))
@@ -592,84 +588,7 @@ function getPolygonMajorAxisBearing(ring) {
   return bestBearing;
 }
 
-function getCenterlineMajorBearing(centerline) {
-  const axis = centerline
-    .map((point) => normalizeStreetAxisPoint(point))
-    .filter(Boolean);
-
-  if (axis.length < 2) {
-    return null;
-  }
-
-  const line = turf.lineString(toGeoJsonLine(axis));
-  const length = turf.length(line, { units: 'meters' });
-
-  if (!(length > 0)) {
-    return null;
-  }
-
-  const startDist = Math.min(length * 0.15, Math.max(length - 4, 0));
-  const endDist = Math.max(length * 0.85, Math.min(4, length));
-
-  if (endDist <= startDist + 0.5) {
-    return turf.bearing(
-      turf.point([axis[0][1], axis[0][0]]),
-      turf.point([axis[axis.length - 1][1], axis[axis.length - 1][0]]),
-    );
-  }
-
-  const sampleBack = turf.along(line, startDist, { units: 'meters' });
-  const sampleForward = turf.along(line, endDist, { units: 'meters' });
-
-  return turf.bearing(sampleBack, sampleForward);
-}
-
-function resolveStreetMajorAxisBearing(street) {
-  const polygonBearing = Array.isArray(street?.coordinates) && street.coordinates.length >= 3
-    ? getPolygonMajorAxisBearing(street.coordinates)
-    : null;
-
-  const centerlineBearing = Array.isArray(street?.centerline) && street.centerline.length >= 2
-    ? getCenterlineMajorBearing(street.centerline)
-    : null;
-
-  if (polygonBearing != null && centerlineBearing != null) {
-    const diff = getAxisBearingDiff(polygonBearing, centerlineBearing);
-
-    if (diff > 45 && diff < 135) {
-      return polygonBearing;
-    }
-
-    return centerlineBearing;
-  }
-
-  return centerlineBearing ?? polygonBearing;
-}
-
-function resolveStreetLabelAnchorLatLng(street) {
-  if (Array.isArray(street?.centerline) && street.centerline.length >= 2) {
-    const axis = street.centerline
-      .map((point) => normalizeStreetAxisPoint(point))
-      .filter(Boolean);
-
-    if (axis.length >= 2) {
-      const line = turf.lineString(toGeoJsonLine(axis));
-      const length = turf.length(line, { units: 'meters' });
-
-      if (length > 0) {
-        const midpoint = turf.along(line, length / 2, { units: 'meters' });
-        const [lng, lat] = midpoint.geometry.coordinates;
-
-        return [lat, lng];
-      }
-    }
-  }
-
-  const ring = street?.coordinates;
-  if (!Array.isArray(ring) || ring.length < 3) {
-    return null;
-  }
-
+function buildPolygonMajorAxisMidline(ring) {
   const points = ring
     .map((point) => normalizeStreetAxisPoint(point))
     .filter(Boolean);
@@ -678,65 +597,72 @@ function resolveStreetLabelAnchorLatLng(street) {
     return null;
   }
 
+  const bearing = getPolygonMajorAxisBearing(ring);
+
+  if (!Number.isFinite(bearing)) {
+    return null;
+  }
+
   const isClosed = Math.abs(points[0][0] - points[points.length - 1][0]) < 1e-9
     && Math.abs(points[0][1] - points[points.length - 1][1]) < 1e-9;
   const closedRing = isClosed ? points : [...points, points[0]];
 
+  let centroidLatLng = points[0];
+
   try {
     const centroid = turf.centroid(turf.polygon([toGeoJsonLine(closedRing)]));
-    const [lng, lat] = centroid.geometry.coordinates;
-
-    return [lat, lng];
+    centroidLatLng = [centroid.geometry.coordinates[1], centroid.geometry.coordinates[0]];
   } catch {
+    /* keep first point as origin */
+  }
+
+  let minProjection = Infinity;
+  let maxProjection = -Infinity;
+
+  points.forEach((point) => {
+    const projection = projectPointOnAxisMeters(point, centroidLatLng, bearing);
+    minProjection = Math.min(minProjection, projection);
+    maxProjection = Math.max(maxProjection, projection);
+  });
+
+  if (!Number.isFinite(minProjection) || !Number.isFinite(maxProjection)) {
     return null;
   }
-}
 
-function normalizeLabelBearing(bearing) {
-  let normalized = bearing % 360;
+  const originPoint = turf.point([centroidLatLng[1], centroidLatLng[0]]);
+  const start = turf.destination(originPoint, minProjection, bearing, { units: 'meters' });
+  const end = turf.destination(originPoint, maxProjection, bearing, { units: 'meters' });
 
-  if (normalized < 0) {
-    normalized += 360;
-  }
-
-  if (normalized > 90 && normalized < 270) {
-    normalized = (normalized + 180) % 360;
-  }
-
-  return normalized;
+  return [
+    [start.geometry.coordinates[1], start.geometry.coordinates[0]],
+    [end.geometry.coordinates[1], end.geometry.coordinates[0]],
+  ];
 }
 
 /**
- * @returns {{ latLng: [number, number], rotation: number } | null}
+ * Eixo para texto ao longo da rua: centerline quando alinhado ao polígono,
+ * senão linha média no sentido maior do polígono.
+ * @returns {Array<[number, number]> | null}
  */
-export function getStreetNameLabelPlacement(street, mapBearing = 0) {
-  const latLng = resolveStreetLabelAnchorLatLng(street);
-  const majorAxisBearing = resolveStreetMajorAxisBearing(street);
+export function resolveStreetLabelPathLatLng(street) {
+  if (Array.isArray(street?.coordinates) && street.coordinates.length >= 3) {
+    const midline = buildPolygonMajorAxisMidline(street.coordinates);
 
-  if (!latLng || !Number.isFinite(majorAxisBearing)) {
-    return null;
+    if (midline) {
+      return midline;
+    }
   }
 
-  const readableBearing = normalizeLabelBearing(majorAxisBearing);
-  const rotation = readableBearing - (Number(mapBearing) || 0);
+  if (Array.isArray(street?.centerline) && street.centerline.length >= 2) {
+    const axis = street.centerline
+      .map((point) => normalizeStreetAxisPoint(point))
+      .filter(Boolean);
 
-  return {
-    latLng,
-    rotation,
-  };
+    if (axis.length >= 2) {
+      return axis;
+    }
+  }
+
+  return null;
 }
 
-function escapeStreetLabelHtml(value) {
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-export function buildStreetNameLabelMarkerHtml(name, rotationDeg = 0) {
-  const safeName = escapeStreetLabelHtml(name);
-  const rotation = Number.isFinite(Number(rotationDeg)) ? Number(rotationDeg) : 0;
-
-  return `<span class="map-street-name-label" style="transform: translate(-50%, -50%) rotate(${rotation}deg);">${safeName}</span>`;
-}

@@ -8,10 +8,22 @@ export const ZONE_TYPE_MAP_STYLES = {
   outro: { color: '#7C3AED', fill: '#C4B5FD' },
 };
 
+export const LOT_MAP_LABEL_BADGE_CLASS = 'map-lot-dimension-label map-lot-dimension-label--lot';
+
+export const STREET_MAP_LABEL_BADGE_CLASS = 'map-street-name-path-label';
+
 const DEFAULT_ZONE_MAP_STYLE = ZONE_TYPE_MAP_STYLES.outro;
 
 export function getZoneTypeMapStyle(type) {
   return ZONE_TYPE_MAP_STYLES[type] ?? DEFAULT_ZONE_MAP_STYLE;
+}
+
+export function getZoneNameLabelClassName(type) {
+  const safeType = Object.prototype.hasOwnProperty.call(ZONE_TYPE_MAP_STYLES, type)
+    ? type
+    : 'outro';
+
+  return `map-zone-name-label map-zone-name-label--${safeType}`;
 }
 
 export function getZonePolygonMapOptions(type, { fillOpacity = 0.15, weight = 2 } = {}) {

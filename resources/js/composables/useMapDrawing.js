@@ -25,12 +25,11 @@ import {
 import { buildZoneTitleLabel } from '@/utils/zone';
 import { getLotMapStyle, buildLotDimensionLabelMarkerHtml, shouldShowLotDimensionLabelsAtZoom } from '@/utils/mapLots';
 import { getStreetMapStyle, getMappedStreets, hasValidStreetPolygon, STREET_MAP_STYLE } from '@/utils/mapStreets';
-import { getZonePolygonMapOptions } from '@/utils/mapFeatureColors';
+import { getZoneNameLabelClassName, getZonePolygonMapOptions } from '@/utils/mapFeatureColors';
 import {
   buildStreetNetworkVisualRings,
-  buildStreetNameLabelMarkerHtml,
-  getStreetNameLabelPlacement,
 } from '@/utils/streetGeometry';
+import { createMapStreetNameOverlay } from '@/utils/mapStreetNameOverlay';
 import { createCursorPreviewController } from '@/utils/mapDrawingPreview';
 import { createGpsPreviewController, isCoarsePointerDevice } from '@/utils/mapGpsPreview';
 import {
@@ -95,7 +94,7 @@ export function useMapDrawing(options) {
   let contextPerimeterLayer = null;
   let contextStreetUnionLayer = null;
   const contextStreetLayerMap = {};
-  const contextStreetNameLabelMarkers = [];
+  let contextStreetNameOverlay = null;
   const contextZoneLayerMap = {};
   const contextLotLayerMap = {};
   const contextLotLabelMarkers = [];
@@ -1259,11 +1258,6 @@ export function useMapDrawing(options) {
     syncStreetNameLabels();
   }
 
-  function clearContextStreetNameLabelMarkers() {
-    contextStreetNameLabelMarkers.forEach((marker) => map?.removeLayer(marker));
-    contextStreetNameLabelMarkers.length = 0;
-  }
-
   function bindStreetLayerTooltip(layer, street) {
     layer.unbindTooltip();
 
@@ -1274,9 +1268,12 @@ export function useMapDrawing(options) {
     layer.bindTooltip(street.name, { sticky: true });
   }
 
-  function syncStreetNameLabels() {
-    clearContextStreetNameLabelMarkers();
+  function clearContextStreetNameLabelMarkers() {
+    contextStreetNameOverlay?.setStreets([]);
+    contextStreetNameOverlay?.setVisible(false);
+  }
 
+  function syncStreetNameLabels() {
     const streets = contextStreets?.value ?? [];
 
     Object.entries(contextStreetLayerMap).forEach(([streetId, layer]) => {
@@ -1288,36 +1285,17 @@ export function useMapDrawing(options) {
       bindStreetLayerTooltip(layer, street);
     });
 
-    if (!visibleZoneNameTypes.value.includes('rua') || !L || !map) {
+    if (!contextStreetNameOverlay) {
       return;
     }
 
-    const mapBearing = typeof map.getBearing === 'function' ? map.getBearing() : 0;
+    const showStreetNames = visibleZoneNameTypes.value.includes('rua');
+    const labeledStreets = streets.filter(
+      (street) => street?.name && contextStreetLayerMap[String(street.id)],
+    );
 
-    streets.forEach((street) => {
-      if (!street?.name || !contextStreetLayerMap[String(street.id)]) {
-        return;
-      }
-
-      const placement = getStreetNameLabelPlacement(street, mapBearing);
-
-      if (!placement) {
-        return;
-      }
-
-      const marker = L.marker(placement.latLng, {
-        interactive: false,
-        keyboard: false,
-        zIndexOffset: 600,
-        icon: L.divIcon({
-          className: 'map-fixed-label-icon',
-          html: buildStreetNameLabelMarkerHtml(street.name, placement.rotation),
-          iconSize: [0, 0],
-        }),
-      }).addTo(map);
-
-      contextStreetNameLabelMarkers.push(marker);
-    });
+    contextStreetNameOverlay.setStreets(labeledStreets);
+    contextStreetNameOverlay.setVisible(showStreetNames && labeledStreets.length > 0);
   }
 
   function bindZoneLayerTooltip(layer, zone) {
@@ -1330,7 +1308,7 @@ export function useMapDrawing(options) {
     layer.bindTooltip(buildZoneTitleLabel(zone), {
       permanent: true,
       direction: 'center',
-      className: 'map-zone-name-label',
+      className: getZoneNameLabelClassName(zone.type),
       opacity: 1,
     });
     layer.openTooltip();
@@ -2040,6 +2018,9 @@ export function useMapDrawing(options) {
     }
 
     mapReady.value = true;
+
+    contextStreetNameOverlay = createMapStreetNameOverlay(map);
+    contextStreetNameOverlay.bind();
   }
 
   function destroyMap() {
@@ -2057,6 +2038,8 @@ export function useMapDrawing(options) {
     }
 
     lastMapContainerSizeKey = '';
+    contextStreetNameOverlay?.destroy();
+    contextStreetNameOverlay = null;
     map?.remove();
     map = null;
     L = null;

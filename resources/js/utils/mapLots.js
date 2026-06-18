@@ -64,10 +64,10 @@ export function buildLotDimensionLabelMarkerHtml(lot) {
 
   const title = buildLotDimensionLabelTitle(lot);
 
-  return `<span class="map-lot-dimension-label"><span class="map-lot-dimension-label-title">${escapeMapLabelHtml(title)}</span><span class="map-lot-dimension-label-size">${escapeMapLabelHtml(size)}</span></span>`;
+  return `<span class="map-lot-dimension-label map-lot-dimension-label--lot"><span class="map-lot-dimension-label-title">${escapeMapLabelHtml(title)}</span><span class="map-lot-dimension-label-size">${escapeMapLabelHtml(size)}</span></span>`;
 }
 
-export function buildMapFixedLabelIconHtml(text, labelClass = 'map-lot-context-dimension-label') {
+export function buildMapFixedLabelIconHtml(text, labelClass = 'map-lot-context-dimension-label map-lot-context-dimension-label--lot') {
   const safe = escapeMapLabelHtml(text);
 
   return `<span class="${labelClass}">${safe}</span>`;

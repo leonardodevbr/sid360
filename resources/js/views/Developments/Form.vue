@@ -1412,7 +1412,7 @@ import {
   hasLotDimensionsLabel,
   shouldShowLotDimensionLabelsAtZoom,
 } from '@/utils/mapLots';
-import { getZonePolygonMapOptions, getZoneTypeMapStyle } from '@/utils/mapFeatureColors';
+import { getZoneNameLabelClassName, getZonePolygonMapOptions, getZoneTypeMapStyle } from '@/utils/mapFeatureColors';
 import { getStreetMapStyle, STREET_MAP_STYLE } from '@/utils/mapStreets';
 import { lotStatusLabel } from '@/utils/status';
 import {
@@ -1476,12 +1476,11 @@ import {
 } from '@/utils/lotNumbering';
 import {
   buildStreetPolygon,
-  buildStreetNameLabelMarkerHtml,
   centerlineLengthMeters,
   buildStreetNetworkVisualRings,
-  getStreetNameLabelPlacement,
   normalizeStreetEndCap,
 } from '@/utils/streetGeometry';
+import { createMapStreetNameOverlay } from '@/utils/mapStreetNameOverlay';
 import { formatMoneyMaskFromCents } from '@/utils/format';
 import Input from '@/components/Common/Input.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
@@ -1552,7 +1551,7 @@ let tempMarkers = [];
 let edgeLabelMarkers = [];
 let zoneLayers = {};
 let streetLayersMap = {};
-let streetNameLabelMarkers = {};
+let streetNameOverlay = null;
 let streetUnionVisualLayer = null;
 let lotLayersMap = {};
 let lotDimensionLabelMarkers = {};
@@ -2063,6 +2062,9 @@ async function initMap() {
     syncStreetNameLabels();
   });
 
+  streetNameOverlay = createMapStreetNameOverlay(map);
+  streetNameOverlay.bind();
+
   map.invalidateSize();
   mapReady.value = true;
 }
@@ -2457,8 +2459,8 @@ function bringLotLayersToFront() {
 }
 
 function clearStreetNameLabelMarkers() {
-  Object.values(streetNameLabelMarkers).forEach((marker) => map?.removeLayer(marker));
-  streetNameLabelMarkers = {};
+  streetNameOverlay?.setStreets([]);
+  streetNameOverlay?.setVisible(false);
 }
 
 function bindStreetLayerTooltip(layer, street) {
@@ -2472,8 +2474,6 @@ function bindStreetLayerTooltip(layer, street) {
 }
 
 function syncStreetNameLabels() {
-  clearStreetNameLabelMarkers();
-
   Object.entries(streetLayersMap).forEach(([streetId, layer]) => {
     const street = streets.value.find((item) => String(item.id) === String(streetId));
     if (!street) {
@@ -2483,36 +2483,17 @@ function syncStreetNameLabels() {
     bindStreetLayerTooltip(layer, street);
   });
 
-  if (!visibleZoneNameTypes.value.includes('rua') || !L || !map) {
+  if (!streetNameOverlay) {
     return;
   }
 
-  const mapBearing = typeof map.getBearing === 'function' ? map.getBearing() : 0;
+  const showStreetNames = visibleZoneNameTypes.value.includes('rua');
+  const labeledStreets = streets.value.filter(
+    (street) => street?.name && streetLayersMap[street.id],
+  );
 
-  streets.value.forEach((street) => {
-    if (!street?.name || !streetLayersMap[street.id]) {
-      return;
-    }
-
-    const placement = getStreetNameLabelPlacement(street, mapBearing);
-
-    if (!placement) {
-      return;
-    }
-
-    const marker = L.marker(placement.latLng, {
-      interactive: false,
-      keyboard: false,
-      zIndexOffset: 600,
-      icon: L.divIcon({
-        className: 'map-fixed-label-icon',
-        html: buildStreetNameLabelMarkerHtml(street.name, placement.rotation),
-        iconSize: [0, 0],
-      }),
-    }).addTo(map);
-
-    streetNameLabelMarkers[street.id] = marker;
-  });
+  streetNameOverlay.setStreets(labeledStreets);
+  streetNameOverlay.setVisible(showStreetNames && labeledStreets.length > 0);
 }
 
 function bindZoneLayerTooltip(layer, zone) {
@@ -2523,7 +2504,7 @@ function bindZoneLayerTooltip(layer, zone) {
   layer.bindTooltip(buildZoneTitleLabel(zone), {
     permanent: true,
     direction: 'center',
-    className: 'map-zone-name-label',
+    className: getZoneNameLabelClassName(zone.type),
     opacity: 1,
   });
   layer.openTooltip();
@@ -5827,6 +5808,9 @@ onUnmounted(() => {
     map.removeLayer(locationMarker);
     locationMarker = null;
   }
+
+  streetNameOverlay?.destroy();
+  streetNameOverlay = null;
   map?.remove();
   map = null;
   cursorPreview.unbind();
