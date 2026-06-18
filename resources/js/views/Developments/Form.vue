@@ -405,6 +405,15 @@
 
                   <div class="mt-3 grid grid-cols-2 gap-2">
                     <Input v-model.number="geoForm.start_from" type="number" label="Nº inicial" />
+                    <SelectInput
+                      v-model="geoForm.number_parity"
+                      label="Numeração"
+                      :options="lotNumberParityOptions"
+                      :searchable="false"
+                      :can-clear="false"
+                    />
+                  </div>
+                  <div class="mt-2">
                     <CurrencyInput v-model="geoForm.total_value" label="Valor/lote" />
                   </div>
                   <p v-if="generateLotsEffectivePricePerM2" class="mt-1 text-[11px] text-slate-400">
@@ -1215,12 +1224,21 @@
           max="500"
           required
         />
-        <Input
-          v-model="generateForm.start_from"
-          label="Iniciar numeração em"
-          type="number"
-          min="1"
-        />
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Input
+            v-model="generateForm.start_from"
+            label="Iniciar numeração em"
+            type="number"
+            min="1"
+          />
+          <SelectInput
+            v-model="generateForm.number_parity"
+            label="Numeração"
+            :options="lotNumberParityOptions"
+            :searchable="false"
+            :can-clear="false"
+          />
+        </div>
         <Input
           v-model="generateForm.area"
           label="Área de cada lote (m²)"
@@ -1324,6 +1342,11 @@ import {
   computeLotTotalValueFromArea,
   resolveEffectivePricePerM2,
 } from '@/utils/lotPricing';
+import {
+  LOT_NUMBER_PARITY_OPTIONS,
+  buildLotNumberSequence,
+  formatLotNumberFromPattern,
+} from '@/utils/lotNumbering';
 import { buildStreetPolygon, centerlineLengthMeters, buildStreetNetworkVisualRings, normalizeStreetEndCap } from '@/utils/streetGeometry';
 import { formatMoneyMaskFromCents } from '@/utils/format';
 import Input from '@/components/Common/Input.vue';
@@ -4479,6 +4502,7 @@ const genMode = ref('simple');
 const generateForm = ref({
   quantity: 10,
   start_from: 1,
+  number_parity: 'all',
   area: '',
   total_value: 0,
   pattern: '',
@@ -4493,8 +4517,10 @@ const geoForm = ref({
   reverseFrontEdge: false,
   total_value: 0,
   start_from: 1,
+  number_parity: 'all',
   pattern: '',
 });
+const lotNumberParityOptions = LOT_NUMBER_PARITY_OPTIONS;
 const blockEdges = ref([]);
 const previewLots = ref([]);
 const previewing = ref(false);
@@ -4506,12 +4532,13 @@ const previewLotNumber = computed(() => {
   const pattern = generateForm.value.pattern || form.value.lot_number_pattern || '{zona}-L{numero2}';
   if (!zone) return pattern;
 
-  const num = parseInt(generateForm.value.start_from, 10) || 1;
-  return pattern
-    .replace('{zona}', zone.name)
-    .replace('{numero}', String(num))
-    .replace('{numero2}', String(num).padStart(2, '0'))
-    .replace('{numero3}', String(num).padStart(3, '0'));
+  const [num] = buildLotNumberSequence(
+    generateForm.value.start_from,
+    1,
+    generateForm.value.number_parity,
+  );
+
+  return formatLotNumberFromPattern(pattern, zone.name, num ?? 1);
 });
 
 const generateLotsEffectivePricePerM2 = computed(() => {
@@ -4614,7 +4641,7 @@ watch(
 );
 
 watch(
-  () => geoForm.value.start_from,
+  () => [geoForm.value.start_from, geoForm.value.number_parity],
   () => {
     if (genMode.value === 'geometric' && previewLots.value.length) {
       drawPreviewLotsOnMap({ fitView: false });
@@ -4895,8 +4922,14 @@ function drawPreviewLotsOnMap({ fitView = false } = {}) {
   clearPreviewLayer();
   previewLayerGroup = L.featureGroup().addTo(map);
 
+  const lotNumbers = buildLotNumberSequence(
+    geoForm.value.start_from,
+    previewLots.value.length,
+    geoForm.value.number_parity,
+  );
+
   previewLots.value.forEach((lot, i) => {
-    const lotNumber = (parseInt(geoForm.value.start_from, 10) || 1) + i;
+    const lotNumber = lotNumbers[i] ?? i + 1;
 
     L.polygon(lot.coordinates, {
       color: lot.clipped ? '#f59e0b' : '#c9a84c',
@@ -4959,6 +4992,13 @@ function buildPreview({ silent = false } = {}) {
 
 function switchGenMode(mode) {
   if (genMode.value === mode) return;
+
+  if (mode === 'geometric') {
+    geoForm.value.number_parity = generateForm.value.number_parity;
+  } else {
+    generateForm.value.number_parity = geoForm.value.number_parity;
+  }
+
   clearPreviewLayer();
   previewLots.value = [];
   geoForm.value.frontEdgeIndex = null;
@@ -5002,6 +5042,7 @@ function openGenerateLots(zone, { preferGeometric = false } = {}) {
   generateForm.value = {
     quantity: 10,
     start_from: 1,
+    number_parity: 'all',
     area: '',
     total_value: 0,
     pattern: '',
@@ -5016,6 +5057,7 @@ function openGenerateLots(zone, { preferGeometric = false } = {}) {
     reverseFrontEdge: false,
     total_value: 0,
     start_from: 1,
+    number_parity: 'all',
     pattern: '',
   };
 
@@ -5054,6 +5096,7 @@ async function doGenerateGeometricLots() {
       `/developments/${route.params.id}/zones/${generateLotsZone.value.id}/generate-lots-geometric`,
       {
         start_from: parseInt(geoForm.value.start_from, 10) || 1,
+        number_parity: geoForm.value.number_parity || 'all',
         total_value: geoForm.value.total_value || null,
         pattern: geoForm.value.pattern || null,
         lot_width: Number(geoForm.value.lotWidth),
@@ -5102,6 +5145,7 @@ async function doGenerateLots() {
       {
         quantity: parseInt(generateForm.value.quantity, 10),
         start_from: parseInt(generateForm.value.start_from, 10) || 1,
+        number_parity: generateForm.value.number_parity || 'all',
         area: generateForm.value.area ? parseFloat(generateForm.value.area) : null,
         total_value: generateForm.value.total_value || null,
         pattern: generateForm.value.pattern || null,

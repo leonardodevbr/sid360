@@ -115,6 +115,7 @@ class DevelopmentZoneController extends Controller
         $data = $request->validate([
             'quantity' => ['required', 'integer', 'min:1', 'max:500'],
             'start_from' => ['nullable', 'integer', 'min:1'],
+            'number_parity' => ['nullable', 'string', Rule::in(['all', 'even', 'odd'])],
             'area' => ['nullable', 'numeric', 'min:0'],
             'total_value' => ['nullable', 'integer', 'min:0'],
             'pattern' => ['nullable', 'string', 'max:100'],
@@ -122,6 +123,7 @@ class DevelopmentZoneController extends Controller
 
         $quantity = (int) $data['quantity'];
         $startFrom = (int) ($data['start_from'] ?? 1);
+        $parity = $data['number_parity'] ?? 'all';
         $pattern = $data['pattern'] ?? $development->lot_number_pattern ?? '{zona}-L{numero2}';
         $created = [];
 
@@ -130,15 +132,11 @@ class DevelopmentZoneController extends Controller
             ->max('number');
 
         $nextNumber = $lastNumber ? ((int) preg_replace('/\D/', '', $lastNumber) + 1) : $startFrom;
+        $lotNumbers = $this->buildLotNumberSequence($nextNumber, $quantity, $parity);
 
         for ($i = 0; $i < $quantity; $i++) {
-            $num = $nextNumber + $i;
-
-            $number = $pattern;
-            $number = str_replace('{zona}', $zone->name, $number);
-            $number = str_replace('{numero}', (string) $num, $number);
-            $number = str_replace('{numero2}', str_pad((string) $num, 2, '0', STR_PAD_LEFT), $number);
-            $number = str_replace('{numero3}', str_pad((string) $num, 3, '0', STR_PAD_LEFT), $number);
+            $num = $lotNumbers[$i];
+            $number = $this->formatLotNumber($num, $pattern, $zone);
 
             $lot = Lot::query()->create([
                 'development_id' => $development->id,
@@ -183,6 +181,7 @@ class DevelopmentZoneController extends Controller
 
         $data = $request->validate([
             'start_from' => ['nullable', 'integer', 'min:1'],
+            'number_parity' => ['nullable', 'string', Rule::in(['all', 'even', 'odd'])],
             'total_value' => ['nullable', 'integer', 'min:0'],
             'pattern' => ['nullable', 'string', 'max:100'],
             'lot_width' => ['nullable', 'numeric', 'min:0'],
@@ -197,27 +196,19 @@ class DevelopmentZoneController extends Controller
         ]);
 
         $startFrom = (int) ($data['start_from'] ?? 1);
+        $parity = $data['number_parity'] ?? 'all';
         $pattern = $data['pattern'] ?? $development->lot_number_pattern ?? '{zona}-L{numero2}';
 
         $lastNumber = Lot::query()->where('zone_id', $zone->id)->max('number');
         $nextNumber = $lastNumber ? ((int) preg_replace('/\D/', '', $lastNumber) + 1) : $startFrom;
+        $lotNumbers = $this->buildLotNumberSequence($nextNumber, count($data['lots']), $parity);
 
         $created = [];
 
-        DB::transaction(function () use ($data, $development, $zone, $pattern, $nextNumber, &$created): void {
+        DB::transaction(function () use ($data, $development, $zone, $pattern, $lotNumbers, &$created): void {
             foreach (array_values($data['lots']) as $i => $lotData) {
-                $num = $nextNumber + $i;
-
-                $number = str_replace(
-                    ['{zona}', '{numero}', '{numero2}', '{numero3}'],
-                    [
-                        $zone->name,
-                        (string) $num,
-                        str_pad((string) $num, 2, '0', STR_PAD_LEFT),
-                        str_pad((string) $num, 3, '0', STR_PAD_LEFT),
-                    ],
-                    $pattern,
-                );
+                $num = $lotNumbers[$i];
+                $number = $this->formatLotNumber($num, $pattern, $zone);
 
                 $sizeLabel = $this->buildLotSizeLabel(
                     $lotData['width_meters'] ?? $data['lot_width'] ?? null,
@@ -303,5 +294,68 @@ class DevelopmentZoneController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function buildLotNumberSequence(int $startFrom, int $quantity, string $parity = 'all'): array
+    {
+        if ($quantity <= 0) {
+            return [];
+        }
+
+        $parity = in_array($parity, ['even', 'odd'], true) ? $parity : 'all';
+        $startFrom = max(1, $startFrom);
+        $step = $parity === 'all' ? 1 : 2;
+        $current = $parity === 'all'
+            ? $startFrom
+            : $this->alignLotNumberToParity($startFrom, $parity);
+        $numbers = [];
+
+        for ($i = 0; $i < $quantity; $i++) {
+            $numbers[] = $current;
+            $current += $step;
+        }
+
+        return $numbers;
+    }
+
+    private function alignLotNumberToParity(int $number, string $parity): int
+    {
+        $current = max(1, $number);
+
+        while (! $this->matchesLotNumberParity($current, $parity)) {
+            $current++;
+        }
+
+        return $current;
+    }
+
+    private function matchesLotNumberParity(int $number, string $parity): bool
+    {
+        if ($parity === 'even') {
+            return $number % 2 === 0;
+        }
+
+        if ($parity === 'odd') {
+            return $number % 2 !== 0;
+        }
+
+        return true;
+    }
+
+    private function formatLotNumber(int $num, string $pattern, DevelopmentZone $zone): string
+    {
+        return str_replace(
+            ['{zona}', '{numero}', '{numero2}', '{numero3}'],
+            [
+                $zone->name,
+                (string) $num,
+                str_pad((string) $num, 2, '0', STR_PAD_LEFT),
+                str_pad((string) $num, 3, '0', STR_PAD_LEFT),
+            ],
+            $pattern,
+        );
     }
 }
