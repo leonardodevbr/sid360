@@ -48,11 +48,17 @@ export function lotStatusClass(status) {
     available: badgeColors.success,
     reserved: badgeColors.warning,
     sold: badgeColors.danger,
+    inactive: badgeColors.neutral,
   }[status] ?? badgeColors.neutral;
 }
 
 export function lotStatusLabel(status) {
-  return { available: 'Disponível', reserved: 'Reservado', sold: 'Vendido' }[status] ?? status;
+  return {
+    available: 'Disponível',
+    reserved: 'Reservado',
+    sold: 'Vendido',
+    inactive: 'Inativo',
+  }[status] ?? status;
 }
 
 /** Positive confirmation badges (WhatsApp, verificado, etc.). */

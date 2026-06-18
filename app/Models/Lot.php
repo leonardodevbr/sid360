@@ -21,6 +21,8 @@ class Lot extends Model
 
     public const STATUS_SOLD = 'sold';
 
+    public const STATUS_INACTIVE = 'inactive';
+
     /**
      * @var list<string>
      */
@@ -28,6 +30,7 @@ class Lot extends Model
         self::STATUS_AVAILABLE,
         self::STATUS_RESERVED,
         self::STATUS_SOLD,
+        self::STATUS_INACTIVE,
     ];
 
     /**

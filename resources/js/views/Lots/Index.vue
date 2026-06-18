@@ -19,7 +19,7 @@
             :options="developmentOptions"
             placeholder="Todos"
             :searchable="true"
-            @update:model-value="loadItems(1)"
+            @update:model-value="onFiltersChange"
           />
         </div>
         <div class="min-w-0 flex-1 sm:max-w-xs">
@@ -39,8 +39,46 @@
             :options="lotStatusOptions"
             placeholder="Todos"
             :searchable="false"
-            @update:model-value="loadItems(1)"
+            @update:model-value="onFiltersChange"
           />
+        </div>
+      </div>
+
+      <div
+        v-if="selectedCount > 0"
+        class="mb-4 flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <p class="text-sm font-medium text-slate-700">
+          {{ selectedCount }} lote(s) selecionado(s)
+        </p>
+        <div class="flex flex-wrap items-center gap-2">
+          <Button
+            v-if="authStore.can('lots.edit')"
+            type="button"
+            variant="outline"
+            :disabled="bulkProcessing"
+            @click="confirmBulkInactivate"
+          >
+            Inativar
+          </Button>
+          <Button
+            v-if="authStore.can('lots.delete')"
+            type="button"
+            variant="outline"
+            class="!border-red-200 !text-red-600 hover:!bg-red-50"
+            :disabled="bulkProcessing"
+            @click="confirmBulkDelete"
+          >
+            Excluir
+          </Button>
+          <button
+            type="button"
+            class="rounded-lg px-2 py-1.5 text-xs font-medium text-slate-500 hover:bg-white hover:text-slate-700"
+            :disabled="bulkProcessing"
+            @click="clearSelection"
+          >
+            Limpar seleção
+          </button>
         </div>
       </div>
 
@@ -50,6 +88,16 @@
         <table class="min-w-full divide-y divide-slate-200">
           <thead class="bg-slate-50">
             <tr>
+              <th class="w-10 px-4 py-3 sm:px-6">
+                <input
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-slate-300 accent-emerald-700"
+                  :checked="allPageSelected"
+                  :indeterminate.prop="somePageSelected && !allPageSelected"
+                  aria-label="Selecionar todos os lotes da página"
+                  @change="toggleSelectAllPage"
+                >
+              </th>
               <th class="px-4 py-3 text-left text-xs font-medium uppercase text-slate-500 sm:px-6">Empreendimento</th>
               <th class="px-4 py-3 text-left text-xs font-medium uppercase text-slate-500 sm:px-6">Zona</th>
               <th class="px-4 py-3 text-left text-xs font-medium uppercase text-slate-500 sm:px-6">Número</th>
@@ -60,7 +108,20 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-200 bg-white">
-            <tr v-for="item in items" :key="item.id">
+            <tr
+              v-for="item in items"
+              :key="item.id"
+              :class="selectedIds.has(item.id) ? 'bg-emerald-50/40' : ''"
+            >
+              <td class="px-4 py-4 sm:px-6">
+                <input
+                  type="checkbox"
+                  class="h-4 w-4 rounded border-slate-300 accent-emerald-700"
+                  :checked="selectedIds.has(item.id)"
+                  :aria-label="`Selecionar lote ${item.number}`"
+                  @change="toggleSelection(item.id)"
+                >
+              </td>
               <td class="max-w-[10rem] truncate px-4 py-4 text-sm text-slate-900 sm:max-w-none sm:px-6" :title="lotDevelopmentLabel(item)">
                 {{ lotDevelopmentLabel(item) }}
               </td>
@@ -122,6 +183,7 @@ import { lotStatusLabels, lotStatusOptions } from '@/utils/labels';
 import { buildZoneTitleLabel } from '@/utils/zone';
 import { lotStatusClass } from '@/utils/status';
 import { buildLotDeleteConfirmMessage } from '@/utils/mapLots';
+import { getApiErrorMessage } from '@/utils/apiError';
 import Button from '@/components/Common/Button.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
 import PaginationBar from '@/components/Common/PaginationBar.vue';
@@ -136,15 +198,27 @@ const { confirm } = useAlert();
 const items = ref([]);
 const developments = ref([]);
 const loading = ref(false);
+const bulkProcessing = ref(false);
 const searchQuery = ref('');
 const statusFilter = ref('available');
 const developmentId = ref(route.query.development_id ? String(route.query.development_id) : '');
 const perPage = ref(15);
 const pagination = ref(null);
+const selectedIds = ref(new Set());
 let searchTimeout = null;
 
 const developmentOptions = computed(() =>
   developments.value.map((d) => ({ value: String(d.id), label: d.name }))
+);
+
+const selectedCount = computed(() => selectedIds.value.size);
+
+const allPageSelected = computed(() =>
+  items.value.length > 0 && items.value.every((item) => selectedIds.value.has(item.id))
+);
+
+const somePageSelected = computed(() =>
+  items.value.some((item) => selectedIds.value.has(item.id))
 );
 
 function formatNumber(value) {
@@ -166,6 +240,34 @@ function lotZoneLabel(lot) {
   }
 
   return '—';
+}
+
+function toggleSelection(id) {
+  const next = new Set(selectedIds.value);
+
+  if (next.has(id)) {
+    next.delete(id);
+  } else {
+    next.add(id);
+  }
+
+  selectedIds.value = next;
+}
+
+function toggleSelectAllPage(event) {
+  const next = new Set(selectedIds.value);
+
+  if (event.target.checked) {
+    items.value.forEach((item) => next.add(item.id));
+  } else {
+    items.value.forEach((item) => next.delete(item.id));
+  }
+
+  selectedIds.value = next;
+}
+
+function clearSelection() {
+  selectedIds.value = new Set();
 }
 
 function goToCreate() {
@@ -201,14 +303,37 @@ async function loadItems(page = 1) {
   }
 }
 
+function onFiltersChange() {
+  clearSelection();
+  loadItems(1);
+}
+
 function debouncedSearch() {
   clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => loadItems(1), 400);
+  searchTimeout = setTimeout(() => {
+    clearSelection();
+    loadItems(1);
+  }, 400);
 }
 
 function onPerPageChange(value) {
   perPage.value = value;
+  clearSelection();
   loadItems(1);
+}
+
+function reportBulkSkipped(skipped, actionLabel) {
+  if (!skipped?.length) {
+    return;
+  }
+
+  const preview = skipped
+    .slice(0, 3)
+    .map((item) => `Lote ${item.number ?? item.id}`)
+    .join(', ');
+
+  const suffix = skipped.length > 3 ? ` e mais ${skipped.length - 3}` : '';
+  toast.warning(`${skipped.length} lote(s) não ${actionLabel}: ${preview}${suffix}.`);
 }
 
 async function confirmDelete(item) {
@@ -217,9 +342,78 @@ async function confirmDelete(item) {
   try {
     await api.post(`/lots/${item.id}/delete`);
     toast.success('Lote excluído.');
+    selectedIds.value.delete(item.id);
+    selectedIds.value = new Set(selectedIds.value);
     loadItems(pagination.value?.current_page || 1);
   } catch (e) {
     toast.error(getApiErrorMessage(e, 'Não foi possível excluir.'));
+  }
+}
+
+async function confirmBulkDelete() {
+  const count = selectedCount.value;
+  if (count === 0) return;
+
+  const ok = await confirm(
+    'Excluir lotes',
+    `Excluir ${count} lote(s) selecionado(s)? Esta ação não pode ser desfeita.`,
+  );
+
+  if (!ok) return;
+
+  bulkProcessing.value = true;
+  try {
+    const { data } = await api.post('/lots/bulk-delete', {
+      ids: [...selectedIds.value],
+    });
+
+    if (data.deleted > 0) {
+      toast.success(data.message || `${data.deleted} lote(s) excluído(s).`);
+    } else {
+      toast.warning(data.message || 'Nenhum lote foi excluído.');
+    }
+
+    reportBulkSkipped(data.skipped, 'foram excluídos');
+    clearSelection();
+    await loadItems(pagination.value?.current_page || 1);
+  } catch (e) {
+    toast.error(getApiErrorMessage(e, 'Não foi possível excluir os lotes.'));
+  } finally {
+    bulkProcessing.value = false;
+  }
+}
+
+async function confirmBulkInactivate() {
+  const count = selectedCount.value;
+  if (count === 0) return;
+
+  const ok = await confirm(
+    'Inativar lotes',
+    `Inativar ${count} lote(s) selecionado(s)? Eles deixarão de aparecer como disponíveis.`,
+  );
+
+  if (!ok) return;
+
+  bulkProcessing.value = true;
+  try {
+    const { data } = await api.post('/lots/bulk-update-status', {
+      ids: [...selectedIds.value],
+      status: 'inactive',
+    });
+
+    if (data.updated > 0) {
+      toast.success(data.message || `${data.updated} lote(s) inativado(s).`);
+    } else {
+      toast.warning(data.message || 'Nenhum lote foi inativado.');
+    }
+
+    reportBulkSkipped(data.skipped, 'foram inativados');
+    clearSelection();
+    await loadItems(pagination.value?.current_page || 1);
+  } catch (e) {
+    toast.error(getApiErrorMessage(e, 'Não foi possível inativar os lotes.'));
+  } finally {
+    bulkProcessing.value = false;
   }
 }
 

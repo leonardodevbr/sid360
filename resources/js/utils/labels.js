@@ -10,6 +10,7 @@ export const lotStatusLabels = {
   available: 'Disponível',
   reserved: 'Reservado',
   sold: 'Vendido',
+  inactive: 'Inativo',
 };
 
 export const developmentStatusOptions = [
@@ -24,6 +25,7 @@ export const lotStatusOptions = [
   { value: 'available', label: 'Disponível' },
   { value: 'reserved', label: 'Reservado' },
   { value: 'sold', label: 'Vendido' },
+  { value: 'inactive', label: 'Inativo' },
 ];
 
 export const developmentStatusFormOptions = developmentStatusOptions.filter((o) => o.value !== '');

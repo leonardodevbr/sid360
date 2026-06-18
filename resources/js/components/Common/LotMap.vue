@@ -316,6 +316,7 @@
       available: { color: '#2d6a45', fill: '#3d8a5a' },
       reserved:  { color: '#92400e', fill: '#f59e0b' },
       sold:      { color: '#475569', fill: '#94a3b8' },
+      inactive:  { color: '#64748b', fill: '#cbd5e1' },
     }
   
     lots.forEach((lot) => {

@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Actions\Lot\BulkDeleteLotsAction;
+use App\Actions\Lot\BulkUpdateLotsStatusAction;
 use App\Actions\Lot\DeleteLotAction;
 use App\Actions\Lot\ListLotsAction;
 use App\Actions\Lot\StoreLotAction;
 use App\Actions\Lot\UpdateLotAction;
+use App\Http\Requests\BulkDeleteLotsRequest;
+use App\Http\Requests\BulkUpdateLotsStatusRequest;
 use App\Http\Requests\StoreLotRequest;
 use App\Http\Requests\UpdateLotRequest;
 use App\Http\Resources\LotResource;
@@ -68,5 +72,36 @@ class LotController extends Controller
         $action->execute($lot);
 
         return response()->json(['message' => 'Lote excluído com sucesso.']);
+    }
+
+    public function bulkDestroy(BulkDeleteLotsRequest $request, BulkDeleteLotsAction $action): JsonResponse
+    {
+        $this->authorize('lots.delete');
+
+        $result = $action->execute($request->validated('ids'));
+
+        return response()->json([
+            'message' => $result['deleted'] > 0
+                ? "{$result['deleted']} lote(s) excluído(s)."
+                : 'Nenhum lote foi excluído.',
+            ...$result,
+        ]);
+    }
+
+    public function bulkUpdateStatus(BulkUpdateLotsStatusRequest $request, BulkUpdateLotsStatusAction $action): JsonResponse
+    {
+        $this->authorize('lots.edit');
+
+        $result = $action->execute(
+            $request->validated('ids'),
+            $request->validated('status'),
+        );
+
+        return response()->json([
+            'message' => $result['updated'] > 0
+                ? "{$result['updated']} lote(s) atualizado(s)."
+                : 'Nenhum lote foi atualizado.',
+            ...$result,
+        ]);
     }
 }
