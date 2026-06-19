@@ -22,10 +22,13 @@ export async function listClientDocuments(clientId) {
   return data.data ?? data;
 }
 
-export async function uploadClientDocument(clientId, file, type) {
+export async function uploadClientDocument(clientId, file, type, side) {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('type', type);
+  if (side) {
+    formData.append('side', side);
+  }
   const { data } = await api.post(`/clients/${clientId}/documents`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
@@ -51,10 +54,13 @@ export async function listSaleDocuments(saleId) {
   return data.data ?? data;
 }
 
-export async function uploadSaleDocument(saleId, file, type) {
+export async function uploadSaleDocument(saleId, file, type, side) {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('type', type);
+  if (side) {
+    formData.append('side', side);
+  }
   const { data } = await api.post(`/sales/${saleId}/documents`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });

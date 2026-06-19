@@ -23,6 +23,7 @@ class UploadClientDocumentRequest extends FormRequest
         return [
             'file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240'],
             'type' => ['required', 'string', Rule::in(ClientDocument::TYPES)],
+            'side' => ['nullable', 'string', Rule::in(ClientDocument::SIDES)],
         ];
     }
 
@@ -37,6 +38,7 @@ class UploadClientDocumentRequest extends FormRequest
             'file.max' => 'O arquivo não pode ter mais de 10 MB.',
             'type.required' => 'Selecione o tipo do documento.',
             'type.in' => 'Tipo de documento inválido.',
+            'side.in' => 'Lado do documento inválido.',
         ];
     }
 }

@@ -20,6 +20,7 @@ class ListClientDocumentsAction
     {
         return $client->documents()
             ->orderBy('type')
+            ->orderBy('side')
             ->orderByDesc('version')
             ->get();
     }

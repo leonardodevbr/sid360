@@ -38,7 +38,7 @@ class SnapshotSaleDocumentsAction
             }
 
             $extension = strtolower(pathinfo((string) $clientDocument->path, PATHINFO_EXTENSION) ?: 'bin');
-            $destinationPath = "developments/{$development->id}/sales/{$sale->id}/documents/{$clientDocument->type}/v{$clientDocument->version}.{$extension}";
+            $destinationPath = "developments/{$development->id}/sales/{$sale->id}/documents/{$clientDocument->type}/{$clientDocument->side}/v{$clientDocument->version}.{$extension}";
 
             $disk = Storage::disk($clientDocument->disk);
 
@@ -53,6 +53,7 @@ class SnapshotSaleDocumentsAction
                 'sale_id' => $sale->id,
                 'client_document_id' => $clientDocument->id,
                 'type' => $clientDocument->type,
+                'side' => $clientDocument->side,
                 'disk' => $clientDocument->disk,
                 'path' => $destinationPath,
                 'original_filename' => $clientDocument->original_filename,

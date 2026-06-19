@@ -759,6 +759,60 @@ class WhatsappService
         ]);
     }
 
+    public function buildReciboMessage(
+        string $clientName,
+        string $contractNo,
+        Installment $installment,
+    ): string {
+        $parcela = $installment->type === Installment::TYPE_DOWN_PAYMENT
+            ? 'Entrada'
+            : "Parcela {$installment->number}";
+
+        $value = 'R$ '.number_format((int) $installment->value / 100, 2, ',', '.');
+        $paidAt = $installment->paid_at?->format('d/m/Y') ?? '—';
+        $paymentMethod = Installment::paymentMethodLabel($installment->payment_method);
+
+        $lines = [
+            "Segue o recibo de pagamento da *{$parcela}* do contrato *{$contractNo}*:",
+            '',
+            "Valor pago: *{$value}*",
+            "Data do pagamento: *{$paidAt}*",
+        ];
+
+        if ($paymentMethod !== '') {
+            $lines[] = "Meio de pagamento: *{$paymentMethod}*";
+        }
+
+        if ($installment->payment_method_description !== null && trim($installment->payment_method_description) !== '') {
+            $lines[] = "Descrição: {$installment->payment_method_description}";
+        }
+
+        $lines[] = '';
+        $lines[] = 'Qualquer dúvida, estou à disposição.';
+        $lines[] = '_Sid360 Imóveis_';
+
+        return implode("\n", $lines);
+    }
+
+    public function buildReciboFileCaption(
+        string $contractNo,
+        Installment $installment,
+    ): string {
+        $parcela = $installment->type === Installment::TYPE_DOWN_PAYMENT
+            ? 'Entrada'
+            : "Parcela {$installment->number}";
+
+        $value = 'R$ '.number_format((int) $installment->value / 100, 2, ',', '.');
+        $paidAt = $installment->paid_at?->format('d/m/Y') ?? '—';
+
+        return implode("\n", [
+            "Recibo — {$parcela}",
+            "Contrato {$contractNo}",
+            "Valor: {$value}",
+            "Pago em: {$paidAt}",
+        ]);
+    }
+
     /**
      * @return array{base_url: string, session: string, token: string}|null
      */

@@ -100,6 +100,7 @@ class ClientController extends Controller
             $request->file('file'),
             (string) $request->validated('type'),
             $request->user()?->id,
+            (string) ($request->validated('side') ?? \App\Models\ClientDocument::SIDE_ABERTO),
         );
 
         return response()->json(new ClientDocumentResource($document), 201);

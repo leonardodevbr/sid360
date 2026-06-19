@@ -16,6 +16,7 @@ class SaleDocument extends Model
         'sale_id',
         'client_document_id',
         'type',
+        'side',
         'disk',
         'path',
         'original_filename',
@@ -53,5 +54,10 @@ class SaleDocument extends Model
     public static function typeLabel(?string $type): string
     {
         return ClientDocument::typeLabel($type);
+    }
+
+    public static function sideLabel(?string $side): string
+    {
+        return ClientDocument::sideLabel($side);
     }
 }

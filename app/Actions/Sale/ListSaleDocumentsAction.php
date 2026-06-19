@@ -16,6 +16,7 @@ class ListSaleDocumentsAction
     {
         return $sale->documents()
             ->orderBy('type')
+            ->orderBy('side')
             ->get();
     }
 }

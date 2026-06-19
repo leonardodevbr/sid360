@@ -18,6 +18,16 @@
             :can-clear="false"
           />
         </div>
+        <div class="w-full sm:w-44">
+          <SelectInput
+            v-model="selectedSide"
+            :options="sideOptions"
+            label="Lado do documento"
+            placeholder="Selecione o lado"
+            :searchable="false"
+            :can-clear="false"
+          />
+        </div>
         <Button type="button" variant="outline" @click="openFilePicker">
           <ArrowUpTrayIcon class="mr-2 h-4 w-4" />
           Selecionar arquivo
@@ -62,6 +72,12 @@
             <div class="min-w-0">
               <p class="flex flex-wrap items-center gap-1.5 text-sm text-slate-700">
                 <span class="font-medium">{{ doc.type_label }}</span>
+                <span
+                  v-if="doc.side_label"
+                  class="rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700"
+                >
+                  {{ doc.side_label }}
+                </span>
                 <span
                   v-if="isVersioned && !doc.is_current"
                   class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500"
@@ -118,7 +134,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useToast } from 'vue-toastification';
 import Button from './Button.vue';
 import SelectInput from './SelectInput.vue';
-import { DOCUMENT_TYPES } from '@/utils/documentTypes';
+import { DOCUMENT_TYPES, DOCUMENT_SIDES } from '@/utils/documentTypes';
 import { formatDate } from '@/utils/format';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { useAlert } from '@/composables/useAlert';
@@ -157,6 +173,7 @@ const props = defineProps({
 const toast = useToast();
 const { confirm } = useAlert();
 const typeOptions = DOCUMENT_TYPES;
+const sideOptions = DOCUMENT_SIDES;
 
 const isVersioned = computed(() => props.entityType === 'client');
 const allowDelete = computed(() => props.entityType === 'client');
@@ -167,6 +184,7 @@ const uploading = ref(false);
 const downloadingId = ref(null);
 const showHistory = ref(false);
 const selectedType = ref('');
+const selectedSide = ref('aberto');
 const selectedFile = ref(null);
 const selectedFileName = ref('');
 const fileInputRef = ref(null);
@@ -212,14 +230,15 @@ async function handleUpload() {
   uploading.value = true;
   try {
     if (props.entityType === 'client') {
-      await uploadClientDocument(props.entityId, selectedFile.value, selectedType.value);
+      await uploadClientDocument(props.entityId, selectedFile.value, selectedType.value, selectedSide.value);
     } else {
-      await uploadSaleDocument(props.entityId, selectedFile.value, selectedType.value);
+      await uploadSaleDocument(props.entityId, selectedFile.value, selectedType.value, selectedSide.value);
     }
     toast.success('Documento enviado.');
     selectedFile.value = null;
     selectedFileName.value = '';
     selectedType.value = '';
+    selectedSide.value = 'aberto';
     if (fileInputRef.value) fileInputRef.value.value = '';
     await loadDocuments();
   } catch (err) {
@@ -245,9 +264,10 @@ async function handleDownload(doc) {
 }
 
 async function handleDelete(doc) {
+  const label = doc.side_label ? `${doc.type_label} (${doc.side_label})` : doc.type_label;
   const confirmed = await confirm(
     'Excluir documento?',
-    `${doc.type_label} — ${doc.original_filename}. Essa ação não pode ser desfeita.`,
+    `${label} — ${doc.original_filename}. Essa ação não pode ser desfeita.`,
     'Sim, excluir',
   );
   if (!confirmed) return;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Models\Installment;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -23,6 +24,9 @@ class InstallmentResource extends JsonResource
             'value' => (int) $this->value,
             'paid_at' => $this->paid_at?->toDateString(),
             'status' => $this->displayStatus(),
+            'payment_method' => $this->payment_method,
+            'payment_method_label' => Installment::paymentMethodLabel($this->payment_method),
+            'payment_method_description' => $this->payment_method_description,
             'whatsapp_reminder_sent_at' => $this->whatsapp_reminder_sent_at?->toIso8601String(),
             'whatsapp_overdue_sent_at' => $this->whatsapp_overdue_sent_at?->toIso8601String(),
             'whatsapp_last_notification_at' => $this->lastWhatsappNotificationAt()?->toIso8601String(),

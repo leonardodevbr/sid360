@@ -21,6 +21,8 @@ class InstallmentInteraction extends Model
 
     public const TYPE_PIX = 'pix';
 
+    public const TYPE_RECIBO = 'recibo';
+
     public const TYPE_NEGOTIATE_FORWARD = 'negotiate_forward';
 
     public const TYPE_REPLY_ACKNOWLEDGE = 'reply_acknowledge';

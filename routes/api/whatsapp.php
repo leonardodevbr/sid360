@@ -13,6 +13,9 @@ Route::middleware('signed')->group(function (): void {
 
     Route::get('/whatsapp/documents/sales/{id}/carne', [WhatsappSaleDocumentController::class, 'carne'])
         ->name('whatsapp.documents.sale.carne');
+
+    Route::get('/whatsapp/documents/installments/{id}/recibo', [WhatsappSaleDocumentController::class, 'recibo'])
+        ->name('whatsapp.documents.installment.recibo');
 });
 
 Route::post('/whatsapp/webhook', [WhatsappWebhookController::class, 'handle'])

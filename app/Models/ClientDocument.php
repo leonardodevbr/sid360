@@ -33,12 +33,28 @@ class ClientDocument extends Model
         self::TYPE_OUTRO,
     ];
 
+    public const SIDE_FRENTE = 'frente';
+
+    public const SIDE_VERSO = 'verso';
+
+    public const SIDE_ABERTO = 'aberto';
+
+    /**
+     * @var list<string>
+     */
+    public const SIDES = [
+        self::SIDE_FRENTE,
+        self::SIDE_VERSO,
+        self::SIDE_ABERTO,
+    ];
+
     /**
      * @var list<string>
      */
     protected $fillable = [
         'client_id',
         'type',
+        'side',
         'disk',
         'path',
         'original_filename',
@@ -78,6 +94,16 @@ class ClientDocument extends Model
             self::TYPE_COMPROVANTE_RESIDENCIA => 'Comprovante de residência',
             self::TYPE_COMPROVANTE_RENDA => 'Comprovante de renda',
             self::TYPE_OUTRO => 'Outro',
+            default => '',
+        };
+    }
+
+    public static function sideLabel(?string $side): string
+    {
+        return match ($side) {
+            self::SIDE_FRENTE => 'Frente',
+            self::SIDE_VERSO => 'Verso',
+            self::SIDE_ABERTO => 'Aberto',
             default => '',
         };
     }

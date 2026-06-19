@@ -20,6 +20,8 @@ class ClientDocumentResource extends JsonResource
             'client_id' => $this->client_id,
             'type' => $this->type,
             'type_label' => ClientDocument::typeLabel($this->type),
+            'side' => $this->side,
+            'side_label' => ClientDocument::sideLabel($this->side),
             'original_filename' => $this->original_filename,
             'mime_type' => $this->mime_type,
             'size' => (int) $this->size,

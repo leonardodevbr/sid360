@@ -21,6 +21,8 @@ class SaleDocumentResource extends JsonResource
             'client_document_id' => $this->client_document_id,
             'type' => $this->type,
             'type_label' => SaleDocument::typeLabel($this->type),
+            'side' => $this->side,
+            'side_label' => SaleDocument::sideLabel($this->side),
             'original_filename' => $this->original_filename,
             'mime_type' => $this->mime_type,
             'size' => (int) $this->size,

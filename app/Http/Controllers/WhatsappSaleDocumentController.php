@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Actions\Installment\GenerateInstallmentReciboPdfAction;
 use App\Actions\Sale\GenerateSaleCarnePdfAction;
 use App\Actions\Sale\GenerateSaleContractPdfAction;
+use App\Models\Installment;
 use App\Models\Sale;
 use Illuminate\Http\Response;
 
@@ -34,6 +36,18 @@ class WhatsappSaleDocumentController extends Controller
         return response($pdfBytes, 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="promissoria-venda-'.$sale->id.'.pdf"',
+        ]);
+    }
+
+    public function recibo(string|int $id, GenerateInstallmentReciboPdfAction $action): Response
+    {
+        $installment = Installment::query()->findOrFail((int) $id);
+
+        $pdfBytes = $action->execute($installment);
+
+        return response($pdfBytes, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$action->filename($installment).'"',
         ]);
     }
 }

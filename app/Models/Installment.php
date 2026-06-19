@@ -22,6 +22,44 @@ class Installment extends Model
 
     public const STATUS_OVERDUE = 'overdue';
 
+    public const PAYMENT_METHOD_DINHEIRO = 'dinheiro';
+
+    public const PAYMENT_METHOD_PIX = 'pix';
+
+    public const PAYMENT_METHOD_CARTAO = 'cartao';
+
+    public const PAYMENT_METHOD_TRANSFERENCIA = 'transferencia';
+
+    public const PAYMENT_METHOD_PERMUTA = 'permuta';
+
+    public const PAYMENT_METHOD_OUTRO = 'outro';
+
+    /**
+     * @var list<string>
+     */
+    public const PAYMENT_METHODS = [
+        self::PAYMENT_METHOD_DINHEIRO,
+        self::PAYMENT_METHOD_PIX,
+        self::PAYMENT_METHOD_CARTAO,
+        self::PAYMENT_METHOD_TRANSFERENCIA,
+        self::PAYMENT_METHOD_PERMUTA,
+        self::PAYMENT_METHOD_OUTRO,
+    ];
+
+    /**
+     * Métodos que exigem uma descrição livre (ex.: "Veículo Fiat Uno 2018,
+     * placa ABC1234") por não se tratarem de pagamento direto em dinheiro/PIX
+     * processado pelo sistema.
+     *
+     * @var list<string>
+     */
+    public const PAYMENT_METHODS_REQUIRING_DESCRIPTION = [
+        self::PAYMENT_METHOD_CARTAO,
+        self::PAYMENT_METHOD_TRANSFERENCIA,
+        self::PAYMENT_METHOD_PERMUTA,
+        self::PAYMENT_METHOD_OUTRO,
+    ];
+
     /**
      * @var list<string>
      */
@@ -33,6 +71,8 @@ class Installment extends Model
         'value',
         'paid_at',
         'status',
+        'payment_method',
+        'payment_method_description',
         'whatsapp_reminder_sent_at',
         'whatsapp_overdue_sent_at',
         'efi_charge_id',
@@ -116,5 +156,18 @@ class Installment extends Model
     public function isOverdue(): bool
     {
         return $this->displayStatus() === self::STATUS_OVERDUE;
+    }
+
+    public static function paymentMethodLabel(?string $method): string
+    {
+        return match ($method) {
+            self::PAYMENT_METHOD_DINHEIRO => 'Dinheiro',
+            self::PAYMENT_METHOD_PIX => 'PIX',
+            self::PAYMENT_METHOD_CARTAO => 'Cartão',
+            self::PAYMENT_METHOD_TRANSFERENCIA => 'Transferência',
+            self::PAYMENT_METHOD_PERMUTA => 'Permuta/Bem',
+            self::PAYMENT_METHOD_OUTRO => 'Outro',
+            default => '',
+        };
     }
 }

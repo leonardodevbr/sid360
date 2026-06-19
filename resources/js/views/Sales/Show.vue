@@ -468,6 +468,14 @@
       @updated="handleChargeUpdated"
     />
 
+    <InstallmentPaymentModal
+      :is-open="Boolean(paymentModal)"
+      :installment="paymentModal?.installment ?? null"
+      :installments-count="sale?.installments_count ?? null"
+      @close="paymentModal = null"
+      @paid="handleInstallmentPaid"
+    />
+
     <Modal
       :is-open="carneModalOpen"
       title="Gerar carnê bancário"
@@ -539,6 +547,7 @@ import DocumentManager from '@/components/Common/DocumentManager.vue';
 import InstallmentWhatsappCell from '@/components/Sales/InstallmentWhatsappCell.vue';
 import InstallmentEfiActions from '@/components/Sales/InstallmentEfiActions.vue';
 import InstallmentChargeModal from '@/components/Sales/InstallmentChargeModal.vue';
+import InstallmentPaymentModal from '@/components/Sales/InstallmentPaymentModal.vue';
 import { formatBrazilWhatsappNumber, installmentDisplayStatus } from '@/utils/whatsapp';
 import { formatWhatsappHtml } from '@/utils/whatsappFormat';
 import {
@@ -647,6 +656,7 @@ const carneModalOpen = ref(false);
 const carneFirstDueDate = ref('');
 const sendingOverdueWhatsapp = ref(false);
 const chargeModal = ref(null);
+const paymentModal = ref(null);
 const carneData = ref(null);
 
 const showRegistrationSuccess = computed(() => route.query.registered === '1');
@@ -839,35 +849,19 @@ function clearRegistrationQuery() {
   }
 }
 
-async function payInstallment(inst) {
-  const { isConfirmed } = await Swal.fire({
-    title: 'Confirmar pagamento',
-    html: `
-      <div class="text-left text-sm text-slate-600 space-y-1">
-        <p><strong>Parcela:</strong> ${inst.number}/${sale.value.installments_count}</p>
-        <p><strong>Vencimento:</strong> ${fmtDate(inst.due_date)}</p>
-        <p><strong>Valor:</strong> ${formatCurrency(inst.value)}</p>
-      </div>
-    `,
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonText: 'Confirmar pagamento',
-    cancelButtonText: 'Cancelar',
-    confirmButtonColor: '#1E5F8E',
-    cancelButtonColor: '#6b7280',
-    reverseButtons: true,
-  });
+function payInstallment(inst) {
+  paymentModal.value = { installment: inst };
+}
 
-  if (!isConfirmed) return;
+async function handleInstallmentPaid(updatedInstallment) {
+  paymentModal.value = null;
 
-  try {
-    await api.post(`/installments/${inst.id}/pay`);
-    toast.success(`Parcela ${inst.number} marcada como paga.`);
-    loadSale();
-    loadInteractions();
-  } catch {
-    toast.error('Erro ao marcar parcela como paga.');
+  if (updatedInstallment) {
+    patchInstallmentInSale(updatedInstallment);
   }
+
+  await loadSale();
+  await loadInteractions();
 }
 
 function openPixChargeModal(installment) {
