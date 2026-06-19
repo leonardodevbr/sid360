@@ -32,11 +32,17 @@ export function installmentStatusClass(status) {
     paid: badgeColors.success,
     pending: badgeColors.warning,
     overdue: badgeColors.danger,
+    cancelled: badgeColors.neutral,
   }[status] ?? badgeColors.neutral;
 }
 
 export function installmentStatusLabel(status) {
-  return { paid: 'Pago', pending: 'Pendente', overdue: 'Atrasado' }[status] ?? status;
+  return {
+    paid: 'Pago',
+    pending: 'Pendente',
+    overdue: 'Atrasado',
+    cancelled: 'Cancelada',
+  }[status] ?? status;
 }
 
 export function installmentTypeLabel(type) {

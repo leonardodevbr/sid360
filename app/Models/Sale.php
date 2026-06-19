@@ -52,6 +52,8 @@ class Sale extends Model
         'whatsapp_welcome_sent_at',
         'signed_contract_path',
         'signed_contract_original_name',
+        'cancelled_at',
+        'cancellation_reason',
     ];
 
     /**
@@ -70,15 +72,34 @@ class Sale extends Model
             'financed_value' => 'integer',
             'installment_value' => 'integer',
             'whatsapp_welcome_sent_at' => 'datetime',
+            'cancelled_at' => 'datetime',
         ];
     }
 
     /**
+     * Lote principal da venda. Mantido como referência única usada por toda a
+     * base de código (WhatsApp, portal, dashboard, caminhos de armazenamento
+     * de documentos etc.). Para vendas com mais de um lote, é o primeiro lote
+     * informado — os demais ficam em lots().
+     *
      * @return BelongsTo<Lot, $this>
      */
     public function lot(): BelongsTo
     {
         return $this->belongsTo(Lot::class);
+    }
+
+    /**
+     * Todos os lotes incluídos na venda (inclui o lote principal). Permite que
+     * uma única venda/contrato cubra mais de um lote (ex.: lotes vizinhos).
+     *
+     * @return BelongsToMany<Lot, $this>
+     */
+    public function lots(): BelongsToMany
+    {
+        return $this->belongsToMany(Lot::class, 'sale_lots')
+            ->withPivot('order')
+            ->orderByPivot('order');
     }
 
     /**

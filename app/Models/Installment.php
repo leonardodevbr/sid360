@@ -22,6 +22,12 @@ class Installment extends Model
 
     public const STATUS_OVERDUE = 'overdue';
 
+    /**
+     * Parcela cancelada junto com o cancelamento da venda. Diferente de
+     * STATUS_PAID/STATUS_PENDING, nunca é alterada manualmente pelo usuário.
+     */
+    public const STATUS_CANCELLED = 'cancelled';
+
     public const PAYMENT_METHOD_DINHEIRO = 'dinheiro';
 
     public const PAYMENT_METHOD_PIX = 'pix';

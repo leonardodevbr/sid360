@@ -5,6 +5,7 @@ import api from '@/services/api';
 import Modal from '@/components/Common/Modal.vue';
 import Button from '@/components/Common/Button.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
+import Flatpickr from '@/components/Common/Flatpickr.vue';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { PAYMENT_METHODS, paymentMethodRequiresDescription } from '@/utils/paymentMethods';
@@ -29,7 +30,15 @@ const emit = defineEmits(['close', 'paid']);
 const toast = useToast();
 const paymentMethod = ref('');
 const paymentMethodDescription = ref('');
+const paidAt = ref('');
 const paying = ref(false);
+
+function todayApiDate() {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
+}
 
 const parcelLabel = computed(() => {
   if (!props.installment) {
@@ -58,6 +67,9 @@ const canConfirm = computed(() => {
 function resetState() {
   paymentMethod.value = '';
   paymentMethodDescription.value = '';
+  // Padrão é hoje, mas o usuário pode ajustar — pagamento pode ter sido feito
+  // antes ou depois do vencimento da parcela.
+  paidAt.value = todayApiDate();
 }
 
 watch(
@@ -84,6 +96,7 @@ async function confirmPay() {
   paying.value = true;
   try {
     const { data } = await api.post(`/installments/${props.installment.id}/pay`, {
+      paid_at: paidAt.value || null,
       payment_method: paymentMethod.value,
       payment_method_description: requiresDescription.value ? paymentMethodDescription.value.trim() : null,
     });
@@ -120,6 +133,11 @@ async function confirmPay() {
           <p class="font-medium text-slate-800">{{ formatCurrency(installment.value) }}</p>
         </div>
       </div>
+
+      <Flatpickr
+        v-model="paidAt"
+        label="Data do pagamento"
+      />
 
       <SelectInput
         v-model="paymentMethod"

@@ -34,6 +34,8 @@ class SaleResource extends JsonResource
             'first_due_date' => $this->first_due_date?->toDateString(),
             'payment_day' => $this->payment_day,
             'status' => $this->status,
+            'cancelled_at' => $this->cancelled_at?->toIso8601String(),
+            'cancellation_reason' => $this->cancellation_reason,
             'efi_carnet_id' => $this->efi_carnet_id,
             'efi_carnet_pdf' => $this->efi_carnet_pdf,
             'efi_carnet_link' => $this->efi_carnet_link,

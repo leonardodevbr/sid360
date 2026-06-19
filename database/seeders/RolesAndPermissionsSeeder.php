@@ -35,6 +35,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'sales.create',
             'sales.edit',
             'sales.delete',
+            'sales.cancel',
         ];
 
         foreach ($permissions as $permission) {

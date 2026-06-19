@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Actions\Sale\CancelSaleAction;
 use App\Actions\Sale\DeleteSaleAction;
 use App\Actions\Sale\GenerateSaleContractPdfAction;
 use App\Actions\Sale\ListSaleDocumentsAction;
@@ -14,6 +15,7 @@ use App\Actions\Sale\StoreSaleAction;
 use App\Actions\Sale\UpdateSaleAction;
 use App\Actions\Sale\UploadSaleDocumentAction;
 use App\Actions\Sale\UploadSignedContractAction;
+use App\Http\Requests\CancelSaleRequest;
 use App\Http\Requests\StoreSaleRequest;
 use App\Http\Requests\UploadSaleDocumentRequest;
 use App\Http\Requests\UploadSignedContractRequest;
@@ -97,6 +99,23 @@ class SaleController extends Controller
         $action->execute($sale);
 
         return response()->json(['message' => 'Venda excluída com sucesso.']);
+    }
+
+    public function cancel(CancelSaleRequest $request, string|int $id, CancelSaleAction $action): JsonResponse
+    {
+        $this->authorize('sales.cancel');
+
+        $sale = Sale::query()->findOrFail((int) $id);
+
+        try {
+            $sale = $action->execute($sale, (string) $request->validated('reason'));
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $sale->load(['client', 'lot.development', 'lots.development', 'installments', 'buyers']);
+
+        return response()->json(new SaleResource($sale));
     }
 
     public function sendOverdueWhatsapp(string|int $id, SendOverdueWhatsappAction $action): JsonResponse
