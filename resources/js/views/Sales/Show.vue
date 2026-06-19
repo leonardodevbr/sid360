@@ -447,6 +447,13 @@
           </div>
         </div>
       </div>
+
+      <DocumentManager
+        entity-type="sale"
+        :entity-id="sale.id"
+        title="Documentos"
+        description="Documentos do cliente vinculados a esta venda (cópia congelada no momento da compra) e anexos adicionais."
+      />
     </template>
 
     <InstallmentChargeModal
@@ -528,6 +535,7 @@ import {
 import Button from '@/components/Common/Button.vue';
 import Modal from '@/components/Common/Modal.vue';
 import Flatpickr from '@/components/Common/Flatpickr.vue';
+import DocumentManager from '@/components/Common/DocumentManager.vue';
 import InstallmentWhatsappCell from '@/components/Sales/InstallmentWhatsappCell.vue';
 import InstallmentEfiActions from '@/components/Sales/InstallmentEfiActions.vue';
 import InstallmentChargeModal from '@/components/Sales/InstallmentChargeModal.vue';

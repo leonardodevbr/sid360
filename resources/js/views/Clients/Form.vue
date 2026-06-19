@@ -40,6 +40,14 @@
       </div>
     </form>
     <div v-else class="card p-12 text-center text-slate-500">Carregando...</div>
+
+    <DocumentManager
+      v-if="isEdit && !loading"
+      entity-type="client"
+      :entity-id="route.params.id"
+      title="Documentos"
+      description="Perfil geral de documentos do cliente (RG, CPF, CNH, comprovantes...). Ao atualizar um documento, a versão anterior fica disponível no histórico."
+    />
   </div>
 </template>
 
@@ -50,6 +58,7 @@ import { useToast } from 'vue-toastification';
 import api from '@/services/api';
 import Button from '@/components/Common/Button.vue';
 import ClientFormFields from '@/components/Clients/ClientFormFields.vue';
+import DocumentManager from '@/components/Common/DocumentManager.vue';
 import { useClientForm } from '@/composables/useClientForm';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { ArrowLeftIcon } from '@heroicons/vue/24/outline';

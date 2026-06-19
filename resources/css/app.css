@@ -442,8 +442,8 @@
   font-weight: 600;
   letter-spacing: 0.02em;
   paint-order: stroke fill;
-  stroke: rgba(148, 163, 184, 0.95);
-  stroke-width: 5px;
+  stroke: rgba(255, 255, 255, 0.92);
+  stroke-width: 2.25px;
   stroke-linejoin: round;
 }
 

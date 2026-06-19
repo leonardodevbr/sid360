@@ -14,7 +14,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/developments/{id}/update', [DevelopmentController::class, 'update']);
     Route::post('/developments/{id}/delete', [DevelopmentController::class, 'destroy']);
     Route::get('/developments/{id}/lots', [DevelopmentController::class, 'lots']);
-    Route::post('/developments/{id}/technical-map/pdf', [DevelopmentController::class, 'technicalMapPdf']);
 
     Route::get('/developments/{id}/zones', [DevelopmentZoneController::class, 'index']);
     Route::post('/developments/{id}/zones', [DevelopmentZoneController::class, 'store']);

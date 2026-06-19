@@ -78,6 +78,22 @@ class Client extends Model
         return $this->hasMany(Sale::class);
     }
 
+    /**
+     * @return HasMany<ClientDocument, $this>
+     */
+    public function documents(): HasMany
+    {
+        return $this->hasMany(ClientDocument::class);
+    }
+
+    /**
+     * @return HasMany<ClientDocument, $this>
+     */
+    public function currentDocuments(): HasMany
+    {
+        return $this->documents()->where('is_current', true);
+    }
+
     public function getFullAddressAttribute(): string
     {
         $parts = array_filter([

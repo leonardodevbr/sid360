@@ -154,10 +154,34 @@ function renderLotEdgeDimensions(ring, project) {
   return html;
 }
 
-function buildStreetRepeatedName(name, pathLengthMeters) {
-  const count = Math.max(1, Math.ceil(pathLengthMeters / STREET_NAME_SPACING_METERS));
+/**
+ * Mesmo princípio do mapStreetNameOverlay.js: 1 nome visível, seguido de um vão
+ * equivalente a 2x a largura do próprio nome (renderizado como tspans invisíveis)
+ * antes de repetir. Evita usar um separador de largura fixa (ex.: "  ·  "), que
+ * fica "colado" em nomes longos pois não escala com o tamanho do texto.
+ */
+function buildStreetRepeatedNameSegments(name, pathLengthMeters) {
+  const repeatCount = Math.max(1, Math.ceil(pathLengthMeters / STREET_NAME_SPACING_METERS));
+  const segments = [];
 
-  return Array.from({ length: count }, () => name).join('   ·   ');
+  for (let i = 0; i < repeatCount; i += 1) {
+    segments.push({ visible: true, text: name });
+
+    if (i < repeatCount - 1) {
+      segments.push({ visible: false, text: name });
+      segments.push({ visible: false, text: name });
+    }
+  }
+
+  return segments;
+}
+
+function streetNameSegmentsToTspans(segments) {
+  return segments.map((segment) => {
+    const attrs = segment.visible ? '' : ' fill="transparent" stroke="none"';
+
+    return `<tspan${attrs}>${escapeXml(segment.text)}</tspan>`;
+  }).join('');
 }
 
 function pathLengthMetersLocal(ring) {
@@ -206,10 +230,10 @@ function renderStreetNames(streets, origin, bearingDeg, project, options) {
 
     defs.push(`<path id="${pathId}" d="${d}" fill="none" stroke="none" />`);
 
-    const repeated = buildStreetRepeatedName(name, pathLengthMetersLocal(pathLocal));
+    const segments = buildStreetRepeatedNameSegments(name, pathLengthMetersLocal(pathLocal));
     labels.push(`
       <text class="technical-map-street-name">
-        <textPath href="#${pathId}" startOffset="3%">${escapeXml(repeated)}</textPath>
+        <textPath href="#${pathId}" startOffset="3%">${streetNameSegmentsToTspans(segments)}</textPath>
       </text>
     `);
   });

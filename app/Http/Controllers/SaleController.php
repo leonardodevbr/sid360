@@ -6,13 +6,18 @@ namespace App\Http\Controllers;
 
 use App\Actions\Sale\DeleteSaleAction;
 use App\Actions\Sale\GenerateSaleContractPdfAction;
+use App\Actions\Sale\ListSaleDocumentsAction;
 use App\Actions\Sale\ListSalesAction;
 use App\Actions\Sale\SendOverdueWhatsappAction;
+use App\Actions\Sale\SnapshotSaleDocumentsAction;
 use App\Actions\Sale\StoreSaleAction;
 use App\Actions\Sale\UpdateSaleAction;
+use App\Actions\Sale\UploadSaleDocumentAction;
 use App\Actions\Sale\UploadSignedContractAction;
 use App\Http\Requests\StoreSaleRequest;
+use App\Http\Requests\UploadSaleDocumentRequest;
 use App\Http\Requests\UploadSignedContractRequest;
+use App\Http\Resources\SaleDocumentResource;
 use App\Http\Resources\SaleResource;
 use App\Models\Installment;
 use App\Models\Sale;
@@ -24,6 +29,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SaleController extends Controller
 {
@@ -34,8 +40,11 @@ class SaleController extends Controller
         return SaleResource::collection($action->execute($request));
     }
 
-    public function store(StoreSaleRequest $request, StoreSaleAction $action): JsonResponse
-    {
+    public function store(
+        StoreSaleRequest $request,
+        StoreSaleAction $action,
+        SnapshotSaleDocumentsAction $snapshotDocumentsAction
+    ): JsonResponse {
         $this->authorize('sales.create');
 
         $validated = $request->validated();
@@ -49,6 +58,10 @@ class SaleController extends Controller
                 (int) $clientId => ['role' => 'co_buyer', 'order' => $i + 1],
             ]);
         }
+
+        // Congela, na pasta do empreendimento, os documentos atuais do cliente
+        // no momento da venda (perfil geral do cliente continua evoluindo livre).
+        $snapshotDocumentsAction->execute($sale);
 
         $sale->load(['client', 'lot.development', 'installments', 'buyers']);
 
@@ -225,5 +238,43 @@ class SaleController extends Controller
             $sale->signed_contract_path,
             $sale->signed_contract_original_name ?? "contrato-assinado-venda-{$sale->id}.pdf",
         );
+    }
+
+    public function documents(string|int $id, ListSaleDocumentsAction $action): AnonymousResourceCollection
+    {
+        $this->authorize('sales.view');
+
+        $sale = Sale::query()->findOrFail((int) $id);
+
+        return SaleDocumentResource::collection($action->execute($sale));
+    }
+
+    public function uploadDocument(
+        UploadSaleDocumentRequest $request,
+        string|int $id,
+        UploadSaleDocumentAction $action
+    ): JsonResponse {
+        $this->authorize('sales.edit');
+
+        $sale = Sale::query()->findOrFail((int) $id);
+
+        $document = $action->execute(
+            $sale,
+            $request->file('file'),
+            (string) $request->validated('type'),
+            $request->user()?->id,
+        );
+
+        return response()->json(new SaleDocumentResource($document), 201);
+    }
+
+    public function downloadDocument(string|int $id, string|int $documentId): StreamedResponse
+    {
+        $this->authorize('sales.view');
+
+        $sale = Sale::query()->findOrFail((int) $id);
+        $document = $sale->documents()->findOrFail((int) $documentId);
+
+        return Storage::disk($document->disk)->download($document->path, $document->original_filename);
     }
 }

@@ -12,4 +12,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/clients/{id}/update', [ClientController::class, 'update']);
     Route::post('/clients/{id}/delete', [ClientController::class, 'destroy']);
     Route::post('/clients/{id}/whatsapp-status', [ClientController::class, 'updateWhatsappStatus']);
+    Route::get('/clients/{id}/documents', [ClientController::class, 'documents']);
+    Route::post('/clients/{id}/documents', [ClientController::class, 'uploadDocument']);
+    Route::get('/clients/{id}/documents/{documentId}/download', [ClientController::class, 'downloadDocument']);
+    Route::post('/clients/{id}/documents/{documentId}/delete', [ClientController::class, 'deleteDocument']);
 });

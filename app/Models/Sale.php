@@ -100,6 +100,14 @@ class Sale extends Model
     }
 
     /**
+     * @return HasMany<SaleDocument, $this>
+     */
+    public function documents(): HasMany
+    {
+        return $this->hasMany(SaleDocument::class);
+    }
+
+    /**
      * @return HasMany<Installment, $this>
      */
     public function installments(): HasMany

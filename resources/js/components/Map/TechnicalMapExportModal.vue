@@ -8,7 +8,6 @@ import {
   buildTechnicalMapPayload,
   exportTechnicalMapClientPdf,
   exportTechnicalMapClientSvg,
-  exportTechnicalMapServerPdf,
 } from '@/services/technicalMap.service';
 
 const props = defineProps({
@@ -127,15 +126,6 @@ function exportPdf() {
 function exportSvg() {
   return runExport(() => exportTechnicalMapClientSvg(buildPayload(), { ...options }));
 }
-
-function exportServerPdf() {
-  if (!props.developmentId) {
-    toast.error('Salve o empreendimento antes de gerar pelo servidor.');
-    return;
-  }
-
-  return runExport(() => exportTechnicalMapServerPdf(props.developmentId, buildPayload(), { ...options }));
-}
 </script>
 
 <template>
@@ -200,14 +190,6 @@ function exportServerPdf() {
             </Button>
             <Button variant="outline" :disabled="exporting" @click="exportSvg">
               Baixar SVG
-            </Button>
-            <Button
-              v-if="developmentId"
-              variant="outline"
-              :disabled="exporting"
-              @click="exportServerPdf"
-            >
-              PDF (servidor)
             </Button>
             <Button variant="primary" :disabled="exporting" @click="exportPdf">
               {{ exporting ? 'Gerando...' : 'Baixar PDF' }}
