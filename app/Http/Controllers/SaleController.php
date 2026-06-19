@@ -65,7 +65,7 @@ class SaleController extends Controller
         // no momento da venda (perfil geral do cliente continua evoluindo livre).
         $snapshotDocumentsAction->execute($sale);
 
-        $sale->load(['client', 'lot.development', 'installments', 'buyers']);
+        $sale->load(['client', 'lot.development', 'lots.development', 'installments', 'buyers']);
 
         return response()->json(new SaleResource($sale), 201);
     }
@@ -75,7 +75,17 @@ class SaleController extends Controller
         $this->authorize('sales.view');
 
         $sale = Sale::query()
-            ->with(['client', 'lot.development', 'lot.street', 'lot.zone.parent', 'installments', 'buyers'])
+            ->with([
+                'client',
+                'lot.development',
+                'lot.street',
+                'lot.zone.parent',
+                'lots.development',
+                'lots.street',
+                'lots.zone.parent',
+                'installments',
+                'buyers',
+            ])
             ->findOrFail((int) $id);
 
         return response()->json(new SaleResource($sale));
@@ -142,7 +152,15 @@ class SaleController extends Controller
         $this->authorize('sales.view');
 
         $sale = Sale::query()
-            ->with(['client', 'lot.development', 'lot.street', 'lot.zone.parent', 'buyers'])
+            ->with([
+                'client',
+                'lot.development',
+                'lot.street',
+                'lot.zone.parent',
+                'lots.street',
+                'lots.zone.parent',
+                'buyers',
+            ])
             ->findOrFail((int) $id);
 
         $pdf = $action->execute($sale);
@@ -159,7 +177,15 @@ class SaleController extends Controller
         $this->authorize('sales.view');
 
         $sale = Sale::query()
-            ->with(['client', 'lot.development', 'lot.street', 'lot.zone.parent', 'buyers'])
+            ->with([
+                'client',
+                'lot.development',
+                'lot.street',
+                'lot.zone.parent',
+                'lots.street',
+                'lots.zone.parent',
+                'buyers',
+            ])
             ->findOrFail((int) $id);
 
         $pdf = $action->execute($sale, isDraft: true);
@@ -215,6 +241,7 @@ class SaleController extends Controller
             ->with([
                 'client',
                 'lot.development',
+                'lots',
                 'buyers',
                 'financingInstallments',
             ])
@@ -238,7 +265,7 @@ class SaleController extends Controller
 
         $sale = Sale::query()->findOrFail((int) $id);
         $sale = $action->execute($sale, $request->file('file'));
-        $sale->load(['client', 'lot.development', 'installments']);
+        $sale->load(['client', 'lot.development', 'lots.development', 'installments']);
 
         return response()->json(new SaleResource($sale));
     }

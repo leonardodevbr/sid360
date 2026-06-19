@@ -52,8 +52,18 @@ class SaleObserver
         }
     }
 
-    public function deleted(Sale $sale): void
+    /**
+     * Usa `deleting` (não `deleted`): a FK de `sale_lots.sale_id` é
+     * cascadeOnDelete, então ao chegar em `deleted` o pivot já teria sido
+     * apagado e não saberíamos mais quais lotes liberar.
+     */
+    public function deleting(Sale $sale): void
     {
-        Lot::query()->where('id', $sale->lot_id)->update(['status' => Lot::STATUS_AVAILABLE]);
+        $lotIds = $sale->lots()->pluck('lots.id');
+        if ($lotIds->isEmpty()) {
+            $lotIds = collect([$sale->lot_id])->filter();
+        }
+
+        Lot::query()->whereIn('id', $lotIds)->update(['status' => Lot::STATUS_AVAILABLE]);
     }
 }

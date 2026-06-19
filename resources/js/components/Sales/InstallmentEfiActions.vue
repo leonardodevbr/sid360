@@ -19,7 +19,10 @@ defineEmits(['pay', 'open-pix', 'open-boleto', 'download-recibo', 'send-recibo-w
 
 <template>
   <div class="flex flex-wrap justify-end gap-1.5">
-    <template v-if="installment.status !== 'paid'">
+    <template v-if="installment.status === 'cancelled'">
+      <span class="text-xs text-slate-400">Parcela cancelada</span>
+    </template>
+    <template v-else-if="installment.status !== 'paid'">
       <button
         type="button"
         class="rounded-lg px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50"

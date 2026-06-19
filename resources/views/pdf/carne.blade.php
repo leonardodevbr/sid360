@@ -148,8 +148,22 @@
   $buyerAddr  = $payer->full_address ?? '';
   $buyerCity  = collect([$payer->city, $payer->state])->filter()->join(' — ');
 
-  $loteLabel = 'Q' . ($sale->lot->block ?? '–') . ' · L' . $sale->lot->number
-      . ($sale->lot->area ? ' · ' . number_format((float)$sale->lot->area, 0, ',', '.') . 'm²' : '');
+  // Lotes da venda (1 ou mais). Vendas com múltiplos lotes (ex.: lotes
+  // vizinhos comprados juntos) exibem "L12, L13" em vez de um lote só.
+  $carneLots = ($sale->relationLoaded('lots') && $sale->lots->isNotEmpty())
+      ? $sale->lots
+      : collect([$sale->lot])->filter();
+
+  if ($carneLots->count() > 1) {
+      $lotsArea = $carneLots->sum(fn ($lot) => (float) ($lot->area ?? 0));
+      $loteLabel = 'Lotes ' . $carneLots->pluck('number')->join(', ')
+          . ($lotsArea > 0 ? ' · ' . number_format($lotsArea, 0, ',', '.') . 'm² (total)' : '');
+  } else {
+      $loteLabel = 'Q' . ($sale->lot->block ?? '–') . ' · L' . $sale->lot->number
+          . ($sale->lot->area ? ' · ' . number_format((float)$sale->lot->area, 0, ',', '.') . 'm²' : '');
+  }
+
+  $loteRowLabel = $carneLots->count() > 1 ? 'Lotes' : 'Lote';
 
   $parcelas      = $sale->installments->where('type', '!=', 'down_payment')->values();
   $stripH              = 270;
@@ -233,7 +247,7 @@
                     <div style="font-size:5.5pt;font-weight:bold;text-transform:uppercase;color:{{ $capaBlueLabel }};border-bottom:0.5pt solid {{ $capaBlueLine }};padding-bottom:1pt;margin-bottom:1.5pt;">Dados do Imóvel</div>
                     <table class="capa-table" width="100%">
                       <tr><td>Empreendimento</td><td>{{ $sale->lot->development->name }}</td></tr>
-                      <tr><td>Lote</td><td>{{ $loteLabel }}</td></tr>
+                      <tr><td>{{ $loteRowLabel }}</td><td>{{ $loteLabel }}</td></tr>
                     </table>
                     <div style="font-size:5.5pt;font-weight:bold;text-transform:uppercase;color:{{ $capaBlueLabel }};border-bottom:0.5pt solid {{ $capaBlueLine }};padding-bottom:1pt;margin:1.5pt 0;">Resumo Financeiro</div>
                     <table class="capa-table" width="100%">
@@ -277,7 +291,7 @@
                         <div style="font-size:5.5pt;font-weight:bold;text-transform:uppercase;color:{{ $capaBlueLabel }};border-bottom:0.5pt solid {{ $capaBlueLine }};padding-bottom:1pt;margin-bottom:1.5pt;">Dados do Imóvel</div>
                         <table class="capa-table" width="100%">
                           <tr><td>Empreendimento</td><td>{{ $sale->lot->development->name }}</td></tr>
-                          <tr><td>Lote</td><td>{{ $loteLabel }}</td></tr>
+                          <tr><td>{{ $loteRowLabel }}</td><td>{{ $loteLabel }}</td></tr>
                         </table>
                         <div style="font-size:5.5pt;font-weight:bold;text-transform:uppercase;color:{{ $capaBlueLabel }};border-bottom:0.5pt solid {{ $capaBlueLine }};padding-bottom:1pt;margin:1.5pt 0;">Resumo Financeiro</div>
                         <table class="capa-table" width="100%">

@@ -35,10 +35,24 @@
         <p v-else-if="sale?.client" class="mt-0.5 text-xs text-amber-700">
           WhatsApp não cadastrado
         </p>
-        <p v-if="sale?.lot?.full_address" class="mt-0.5 text-xs text-slate-500">
+        <p v-if="temMultiplosLotes" class="mt-0.5 text-xs text-slate-500">
+          Lotes {{ sale.lots.map((l) => l.number).join(', ') }}
+          <span v-if="sale.lot?.development?.name"> · {{ sale.lot.development.name }}</span>
+        </p>
+        <p v-else-if="sale?.lot?.full_address" class="mt-0.5 text-xs text-slate-500">
           {{ sale.lot.full_address }}
         </p>
       </div>
+      <Button
+        v-if="sale && sale.status !== 'cancelled'"
+        type="button"
+        variant="danger"
+        class="shrink-0"
+        :loading="cancellingSale"
+        @click="handleCancelSale"
+      >
+        Cancelar venda
+      </Button>
     </div>
 
     <div v-if="loading" class="card p-12 text-center text-slate-400">Carregando...</div>
@@ -51,6 +65,40 @@
         <p class="text-sm font-semibold text-[#1c0a06]">Venda registrada com sucesso</p>
         <p class="mt-1 text-xs text-[#7a4535]">
           Imprima o contrato para assinatura e, após assinado, envie o arquivo digitalizado abaixo.
+        </p>
+      </div>
+
+      <div v-if="sale.status === 'cancelled'" class="card border-red-200 bg-red-50 p-5">
+        <p class="text-sm font-semibold text-red-800">Venda cancelada</p>
+        <p v-if="sale.cancelled_at" class="mt-1 text-xs text-red-700">
+          Cancelada em {{ formatDateTime(sale.cancelled_at) }}
+        </p>
+        <p v-if="sale.cancellation_reason" class="mt-2 text-xs text-red-700">
+          <span class="font-medium">Motivo:</span> {{ sale.cancellation_reason }}
+        </p>
+        <p class="mt-2 text-xs text-red-600">
+          {{ temMultiplosLotes ? 'Os lotes foram liberados' : 'O lote foi liberado' }} e as parcelas pendentes foram
+          canceladas. Parcelas já pagas e documentos foram preservados.
+        </p>
+      </div>
+
+      <div v-if="temMultiplosLotes" class="card p-5">
+        <h3 class="mb-3 text-sm font-semibold text-slate-800">Lotes desta venda</h3>
+        <p class="mb-3 text-xs text-slate-500">
+          Venda com múltiplos lotes — 1 contrato e 1 carnê cobrem todos os lotes abaixo.
+        </p>
+        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div
+            v-for="lote in sale.lots"
+            :key="lote.id"
+            class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800"
+          >
+            <span class="font-semibold">Q{{ lote.block ?? '–' }} · L{{ lote.number }}</span>
+            <span v-if="lote.area" class="ml-1 text-slate-500">{{ lote.area }}m²</span>
+          </div>
+        </div>
+        <p class="mt-3 text-xs text-slate-500">
+          Área total: {{ lotesAreaTotal }}m²
         </p>
       </div>
 
@@ -680,6 +728,15 @@ const clientWhatsAppUrl = computed(() => {
   return number ? `https://wa.me/${number}` : '';
 });
 
+// Venda com lotes vizinhos (ex.: 2 lotes comprados juntos) — 1 contrato/carnê
+// cobre todos os lotes em `sale.lots`, então a UI lista todos em vez de só o
+// lote "primário" (`sale.lot`).
+const temMultiplosLotes = computed(() => (sale.value?.lots?.length ?? 0) > 1);
+
+const lotesAreaTotal = computed(() =>
+  (sale.value?.lots ?? []).reduce((sum, lote) => sum + (Number(lote.area) || 0), 0),
+);
+
 const installmentsExpanded = ref(false);
 
 const route = useRoute();
@@ -700,6 +757,7 @@ const generatingCarne = ref(false);
 const carneModalOpen = ref(false);
 const carneFirstDueDate = ref('');
 const sendingOverdueWhatsapp = ref(false);
+const cancellingSale = ref(false);
 const chargeModal = ref(null);
 const downloadingReciboId = ref(null);
 const sendingReciboId = ref(null);
@@ -788,6 +846,53 @@ async function handleSendOverdueWhatsapp() {
     toast.error(getApiErrorMessage(err, 'Não foi possível enviar a cobrança.'));
   } finally {
     sendingOverdueWhatsapp.value = false;
+  }
+}
+
+async function handleCancelSale() {
+  const result = await Swal.fire({
+    ...swalDefaultConfig,
+    title: 'Cancelar venda?',
+    html: `
+      <div class="text-left text-sm text-slate-600 space-y-2">
+        <p>${temMultiplosLotes.value ? 'Os lotes serão liberados' : 'O lote será liberado'} automaticamente para <strong>Disponível</strong> e as parcelas pendentes serão marcadas como canceladas.</p>
+        <p class="text-xs text-slate-500 pt-2 border-t border-slate-100">
+          Parcelas já pagas, recibos e documentos da venda são preservados.
+        </p>
+      </div>
+    `,
+    icon: 'warning',
+    input: 'textarea',
+    inputLabel: 'Motivo do cancelamento',
+    inputPlaceholder: 'Descreva o motivo do cancelamento...',
+    inputValidator: (value) => {
+      if (!value || value.trim().length < 3) {
+        return 'Informe o motivo do cancelamento (mínimo 3 caracteres).';
+      }
+      return undefined;
+    },
+    showCancelButton: true,
+    confirmButtonText: 'Cancelar venda',
+    cancelButtonText: 'Voltar',
+    reverseButtons: true,
+    focusCancel: true,
+  });
+
+  if (!result.isConfirmed) {
+    return;
+  }
+
+  cancellingSale.value = true;
+  try {
+    const { data } = await api.post(`/sales/${sale.value.id}/cancel`, {
+      reason: result.value,
+    });
+    sale.value = data.data ?? data;
+    toast.success('Venda cancelada com sucesso.');
+  } catch (err) {
+    toast.error(getApiErrorMessage(err, 'Não foi possível cancelar a venda.'));
+  } finally {
+    cancellingSale.value = false;
   }
 }
 

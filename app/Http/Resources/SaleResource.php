@@ -19,6 +19,7 @@ class SaleResource extends JsonResource
             'lot_id' => $this->lot_id,
             'client_id' => $this->client_id,
             'lot' => $this->whenLoaded('lot', fn () => new LotResource($this->lot)),
+            'lots' => $this->whenLoaded('lots', fn () => LotResource::collection($this->lots)),
             'client' => $this->whenLoaded('client', fn () => new ClientResource($this->client)),
             'buyers' => $this->whenLoaded('buyers', fn () => ClientResource::collection($this->buyers)),
             'installments' => $this->whenLoaded('installments', fn () => InstallmentResource::collection($this->installments)),

@@ -559,24 +559,31 @@
           @update:model-value="onDevelopmentChange"
         />
         <SelectInput
-          v-model="form.lot_id"
-          label="Lote disponível"
+          v-model="form.lot_ids"
+          mode="multiple"
+          label="Lote(s) disponível(eis)"
           :options="lotOptions"
-          placeholder="Selecione o lote…"
+          placeholder="Selecione um ou mais lotes…"
           :searchable="true"
           :disabled="!form.development_id"
         />
-        <div v-if="loteSelecionado">
-          <p class="mb-1 block text-sm font-medium text-slate-700">Lote selecionado</p>
+        <div v-if="lotesSelecionados.length">
+          <p class="mb-1 block text-sm font-medium text-slate-700">
+            {{ lotesSelecionados.length > 1 ? 'Lotes selecionados' : 'Lote selecionado' }}
+          </p>
           <div
-            class="flex min-h-[42px] items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-800"
+            class="flex min-h-[42px] flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800"
           >
-            <span class="font-semibold">Q{{ loteSelecionado.block ?? '–' }} · L{{ loteSelecionado.number }}</span>
-            <span v-if="loteSelecionado.area || loteSelecionado.total_value" class="ml-1 text-slate-500">
-              <template v-if="loteSelecionado.area">{{ loteSelecionado.area }}m²</template>
-              <template v-if="loteSelecionado.total_value">
-                <template v-if="loteSelecionado.area"> · </template>
-                {{ formatCurrency(loteSelecionado.total_value) }}
+            <span
+              v-for="lote in lotesSelecionados"
+              :key="lote.id"
+              class="font-semibold"
+            >Q{{ lote.block ?? '–' }}·L{{ lote.number }}</span>
+            <span v-if="lotesAreaTotal || lotesValueTotal" class="text-slate-500">
+              <template v-if="lotesAreaTotal">{{ lotesAreaTotal }}m²</template>
+              <template v-if="lotesValueTotal">
+                <template v-if="lotesAreaTotal"> · </template>
+                {{ formatCurrency(lotesValueTotal) }}
               </template>
             </span>
           </div>
@@ -585,11 +592,11 @@
     </div>
 
     <!-- ETAPA 3 — VALORES -->
-    <div class="card p-5" :class="{ 'pointer-events-none opacity-40': !form.lot_id }">
+    <div class="card p-5" :class="{ 'pointer-events-none opacity-40': !lotesSelecionados.length }">
       <p class="mb-4 text-xs font-semibold uppercase tracking-widest text-slate-400">
         <span
           class="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold"
-          :class="form.lot_id ? 'bg-[#c23028] text-white' : 'bg-slate-200 text-slate-400'"
+          :class="lotesSelecionados.length ? 'bg-[#c23028] text-white' : 'bg-slate-200 text-slate-400'"
         >3</span>
         Valores e Parcelas
       </p>
@@ -727,8 +734,13 @@
           <p class="truncate font-medium text-[#1c0a06]">{{ clienteSelecionado?.name }}</p>
         </div>
         <div>
-          <p class="text-xs text-[#7a4535]">Lote</p>
-          <p class="font-medium text-[#1c0a06]">Q{{ loteSelecionado?.block }} · L{{ loteSelecionado?.number }}</p>
+          <p class="text-xs text-[#7a4535]">{{ lotesSelecionados.length > 1 ? 'Lotes' : 'Lote' }}</p>
+          <p class="font-medium text-[#1c0a06]">
+            <template v-if="lotesSelecionados.length > 1">
+              {{ lotesSelecionados.map((l) => `L${l.number}`).join(', ') }}
+            </template>
+            <template v-else>Q{{ loteSelecionado?.block }} · L{{ loteSelecionado?.number }}</template>
+          </p>
         </div>
         <div>
           <p class="text-xs text-[#7a4535]">Total</p>
@@ -1015,7 +1027,7 @@ function preencherEndereco(logradouro, cidade, estado, bairro) {
 const form = ref({
   client_id: '',
   development_id: '',
-  lot_id: '',
+  lot_ids: [],
   sale_date: new Date().toISOString().slice(0, 10),
   total_value: 0,
   cash_value: 0,
@@ -1159,7 +1171,15 @@ async function checkAndRestoreDraft() {
 
     if (restore) {
       isRestoringDraft.value = true;
-      if (draft.form) form.value = draft.form;
+      if (draft.form) {
+        form.value = draft.form;
+        // Rascunhos salvos antes do suporte a múltiplos lotes guardavam um
+        // único `lot_id`. Normaliza para o novo formato `lot_ids` (array).
+        if (!Array.isArray(form.value.lot_ids)) {
+          form.value.lot_ids = form.value.lot_id ? [String(form.value.lot_id)] : [];
+        }
+        delete form.value.lot_id;
+      }
       if (draft.novoCliente) novoCliente.value = draft.novoCliente;
       if (draft.clienteSelecionado) clienteSelecionado.value = draft.clienteSelecionado;
       if (draft.coBuyers) coBuyers.value = draft.coBuyers;
@@ -1267,8 +1287,25 @@ const lotOptions = computed(() =>
     }))
 );
 
-const loteSelecionado = computed(
-  () => lots.value.find((l) => String(l.id) === String(form.value.lot_id)) ?? null
+// Lotes selecionados (1 ou mais — venda com lotes vizinhos, p.ex.). A ordem
+// de `form.lot_ids` é preservada: o primeiro é o lote "primário" da venda.
+const lotesSelecionados = computed(() => {
+  const ids = form.value.lot_ids.map(String);
+  return lots.value
+    .filter((l) => ids.includes(String(l.id)))
+    .sort((a, b) => ids.indexOf(String(a.id)) - ids.indexOf(String(b.id)));
+});
+
+// Lote primário (o primeiro selecionado) — usado onde só faz sentido um lote
+// de referência (sugestão de entrada, condições de pagamento).
+const loteSelecionado = computed(() => lotesSelecionados.value[0] ?? null);
+
+const lotesAreaTotal = computed(() =>
+  lotesSelecionados.value.reduce((sum, l) => sum + (Number(l.area) || 0), 0)
+);
+
+const lotesValueTotal = computed(() =>
+  lotesSelecionados.value.reduce((sum, l) => sum + (Number(l.total_value) || 0), 0)
 );
 
 const entradaEditadaManualmente = ref(false);
@@ -1424,7 +1461,7 @@ function suggestDownPayment() {
 }
 
 async function onDevelopmentChange() {
-  form.value.lot_id = '';
+  form.value.lot_ids = [];
   lots.value = [];
   if (!form.value.development_id) return;
   try {
@@ -1438,15 +1475,15 @@ async function onDevelopmentChange() {
 }
 
 watch(
-  () => form.value.lot_id,
-  (id) => {
-    const lote = lots.value.find((l) => String(l.id) === String(id));
+  () => form.value.lot_ids,
+  () => {
     entradaEditadaManualmente.value = false;
-    if (lote?.total_value) {
-      form.value.total_value = Number(lote.total_value);
+    if (lotesValueTotal.value > 0) {
+      form.value.total_value = lotesValueTotal.value;
     }
     suggestDownPayment();
-  }
+  },
+  { deep: true }
 );
 
 watch(
@@ -1499,7 +1536,12 @@ watch(
 const salvando = ref(false);
 
 const pronto = computed(() => {
-  if (!clienteSelecionado.value || !form.value.lot_id || form.value.total_value <= 0 || !form.value.sale_date) {
+  if (
+    !clienteSelecionado.value ||
+    !form.value.lot_ids.length ||
+    form.value.total_value <= 0 ||
+    !form.value.sale_date
+  ) {
     return false;
   }
   if (isCashSale.value) {
@@ -1519,7 +1561,7 @@ async function registrarVenda() {
     const cash = isCashSale.value;
     const payload = {
       client_id: Number(form.value.client_id),
-      lot_id: Number(form.value.lot_id),
+      lot_ids: form.value.lot_ids.map((id) => Number(id)),
       sale_date: form.value.sale_date,
       total_value: Number(form.value.total_value),
       cash_value: cash ? Number(form.value.cash_value) : null,
@@ -1566,7 +1608,7 @@ async function applyLeadPrefill() {
       if (lotData.development_id) {
         form.value.development_id = String(lotData.development_id);
         await onDevelopmentChange();
-        form.value.lot_id = String(prefill.lot_id);
+        form.value.lot_ids = [String(prefill.lot_id)];
       }
     }
 

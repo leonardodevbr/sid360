@@ -218,6 +218,12 @@
   $allBuyers = $sale->buyers->count() > 0 ? $sale->buyers : collect([$sale->client]);
   $contractNo = str_pad((string) $sale->id, 4, '0', STR_PAD_LEFT) . '/' . $sale->sale_date->format('Y');
   $cashPay = (int) ($sale->cash_value ?? $sale->total_value);
+
+  // Lotes do contrato (1 ou mais). `$contractLots` é montado pela Action;
+  // se a view for chamada diretamente sem essa variável, cai para o lote único.
+  $contractLots = ($contractLots ?? collect([$sale->lot]))->filter()->values();
+  $isMultiLot = $contractLots->count() > 1;
+  $totalLotsArea = $contractLots->sum(fn ($lot) => (float) ($lot->area ?? 0));
 @endphp
 
 <div class="doc-header">
@@ -298,6 +304,51 @@
 <div class="clause">
 <p class="clause-title">Cláusula Primeira — Do Objeto</p>
 
+@if($isMultiLot)
+<p class="indent">
+  O <strong>OUTORGANTE VENDEDOR</strong> é legítimo proprietário dos
+  <strong>TERRENOS (LOTES)</strong> a seguir descritos, todos localizados no
+  Loteamento <strong>{{ strtoupper($sale->lot->development->name) }}</strong>,
+  situado no Município de {{ $foro['cidade'] }}, Estado da {{ $foro['estado_extenso'] }}:
+</p>
+
+@foreach($contractLots as $i => $lot)
+<p class="indent">
+  <strong>{{ chr(97 + $i) }})</strong>
+  @if($lot->street)
+    Lote com frente para a <strong>{{ $lot->street->name }}</strong>,
+  @endif
+  @if($lot->zone?->parent)
+    <strong>{{ $lot->zone->parent->name }}</strong>,
+  @endif
+  @if($lot->zone)
+    <strong>{{ $lot->zone->name }}</strong>,
+  @elseif($lot->block)
+    Quadra <strong>{{ $lot->block }}</strong>,
+  @endif
+  Lote <strong>{{ $lot->number }}</strong>
+  @if($lot->area)
+    , com área total de
+    <strong>{{ number_format((float) $lot->area, 0, ',', '.') }}m²
+    ({{ number_format((float) $lot->area, 0, ',', '.') }} metros quadrados)</strong>
+  @endif
+  ;
+</p>
+@endforeach
+
+<p class="indent">
+  totalizando os lotes acima uma área de
+  <strong>{{ number_format($totalLotsArea, 0, ',', '.') }}m²
+  ({{ number_format($totalLotsArea, 0, ',', '.') }} metros quadrados)</strong>,
+  com seus limites, confrontações e características constantes das matrículas
+  no Cartório de Registro de Imóveis competente. Pelo presente instrumento,
+  o <strong>OUTORGANTE VENDEDOR</strong> compromete-se a vender ao
+  <strong>OUTORGADO COMPRADOR</strong> os imóveis acima descritos, em conjunto
+  e como unidade única de negociação, ficando desde já autorizado o Sr.º
+  Oficial de Registro competente a efetuar todas as alterações necessárias
+  para a devida transferência do domínio.
+</p>
+@else
 <p class="indent">
   O <strong>OUTORGANTE VENDEDOR</strong> é legítimo proprietário de um
   <strong>TERRENO (LOTE)</strong>, localizado no Loteamento
@@ -327,6 +378,7 @@
   autorizado o Sr.º Oficial de Registro competente a efetuar todas as alterações
   necessárias para a devida transferência do domínio.
 </p>
+@endif
 </div>
 
 <div class="clause">
