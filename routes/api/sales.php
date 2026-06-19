@@ -28,6 +28,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/sales/{id}/documents', [SaleController::class, 'documents']);
     Route::post('/sales/{id}/documents', [SaleController::class, 'uploadDocument']);
     Route::get('/sales/{id}/documents/{documentId}/download', [SaleController::class, 'downloadDocument']);
+    Route::get('/sales/{id}/documents/{documentId}/preview', [SaleController::class, 'previewDocument']);
     Route::get('/sales/{id}/installments', [InstallmentController::class, 'bySale']);
     Route::get('/sales/{id}/interactions', function (Request $request, string|int $id) {
         $sale = Sale::query()->findOrFail((int) $id);

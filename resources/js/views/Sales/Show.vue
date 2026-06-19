@@ -309,7 +309,20 @@
               <td class="px-4 py-3 font-medium text-slate-700">
                 {{ installmentTypeLabel(inst.type) }}
               </td>
-              <td class="px-4 py-3 text-slate-700">{{ formatDate(inst.due_date) }}</td>
+              <td class="px-4 py-3 text-slate-700">
+                <div class="flex items-center gap-1.5">
+                  <span>{{ formatDate(inst.due_date) }}</span>
+                  <button
+                    v-if="installmentDisplayStatus(inst) !== 'paid'"
+                    type="button"
+                    class="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                    title="Alterar vencimento"
+                    @click="openDueDateModal(inst)"
+                  >
+                    <PencilIcon class="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </td>
               <td class="px-4 py-3 text-right font-medium text-slate-800">{{ formatCurrency(inst.value) }}</td>
               <td class="px-4 py-3 text-center">
                 <span :class="installStatusClass(installmentDisplayStatus(inst))" class="rounded-full px-2 py-0.5 text-xs font-semibold">
@@ -323,9 +336,13 @@
               <td class="px-4 py-3 text-right">
                 <InstallmentEfiActions
                   :installment="inst"
+                  :downloading-recibo="downloadingReciboId === inst.id"
+                  :sending-recibo="sendingReciboId === inst.id"
                   @pay="payInstallment"
                   @open-pix="openPixChargeModal"
                   @open-boleto="openBoletoChargeModal"
+                  @download-recibo="handleDownloadRecibo"
+                  @send-recibo-whatsapp="handleSendReciboWhatsapp"
                 />
               </td>
             </tr>
@@ -372,7 +389,20 @@
           <tbody class="divide-y divide-slate-100">
             <tr v-for="inst in financingInstallments" :key="inst.id" class="hover:bg-slate-50">
               <td class="px-4 py-3 text-slate-400">{{ inst.number }}</td>
-              <td class="px-4 py-3 text-slate-700">{{ formatDate(inst.due_date) }}</td>
+              <td class="px-4 py-3 text-slate-700">
+                <div class="flex items-center gap-1.5">
+                  <span>{{ formatDate(inst.due_date) }}</span>
+                  <button
+                    v-if="installmentDisplayStatus(inst) !== 'paid'"
+                    type="button"
+                    class="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                    title="Alterar vencimento"
+                    @click="openDueDateModal(inst)"
+                  >
+                    <PencilIcon class="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </td>
               <td class="px-4 py-3 text-right font-medium text-slate-800">{{ formatCurrency(inst.value) }}</td>
               <td class="px-4 py-3 text-center">
                 <span :class="installStatusClass(installmentDisplayStatus(inst))" class="rounded-full px-2 py-0.5 text-xs font-semibold">
@@ -386,9 +416,13 @@
               <td class="px-4 py-3 text-right">
                 <InstallmentEfiActions
                   :installment="inst"
+                  :downloading-recibo="downloadingReciboId === inst.id"
+                  :sending-recibo="sendingReciboId === inst.id"
                   @pay="payInstallment"
                   @open-pix="openPixChargeModal"
                   @open-boleto="openBoletoChargeModal"
+                  @download-recibo="handleDownloadRecibo"
+                  @send-recibo-whatsapp="handleSendReciboWhatsapp"
                 />
               </td>
             </tr>
@@ -476,6 +510,14 @@
       @paid="handleInstallmentPaid"
     />
 
+    <InstallmentDueDateModal
+      :is-open="Boolean(dueDateModal)"
+      :installment="dueDateModal?.installment ?? null"
+      :installments-count="sale?.installments_count ?? null"
+      @close="dueDateModal = null"
+      @updated="handleDueDateUpdated"
+    />
+
     <Modal
       :is-open="carneModalOpen"
       title="Gerar carnê bancário"
@@ -526,6 +568,7 @@ import {
   downloadContract,
   downloadCarne,
   downloadSignedContract,
+  downloadInstallmentRecibo,
   previewContract,
   uploadSignedContract,
 } from '@/services/sale.service';
@@ -548,6 +591,7 @@ import InstallmentWhatsappCell from '@/components/Sales/InstallmentWhatsappCell.
 import InstallmentEfiActions from '@/components/Sales/InstallmentEfiActions.vue';
 import InstallmentChargeModal from '@/components/Sales/InstallmentChargeModal.vue';
 import InstallmentPaymentModal from '@/components/Sales/InstallmentPaymentModal.vue';
+import InstallmentDueDateModal from '@/components/Sales/InstallmentDueDateModal.vue';
 import { formatBrazilWhatsappNumber, installmentDisplayStatus } from '@/utils/whatsapp';
 import { formatWhatsappHtml } from '@/utils/whatsappFormat';
 import {
@@ -560,6 +604,7 @@ import {
   DocumentCheckIcon,
   DocumentTextIcon,
   EyeIcon,
+  PencilIcon,
 } from '@heroicons/vue/24/outline';
 
 const saleStatusClass = (status) => saleStatusClassHelper(status);
@@ -656,7 +701,10 @@ const carneModalOpen = ref(false);
 const carneFirstDueDate = ref('');
 const sendingOverdueWhatsapp = ref(false);
 const chargeModal = ref(null);
+const downloadingReciboId = ref(null);
+const sendingReciboId = ref(null);
 const paymentModal = ref(null);
+const dueDateModal = ref(null);
 const carneData = ref(null);
 
 const showRegistrationSuccess = computed(() => route.query.registered === '1');
@@ -870,6 +918,58 @@ function openPixChargeModal(installment) {
 
 function openBoletoChargeModal(installment) {
   chargeModal.value = { installment, type: 'boleto' };
+}
+
+function openDueDateModal(installment) {
+  dueDateModal.value = { installment };
+}
+
+async function handleDueDateUpdated(updatedInstallment) {
+  dueDateModal.value = null;
+
+  if (updatedInstallment) {
+    patchInstallmentInSale(updatedInstallment);
+  }
+
+  await loadSale();
+}
+
+async function handleDownloadRecibo(inst) {
+  if (downloadingReciboId.value) {
+    return;
+  }
+
+  downloadingReciboId.value = inst.id;
+  try {
+    await downloadInstallmentRecibo(inst.id);
+  } catch (err) {
+    toast.error(getApiErrorMessage(err, 'Erro ao baixar o recibo.'));
+  } finally {
+    downloadingReciboId.value = null;
+  }
+}
+
+async function handleSendReciboWhatsapp(inst) {
+  if (sendingReciboId.value) {
+    return;
+  }
+
+  sendingReciboId.value = inst.id;
+  try {
+    const { data } = await api.post(`/installments/${inst.id}/recibo/whatsapp`);
+
+    if (data?.warning) {
+      toast.warning(data.warning);
+    } else {
+      toast.success('Recibo enviado pelo WhatsApp.');
+    }
+
+    await loadInteractions();
+  } catch (err) {
+    toast.error(getApiErrorMessage(err, 'Não foi possível enviar o recibo pelo WhatsApp.'));
+  } finally {
+    sendingReciboId.value = null;
+  }
 }
 
 function patchInstallmentInSale(updatedInstallment) {

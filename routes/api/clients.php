@@ -15,5 +15,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/clients/{id}/documents', [ClientController::class, 'documents']);
     Route::post('/clients/{id}/documents', [ClientController::class, 'uploadDocument']);
     Route::get('/clients/{id}/documents/{documentId}/download', [ClientController::class, 'downloadDocument']);
+    Route::get('/clients/{id}/documents/{documentId}/preview', [ClientController::class, 'previewDocument']);
     Route::post('/clients/{id}/documents/{documentId}/delete', [ClientController::class, 'deleteDocument']);
 });

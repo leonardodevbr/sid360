@@ -278,4 +278,19 @@ class SaleController extends Controller
 
         return Storage::disk($document->disk)->download($document->path, $document->original_filename);
     }
+
+    public function previewDocument(string|int $id, string|int $documentId): Response
+    {
+        $this->authorize('sales.view');
+
+        $sale = Sale::query()->findOrFail((int) $id);
+        $document = $sale->documents()->findOrFail((int) $documentId);
+
+        $contents = Storage::disk($document->disk)->get($document->path);
+
+        return response($contents, 200, [
+            'Content-Type' => $document->mime_type,
+            'Content-Disposition' => 'inline; filename="'.$document->original_filename.'"',
+        ]);
+    }
 }

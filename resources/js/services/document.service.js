@@ -42,6 +42,17 @@ export async function downloadClientDocument(clientId, documentId, filename) {
   triggerBlobDownload(response.data, filename ?? filenameFromContentDisposition(response.headers) ?? 'documento');
 }
 
+// Busca o documento como blob autenticado e devolve uma object URL para
+// visualização inline (img/iframe), sem nunca expor uma URL pública do R2.
+// Quem chamar é responsável por window.URL.revokeObjectURL(url) ao finalizar.
+export async function previewClientDocument(clientId, documentId, mimeType) {
+  const response = await api.get(`/clients/${clientId}/documents/${documentId}/preview`, {
+    responseType: 'blob',
+  });
+  const blob = new Blob([response.data], { type: mimeType ?? response.data.type });
+  return window.URL.createObjectURL(blob);
+}
+
 export async function deleteClientDocument(clientId, documentId) {
   const { data } = await api.post(`/clients/${clientId}/documents/${documentId}/delete`);
   return data;
@@ -72,4 +83,13 @@ export async function downloadSaleDocument(saleId, documentId, filename) {
     responseType: 'blob',
   });
   triggerBlobDownload(response.data, filename ?? filenameFromContentDisposition(response.headers) ?? 'documento');
+}
+
+// Mesma lógica de previewClientDocument, mas para documentos congelados da venda.
+export async function previewSaleDocument(saleId, documentId, mimeType) {
+  const response = await api.get(`/sales/${saleId}/documents/${documentId}/preview`, {
+    responseType: 'blob',
+  });
+  const blob = new Blob([response.data], { type: mimeType ?? response.data.type });
+  return window.URL.createObjectURL(blob);
 }

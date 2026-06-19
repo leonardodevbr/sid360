@@ -43,9 +43,28 @@
           Enviar
         </Button>
       </div>
-      <p v-if="selectedFileName" class="mt-2 text-xs text-slate-600">
-        Arquivo selecionado: <span class="font-medium">{{ selectedFileName }}</span>
-      </p>
+      <div v-if="selectedFile" class="mt-3 flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-2">
+        <img
+          v-if="selectedFilePreviewUrl"
+          :src="selectedFilePreviewUrl"
+          alt="Pré-visualização do arquivo selecionado"
+          class="h-14 w-14 shrink-0 rounded object-cover"
+        />
+        <div v-else class="flex h-14 w-14 shrink-0 items-center justify-center rounded bg-slate-100">
+          <DocumentTextIcon class="h-6 w-6 text-slate-400" />
+        </div>
+        <p class="min-w-0 flex-1 truncate text-xs text-slate-600">
+          Arquivo selecionado: <span class="font-medium">{{ selectedFileName }}</span>
+        </p>
+        <button
+          type="button"
+          class="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+          title="Remover seleção"
+          @click="clearSelectedFile"
+        >
+          <XMarkIcon class="h-4 w-4" />
+        </button>
+      </div>
       <p class="mt-2 text-xs text-slate-400">PDF, JPG, PNG ou WebP — máximo 10 MB</p>
       <input
         ref="fileInputRef"
@@ -96,6 +115,14 @@
           </div>
           <div class="flex shrink-0 items-center gap-2">
             <span class="text-xs text-slate-400">{{ formatDate(doc.created_at) }}</span>
+            <button
+              type="button"
+              class="rounded-lg p-2 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"
+              title="Visualizar"
+              @click="handleView(doc)"
+            >
+              <EyeIcon class="h-4 w-4" />
+            </button>
             <Button
               type="button"
               variant="outline"
@@ -127,13 +154,24 @@
       </button>
     </template>
   </div>
+
+  <DocumentViewerModal
+    :is-open="viewerOpen"
+    :documents="visibleDocuments"
+    :initial-index="viewerIndex"
+    :entity-type="entityType"
+    :entity-id="entityId"
+    @close="viewerOpen = false"
+    @download="handleDownload"
+  />
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useToast } from 'vue-toastification';
 import Button from './Button.vue';
 import SelectInput from './SelectInput.vue';
+import DocumentViewerModal from './DocumentViewerModal.vue';
 import { DOCUMENT_TYPES, DOCUMENT_SIDES } from '@/utils/documentTypes';
 import { formatDate } from '@/utils/format';
 import { getApiErrorMessage } from '@/utils/apiError';
@@ -147,7 +185,7 @@ import {
   uploadSaleDocument,
   downloadSaleDocument,
 } from '@/services/document.service';
-import { ArrowUpTrayIcon, DocumentTextIcon, TrashIcon } from '@heroicons/vue/24/outline';
+import { ArrowUpTrayIcon, DocumentTextIcon, TrashIcon, EyeIcon, XMarkIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
   // 'client' -> perfil geral versionado (clients_documents); 'sale' -> cópia congelada (sale_documents)
@@ -187,7 +225,10 @@ const selectedType = ref('');
 const selectedSide = ref('aberto');
 const selectedFile = ref(null);
 const selectedFileName = ref('');
+const selectedFilePreviewUrl = ref('');
 const fileInputRef = ref(null);
+const viewerOpen = ref(false);
+const viewerIndex = ref(0);
 
 const visibleDocuments = computed(() => {
   if (!isVersioned.value || showHistory.value) {
@@ -218,10 +259,29 @@ function openFilePicker() {
   fileInputRef.value?.click();
 }
 
+function revokeSelectedFilePreview() {
+  if (selectedFilePreviewUrl.value) {
+    window.URL.revokeObjectURL(selectedFilePreviewUrl.value);
+    selectedFilePreviewUrl.value = '';
+  }
+}
+
 function onFileSelected(event) {
   const file = event.target.files?.[0] ?? null;
+  revokeSelectedFilePreview();
   selectedFile.value = file;
   selectedFileName.value = file?.name ?? '';
+  // Preview local (estilo dropzone) apenas para imagens; PDF mostra um ícone fixo.
+  if (file && file.type.startsWith('image/')) {
+    selectedFilePreviewUrl.value = window.URL.createObjectURL(file);
+  }
+}
+
+function clearSelectedFile() {
+  revokeSelectedFilePreview();
+  selectedFile.value = null;
+  selectedFileName.value = '';
+  if (fileInputRef.value) fileInputRef.value.value = '';
 }
 
 async function handleUpload() {
@@ -235,11 +295,9 @@ async function handleUpload() {
       await uploadSaleDocument(props.entityId, selectedFile.value, selectedType.value, selectedSide.value);
     }
     toast.success('Documento enviado.');
-    selectedFile.value = null;
-    selectedFileName.value = '';
+    clearSelectedFile();
     selectedType.value = '';
     selectedSide.value = 'aberto';
-    if (fileInputRef.value) fileInputRef.value.value = '';
     await loadDocuments();
   } catch (err) {
     toast.error(getApiErrorMessage(err, 'Erro ao enviar documento.'));
@@ -263,6 +321,12 @@ async function handleDownload(doc) {
   }
 }
 
+function handleView(doc) {
+  const index = visibleDocuments.value.findIndex((item) => item.id === doc.id);
+  viewerIndex.value = index >= 0 ? index : 0;
+  viewerOpen.value = true;
+}
+
 async function handleDelete(doc) {
   const label = doc.side_label ? `${doc.type_label} (${doc.side_label})` : doc.type_label;
   const confirmed = await confirm(
@@ -283,4 +347,5 @@ async function handleDelete(doc) {
 
 watch(() => props.entityId, () => loadDocuments());
 onMounted(() => loadDocuments());
+onUnmounted(() => revokeSelectedFilePreview());
 </script>

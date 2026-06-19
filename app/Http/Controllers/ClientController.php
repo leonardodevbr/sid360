@@ -22,6 +22,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ClientController extends Controller
@@ -114,6 +115,21 @@ class ClientController extends Controller
         $document = $client->documents()->findOrFail((int) $documentId);
 
         return Storage::disk($document->disk)->download($document->path, $document->original_filename);
+    }
+
+    public function previewDocument(string|int $id, string|int $documentId): Response
+    {
+        $this->authorize('clients.view');
+
+        $client = Client::query()->findOrFail((int) $id);
+        $document = $client->documents()->findOrFail((int) $documentId);
+
+        $contents = Storage::disk($document->disk)->get($document->path);
+
+        return response($contents, 200, [
+            'Content-Type' => $document->mime_type,
+            'Content-Disposition' => 'inline; filename="'.$document->original_filename.'"',
+        ]);
     }
 
     public function deleteDocument(
