@@ -18,7 +18,7 @@ class GenerateInstallmentReciboPdfAction
      */
     public function execute(Installment $installment): string
     {
-        $installment->loadMissing(['sale.client', 'sale.lot.development', 'sale.buyers']);
+        $installment->loadMissing(['sale.client', 'sale.lot.development', 'sale.lots', 'sale.buyers']);
 
         if ($installment->status !== Installment::STATUS_PAID) {
             throw new RuntimeException('Esta parcela ainda não foi paga — não é possível emitir o recibo.');

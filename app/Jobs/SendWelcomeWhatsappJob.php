@@ -43,7 +43,7 @@ class SendWelcomeWhatsappJob implements ShouldQueue
     private function send(WhatsappService $whatsapp): void
     {
         $this->sale->refresh();
-        $this->sale->loadMissing(['client', 'lot.development', 'buyers']);
+        $this->sale->loadMissing(['client', 'lot.development', 'lots.zone', 'buyers']);
 
         $allBuyers = $this->sale->buyers->count() > 0
             ? $this->sale->buyers
@@ -54,8 +54,7 @@ class SendWelcomeWhatsappJob implements ShouldQueue
 
         $fmt = fn ($v) => 'R$ '.number_format((int) $v / 100, 2, ',', '.');
 
-        $lotBlock = $this->sale->lot?->block ?? $this->sale->lot?->zone?->name ?? '?';
-        $lotDescription = $lotBlock.' · Lote '.($this->sale->lot?->number ?? '?');
+        $lotDescription = $this->buildLotDescription();
 
         if (
             $this->sale->whatsapp_welcome_sent_at === null
@@ -114,5 +113,34 @@ class SendWelcomeWhatsappJob implements ShouldQueue
                 }
             }
         }
+    }
+
+    /**
+     * Descreve o(s) lote(s) da venda. Uma venda pode ter mais de um lote
+     * (lotes vizinhos comprados juntos, via pivot sale_lots) — nesse caso a
+     * mensagem lista todos em vez de mostrar só o lote principal.
+     */
+    private function buildLotDescription(): string
+    {
+        $lots = $this->sale->relationLoaded('lots') && $this->sale->lots->isNotEmpty()
+            ? $this->sale->lots
+            : collect([$this->sale->lot])->filter();
+
+        if ($lots->count() <= 1) {
+            $lot = $lots->first() ?? $this->sale->lot;
+            $block = $lot?->block ?? $lot?->zone?->name ?? '?';
+
+            return $block.' · Lote '.($lot?->number ?? '?');
+        }
+
+        $byBlock = $lots->groupBy(fn ($lot) => $lot->block ?? $lot->zone?->name ?? '?');
+
+        if ($byBlock->count() === 1) {
+            return $byBlock->keys()->first().' · Lotes '.$lots->pluck('number')->join(', ');
+        }
+
+        return $lots
+            ->map(fn ($lot) => ($lot->block ?? $lot->zone?->name ?? '?').' · Lote '.$lot->number)
+            ->join(', ');
     }
 }
