@@ -11,15 +11,25 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('installments', function (Blueprint $table): void {
-            $table->string('payment_method', 20)->nullable()->after('status');
-            $table->string('payment_method_description', 255)->nullable()->after('payment_method');
+            if (!Schema::hasColumn('installments', 'payment_method')) {
+                $table->string('payment_method', 20)->nullable()->after('status');
+            }
+            if (!Schema::hasColumn('installments', 'payment_method_description')) {
+                $table->string('payment_method_description', 255)->nullable()->after('payment_method');
+            }
         });
     }
 
     public function down(): void
     {
         Schema::table('installments', function (Blueprint $table): void {
-            $table->dropColumn(['payment_method', 'payment_method_description']);
+            $columns = array_filter(
+                ['payment_method', 'payment_method_description'],
+                fn (string $column): bool => Schema::hasColumn('installments', $column),
+            );
+            if ($columns !== []) {
+                $table->dropColumn($columns);
+            }
         });
     }
 };

@@ -11,14 +11,16 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('sale_lots', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('sale_id')->constrained('sales')->cascadeOnDelete();
-            $table->foreignId('lot_id')->constrained('lots')->restrictOnDelete();
-            $table->integer('order')->default(0);
-            $table->timestamps();
-            $table->unique(['sale_id', 'lot_id']);
-        });
+        if (!Schema::hasTable('sale_lots')) {
+            Schema::create('sale_lots', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('sale_id')->constrained('sales')->cascadeOnDelete();
+                $table->foreignId('lot_id')->constrained('lots')->restrictOnDelete();
+                $table->integer('order')->default(0);
+                $table->timestamps();
+                $table->unique(['sale_id', 'lot_id']);
+            });
+        }
 
         // Backfill: toda venda já existente possui exatamente 1 lote (sales.lot_id),
         // que passa a ser também o primeiro registro do pivot. Isso garante que

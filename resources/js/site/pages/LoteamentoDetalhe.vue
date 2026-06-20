@@ -8,6 +8,7 @@ import { setupMapBaseLayers } from '@/utils/mapLayers';
 import { buildLotGroupsFromLots, lotMapStatusColor } from '@/site/utils/lotGroups';
 import { parseDevelopmentIdFromSlug } from '@/site/utils/slug';
 import SiteSelect from '@/site/components/SiteSelect.vue';
+import LotShapeThumb from '@/site/components/LotShapeThumb.vue';
 import { formatMoneyMaskFromCents, parseMoneyMaskToCents } from '@/utils/format';
 
 const route = useRoute();
@@ -296,6 +297,15 @@ function groupAreaSubtitle(group) {
     return `${Number(group.area).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} m²`;
   }
   return null;
+}
+
+// Lote representativo do grupo — usado pra desenhar o formato real (polígono)
+// no thumbnail do card de "tipo de lote", quando não há foto de capa.
+function groupRepresentativeLot(group) {
+  if (!group?.representative_lot_id) {
+    return null;
+  }
+  return lots.value.find((l) => l.id === group.representative_lot_id) ?? null;
 }
 
 async function openGroup(group) {
@@ -651,9 +661,13 @@ function scrollToMap() {
                   v-else
                   class="dev-detail-lot-card__placeholder"
                 >
-                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-                  </svg>
+                  <LotShapeThumb
+                    :coordinates="groupRepresentativeLot(group)?.coordinates"
+                    :size-label="group.label"
+                    :area="group.area"
+                    show-dimensions
+                    :size="120"
+                  />
                 </div>
                 <span
                   class="dev-detail-group-card__badge"
@@ -961,9 +975,12 @@ function scrollToMap() {
                       loading="lazy"
                     >
                     <div v-else class="lot-picker-item__thumb-empty">
-                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="width:20px;height:20px;color:rgba(201,168,76,0.4);">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-                      </svg>
+                      <LotShapeThumb
+                        :coordinates="lot.coordinates"
+                        :size-label="selectedGroupContext?.label"
+                        :area="lot.area"
+                        :size="60"
+                      />
                     </div>
                   </div>
 
@@ -1017,6 +1034,19 @@ function scrollToMap() {
               style="width:100%;height:100%;object-fit:cover;"
               alt="Foto do lote"
             >
+            <div
+              v-else
+              style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:20px;"
+            >
+              <LotShapeThumb
+                :coordinates="selectedLot.coordinates"
+                :size-label="selectedGroupContext?.label"
+                :area="selectedLot.area"
+                show-dimensions
+                :size="160"
+                style="max-width:180px;max-height:180px;--lot-shape-fill: rgba(201,168,76,0.18);--lot-shape-stroke: rgba(201,168,76,0.9);--lot-shape-text: #f3d98a;--lot-shape-halo: #1C0A06;"
+              />
+            </div>
             <button
               v-if="selectedGroupContext"
               type="button"
