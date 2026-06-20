@@ -1278,9 +1278,19 @@ const developmentOptions = computed(() =>
   }))
 );
 
+// Ordenação "natural" (numeric: true) em vez de lexicográfica: block/number
+// são strings no banco, então um sort comum colocaria "Quadra 10" antes de
+// "Quadra 2". localeCompare com numeric:true compara os números embutidos
+// no texto pelo valor, não pelo caractere.
+function compareNatural(a, b) {
+  return String(a ?? '').localeCompare(String(b ?? ''), 'pt-BR', { numeric: true, sensitivity: 'base' });
+}
+
 const lotOptions = computed(() =>
   lots.value
     .filter((l) => l.status === 'available')
+    .slice()
+    .sort((a, b) => compareNatural(a.block, b.block) || compareNatural(a.number, b.number))
     .map((l) => ({
       value: String(l.id),
       label: `Q${l.block ?? '?'} · L${l.number}${l.area ? ' · ' + l.area + 'm²' : ''}`,

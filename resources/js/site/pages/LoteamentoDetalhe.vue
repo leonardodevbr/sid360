@@ -1036,15 +1036,15 @@ function scrollToMap() {
             >
             <div
               v-else
-              style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:20px;"
+              style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:18px;"
             >
               <LotShapeThumb
                 :coordinates="selectedLot.coordinates"
                 :size-label="selectedGroupContext?.label"
                 :area="selectedLot.area"
                 show-dimensions
-                :size="160"
-                style="max-width:180px;max-height:180px;--lot-shape-fill: rgba(201,168,76,0.18);--lot-shape-stroke: rgba(201,168,76,0.9);--lot-shape-text: #f3d98a;--lot-shape-halo: #1C0A06;"
+                :size="220"
+                style="width:100%;height:100%;--lot-shape-fill: rgba(201,168,76,0.18);--lot-shape-stroke: rgba(201,168,76,0.9);--lot-shape-text: #f3d98a;--lot-shape-halo: #1C0A06;--lot-shape-grid: rgba(243,217,138,0.22);"
               />
             </div>
             <button
