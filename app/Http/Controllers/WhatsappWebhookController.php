@@ -32,6 +32,29 @@ class WhatsappWebhookController extends Controller
 
     public function handle(Request $request): JsonResponse
     {
+        try {
+            return $this->process($request);
+        } catch (\Throwable $e) {
+            // Qualquer exceção não tratada aqui derrubava a resposta pro
+            // WPPConnect com HTTP 500 — o servidor via isso como "falha do
+            // webhook" mesmo quando a mensagem já tinha sido recebida e
+            // logada normalmente. Capturamos, logamos com stack trace
+            // completo (pra diagnosticar a causa real) e devolvemos 200,
+            // pra não marcar o webhook como instável por um erro que não
+            // afeta a entrega da mensagem em si.
+            Log::error('WhatsApp webhook: exceção não tratada', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json(['ok' => true]);
+        }
+    }
+
+    private function process(Request $request): JsonResponse
+    {
         $payload = $this->resolvePayload($request);
         $event = strtolower(trim((string) ($payload['event'] ?? $request->input('event', ''))));
 
@@ -51,6 +74,11 @@ class WhatsappWebhookController extends Controller
             'from' => $from,
             'body' => $body,
             'type' => $payload['type'] ?? null,
+            // Sessão WPPConnect de origem (quando o payload traz esse campo) —
+            // sem isso não dá pra saber qual das sessões conectadas (ex.:
+            // "sid360" vs "leonardo-teste") gerou cada chamada, já que as duas
+            // apontam pra mesma URL de webhook.
+            'session' => data_get($payload, 'session') ?? data_get($payload, 'session.id') ?? null,
         ]);
 
         if ($from === null || $from === '') {
@@ -59,6 +87,32 @@ class WhatsappWebhookController extends Controller
 
         if (str_contains($from, '@g.us') || str_contains($from, '@broadcast')) {
             return response()->json(['ok' => true]);
+        }
+
+        if (str_ends_with($from, '@lid')) {
+            // WhatsApp pode entregar o contato como um "LID" (identificador
+            // opaco de privacidade) em vez do JID com o número de telefone
+            // real (@c.us). Quando isso acontece, FindClientByWhatsappPhoneAction
+            // nunca vai conseguir casar esse "from" com o telefone cadastrado
+            // no Client — o contato sempre vai cair em "unknown contact",
+            // mesmo sendo um cliente real. Logamos os campos candidatos que
+            // às vezes trazem o número de telefone verdadeiro em paralelo ao
+            // LID, pra confirmar se algum deles está disponível no payload do
+            // WPPConnect e dá pra usar como fallback de resolução.
+            Log::warning('WhatsApp webhook: contato via @lid (sem telefone direto)', [
+                'from' => $from,
+                'candidatos' => array_filter([
+                    'author' => data_get($payload, 'author'),
+                    'participant' => data_get($payload, 'participant'),
+                    'senderPn' => data_get($payload, 'senderPn'),
+                    'sender_pn' => data_get($payload, 'sender_pn'),
+                    'sender.id' => data_get($payload, 'sender.id'),
+                    'sender.id._serialized' => data_get($payload, 'sender.id._serialized'),
+                    'sender.pushname' => data_get($payload, 'sender.pushname'),
+                    'notifyName' => data_get($payload, 'notifyName'),
+                    'chatId' => data_get($payload, 'chatId'),
+                ], fn ($v) => $v !== null),
+            ]);
         }
 
         $option = $this->extractOption($payload, $body);
