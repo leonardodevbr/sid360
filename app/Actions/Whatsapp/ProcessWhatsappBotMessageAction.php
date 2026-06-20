@@ -193,7 +193,12 @@ class ProcessWhatsappBotMessageAction
             'phone' => $phone !== '' ? $phone : $from,
             'direction' => InstallmentInteraction::DIR_INBOUND,
             'type' => InstallmentInteraction::TYPE_BOT_UNKNOWN_CONTACT,
-            'message' => $body,
+            // Trava extra: mesmo que o body já tenha sido tratado em
+            // WhatsappWebhookController::resolveMessageBody(), esta é
+            // exatamente a linha que quebrou em produção (SQLSTATE[22001]
+            // "Data too long for column 'message'") com um áudio cujo body
+            // bruto (base64) ultrapassou os 65.535 bytes da coluna TEXT.
+            'message' => mb_strlen($body) > 4000 ? mb_substr($body, 0, 4000).'…' : $body,
             'meta' => [
                 'from' => $from,
                 'ignored' => true,

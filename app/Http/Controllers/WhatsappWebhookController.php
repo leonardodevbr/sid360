@@ -256,10 +256,38 @@ class WhatsappWebhookController extends Controller
     }
 
     /**
+     * Tipos de mensagem do WPPConnect cujo campo "body" pode vir com o
+     * conteúdo bruto (geralmente base64) da mídia em vez de texto — um
+     * áudio (ptt) de poucos segundos já passa de 65KB em base64 e quebra a
+     * coluna TEXT de installment_interactions.message (erro 1406 "Data too
+     * long for column" visto em produção). Pra esses tipos ignoramos
+     * "body"/"content"/"text" e usamos só a legenda (quando houver) ou um
+     * placeholder curto.
+     *
+     * @var string[]
+     */
+    private const MEDIA_MESSAGE_TYPES = [
+        'ptt', 'audio', 'image', 'video', 'document', 'sticker',
+        'location', 'vcard', 'multi_vcard',
+    ];
+
+    /**
      * @param  array<string, mixed>  $payload
      */
     private function resolveMessageBody(array $payload): string
     {
+        $type = (string) (data_get($payload, 'type') ?? 'chat');
+
+        if (in_array($type, self::MEDIA_MESSAGE_TYPES, true)) {
+            $caption = data_get($payload, 'caption');
+
+            if (is_string($caption) && trim($caption) !== '') {
+                return $this->truncateMessage(trim($caption));
+            }
+
+            return "[{$type}]";
+        }
+
         foreach ([
             data_get($payload, 'body'),
             data_get($payload, 'content'),
@@ -269,11 +297,23 @@ class WhatsappWebhookController extends Controller
             data_get($payload, 'selectedDisplayText'),
         ] as $candidate) {
             if (is_string($candidate) && trim($candidate) !== '') {
-                return trim($candidate);
+                return $this->truncateMessage(trim($candidate));
             }
         }
 
         return '';
+    }
+
+    /**
+     * Trava de segurança: nada que vier do payload do WPPConnect deve ser
+     * gravado em installment_interactions.message além do limite da coluna
+     * TEXT (65.535 bytes). 4000 caracteres é muito mais que qualquer
+     * mensagem de texto real e ainda fica bem longe do limite mesmo
+     * considerando caracteres multibyte.
+     */
+    private function truncateMessage(string $value, int $limit = 4000): string
+    {
+        return mb_strlen($value) > $limit ? mb_substr($value, 0, $limit).'…' : $value;
     }
 
     /**
@@ -345,7 +385,7 @@ class WhatsappWebhookController extends Controller
             return;
         }
 
-        $bodyText = trim((string) ($payload['body'] ?? $payload['content'] ?? $option));
+        $bodyText = $this->truncateMessage(trim((string) ($payload['body'] ?? $payload['content'] ?? $option)));
         $phone = preg_replace('/[^0-9]/', '', $from) ?? $from;
         $sidWaMe = 'wa.me/'.$this->whatsapp->sidPhoneDigits();
         $sidDisplay = $this->formatSidPhoneDisplay();
@@ -572,7 +612,7 @@ class WhatsappWebhookController extends Controller
             return;
         }
 
-        $bodyText = trim((string) ($payload['body'] ?? $payload['content'] ?? $buttonId));
+        $bodyText = $this->truncateMessage(trim((string) ($payload['body'] ?? $payload['content'] ?? $buttonId)));
         $phone = preg_replace('/[^0-9]/', '', $from) ?? $from;
         $sidWaMe = 'wa.me/'.$this->whatsapp->sidPhoneDigits();
         $sidDisplay = $this->formatSidPhoneDisplay();
