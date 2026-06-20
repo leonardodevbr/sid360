@@ -28,16 +28,16 @@ class ProcessWhatsappBotMessageAction
     /**
      * @param  array<string, mixed>  $payload
      */
-    public function execute(string $from, string $body, array $payload = []): void
+    public function execute(string $from, string $body, array $payload = [], ?string $phoneHint = null): void
     {
         if (! Setting::get('whatsapp_bot_enabled', true)) {
             return;
         }
 
-        $client = $this->findClient->execute($from);
+        $client = $this->findClient->execute($from, $phoneHint);
 
         if ($client === null) {
-            $this->recordUnknownContact($from, $body, $payload);
+            $this->recordUnknownContact($from, $body, $payload, $phoneHint);
 
             return;
         }
@@ -175,13 +175,14 @@ class ProcessWhatsappBotMessageAction
     /**
      * @param  array<string, mixed>  $payload
      */
-    private function recordUnknownContact(string $from, string $body, array $payload): void
+    private function recordUnknownContact(string $from, string $body, array $payload, ?string $phoneHint = null): void
     {
         $phone = $this->conversationState->normalizePhone($from);
 
         Log::info('WhatsApp bot: unknown contact ignored', [
             'from' => $from,
             'phone' => $phone,
+            'phone_hint' => $phoneHint,
             'body' => $body,
         ]);
 
@@ -204,6 +205,7 @@ class ProcessWhatsappBotMessageAction
                 'ignored' => true,
                 'reason' => 'unknown_contact',
                 'message_type' => $payload['type'] ?? null,
+                'phone_hint' => $phoneHint,
             ],
         ]);
     }

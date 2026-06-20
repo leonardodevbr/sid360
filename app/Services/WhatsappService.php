@@ -822,6 +822,92 @@ class WhatsappService
     }
 
     /**
+     * Resolve o telefone real por trás de um identificador @lid do WhatsApp.
+     *
+     * Com o "Linked ID" (LID), o WhatsApp pode entregar mensagens com um
+     * identificador opaco em vez do JID com o número de telefone — o
+     * payload do webhook não traz o número em nenhum campo nesse caso
+     * (confirmado em produção: só vêm pushname/notifyName/chatId, sem
+     * telefone). O WPPConnect server expõe um endpoint dedicado pra essa
+     * tradução, mas ele só funciona quando a sessão já tem esse mapeamento
+     * internamente cacheado — não é garantido pra todo contato. Retorna
+     * null em qualquer falha/ausência, sem lançar exceção; quem chama deve
+     * seguir tratando como contato desconhecido nesse caso.
+     */
+    public function resolvePhoneFromLid(string $lid): ?string
+    {
+        $config = $this->wppconnectConfig();
+
+        if ($config === null) {
+            return null;
+        }
+
+        $pnLid = preg_replace('/@.+$/', '', trim($lid)) ?? trim($lid);
+
+        if ($pnLid === '') {
+            return null;
+        }
+
+        try {
+            $response = Http::timeout(WppconnectConfig::timeout())
+                ->withToken($config['token'])
+                ->get("{$config['base_url']}/api/{$config['session']}/contact/pn-lid/{$pnLid}");
+
+            if (! $response->successful()) {
+                Log::info('WhatsappService::resolvePhoneFromLid: resposta não-2xx', [
+                    'lid' => $pnLid,
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            $data = $response->json();
+
+            // O formato exato de resposta desse endpoint não está
+            // documentado em detalhe — logamos o payload bruto na primeira
+            // tentativa pra calibrar os campos candidatos abaixo com base no
+            // que o servidor realmente devolve.
+            Log::info('WhatsappService::resolvePhoneFromLid: resposta recebida', [
+                'lid' => $pnLid,
+                'response' => $data,
+            ]);
+
+            foreach ([
+                data_get($data, 'response.id._serialized'),
+                data_get($data, 'id._serialized'),
+                data_get($data, 'response.id.user'),
+                data_get($data, 'id.user'),
+                data_get($data, 'response.phone'),
+                data_get($data, 'phone'),
+                data_get($data, 'response.pn'),
+                data_get($data, 'pn'),
+                data_get($data, 'response.number'),
+                data_get($data, 'number'),
+            ] as $candidate) {
+                if (! is_string($candidate) && ! is_numeric($candidate)) {
+                    continue;
+                }
+
+                $digits = preg_replace('/\D/', '', (string) $candidate) ?? '';
+
+                if (strlen($digits) >= 10 && strlen($digits) <= 13) {
+                    return $digits;
+                }
+            }
+
+            return null;
+        } catch (\Exception $e) {
+            Log::warning('WhatsappService::resolvePhoneFromLid exception', [
+                'lid' => $pnLid,
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
      * WPPConnect itera `for (const contact of phone)` — string quebra caractere a caractere.
      *
      * @return list<string>

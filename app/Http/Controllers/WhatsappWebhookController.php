@@ -89,6 +89,8 @@ class WhatsappWebhookController extends Controller
             return response()->json(['ok' => true]);
         }
 
+        $lidPhoneHint = null;
+
         if (str_ends_with($from, '@lid')) {
             // WhatsApp pode entregar o contato como um "LID" (identificador
             // opaco de privacidade) em vez do JID com o número de telefone
@@ -113,6 +115,22 @@ class WhatsappWebhookController extends Controller
                     'chatId' => data_get($payload, 'chatId'),
                 ], fn ($v) => $v !== null),
             ]);
+
+            // Tenta traduzir o LID pro telefone real via endpoint dedicado do
+            // WPPConnect (GET /api/{session}/contact/pn-lid/{pnLid}). Só
+            // funciona se a sessão já tiver esse mapeamento cacheado
+            // internamente — não é garantido. Quando resolve, o telefone é
+            // usado como "dica" extra na busca do cliente (ver $lidPhoneHint
+            // abaixo); quando não resolve, segue tratando como contato
+            // desconhecido exatamente como antes.
+            $lidPhoneHint = $this->whatsapp->resolvePhoneFromLid($from);
+
+            if ($lidPhoneHint !== null) {
+                Log::info('WhatsApp webhook: telefone resolvido a partir do @lid', [
+                    'from' => $from,
+                    'phone_hint' => $lidPhoneHint,
+                ]);
+            }
         }
 
         $option = $this->extractOption($payload, $body);
@@ -124,7 +142,7 @@ class WhatsappWebhookController extends Controller
 
             if ($continuationContext) {
                 $commandBody = WhatsappBotContinuationButtons::commandBodyFromButtonId($option) ?? $option;
-                $this->processBotMessage->execute($from, $commandBody, $payload);
+                $this->processBotMessage->execute($from, $commandBody, $payload, $lidPhoneHint);
 
                 return response()->json(['ok' => true]);
             }
@@ -145,7 +163,7 @@ class WhatsappWebhookController extends Controller
 
             if ($botMenuContext) {
                 $commandBody = WhatsappBotMenuButtons::commandBodyFromRowId($option) ?? $option;
-                $this->processBotMessage->execute($from, $commandBody, $payload);
+                $this->processBotMessage->execute($from, $commandBody, $payload, $lidPhoneHint);
 
                 return response()->json(['ok' => true]);
             }
@@ -169,7 +187,7 @@ class WhatsappWebhookController extends Controller
 
                 if ($continuationContext) {
                     $commandBody = WhatsappBotContinuationButtons::commandBodyFromButtonId($continuationButton) ?? $body;
-                    $this->processBotMessage->execute($from, $commandBody, $payload);
+                    $this->processBotMessage->execute($from, $commandBody, $payload, $lidPhoneHint);
 
                     return response()->json(['ok' => true]);
                 }
@@ -199,7 +217,7 @@ class WhatsappWebhookController extends Controller
                 }
             }
 
-            $this->processBotMessage->execute($from, $body, $payload);
+            $this->processBotMessage->execute($from, $body, $payload, $lidPhoneHint);
         }
 
         return response()->json(['ok' => true]);

@@ -10,12 +10,31 @@ use App\Support\DocumentHelper;
 
 class FindClientByWhatsappPhoneAction
 {
-    public function execute(string $from): ?Client
+    public function execute(string $from, ?string $phoneHint = null): ?Client
     {
         $from = trim($from);
 
         if ($from === '') {
             return null;
+        }
+
+        // Quando o "from" é um @lid (sem telefone embutido), quem chama pode
+        // ter conseguido resolver o número real via
+        // WhatsappService::resolvePhoneFromLid() antes de chegar aqui.
+        // Tentamos esse telefone primeiro — é mais direto e mais confiável
+        // que qualquer heurística baseada no "from".
+        if ($phoneHint !== null && trim($phoneHint) !== '') {
+            $hint = trim($phoneHint);
+
+            $clientByHint = Client::query()
+                ->whereNotNull('phone')
+                ->where('phone', '!=', '')
+                ->get()
+                ->first(fn (Client $client): bool => DocumentHelper::phoneMatches($client->phone, $hint));
+
+            if ($clientByHint !== null) {
+                return $clientByHint;
+            }
         }
 
         $raw = preg_replace('/@.+$/', '', $from) ?? $from;
