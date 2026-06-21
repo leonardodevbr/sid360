@@ -257,7 +257,16 @@ class ProcessWhatsappBotMessageAction
         }
 
         if (strlen($digits) === 11) {
-            return Client::query()->where('cpf', $digits)->first();
+            // Comparação exata (`where('cpf', $digits)`) falha sempre que o
+            // CPF está salvo com pontuação (ex.: "068.591.073-32"), que é
+            // como StoreClientRequest/UpdateClientRequest aceitam o campo
+            // (string livre, sem normalização). Mesmo padrão usado em
+            // AuthenticatePortalAction: comparar dígito a dígito.
+            return Client::query()
+                ->whereNotNull('cpf')
+                ->where('cpf', '!=', '')
+                ->get()
+                ->first(fn (Client $c): bool => DocumentHelper::digitsOnly($c->cpf) === $digits);
         }
 
         return null;
@@ -270,9 +279,19 @@ class ProcessWhatsappBotMessageAction
      * telefone uma vez por janela de 24h pra esse "from", pra dar uma
      * chance de identificação manual sem floodar o contato a cada
      * mensagem nova.
+     *
+     * Desligado por padrão (whatsapp_unknown_contact_prompt_enabled = 0):
+     * o número conectado também recebe mensagens de contatos pessoais
+     * (grupos, amigos) que não são clientes, e o disparo automático pra
+     * "todo mundo" desconhecido virou ruído indesejado. Só ative se o
+     * número for usado exclusivamente para atendimento.
      */
     private function promptForIdentification(string $from): void
     {
+        if (! Setting::get('whatsapp_unknown_contact_prompt_enabled', false)) {
+            return;
+        }
+
         $alreadyPrompted = InstallmentInteraction::query()
             ->where('direction', InstallmentInteraction::DIR_OUTBOUND)
             ->where('type', InstallmentInteraction::TYPE_BOT_UNKNOWN_CONTACT)

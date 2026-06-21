@@ -204,6 +204,7 @@ const KEY_LABELS = {
   whatsapp_reply_window_hours: 'Janela de resposta (horas)',
   whatsapp_sid_phone: 'WhatsApp do corretor (notificações)',
   whatsapp_bot_enabled: 'Bot WhatsApp ativo',
+  whatsapp_unknown_contact_prompt_enabled: 'Pedir CPF/telefone a contatos não identificados (desligado = recomendado se o número também recebe mensagens pessoais)',
   whatsapp_bot_menu_message: 'Mensagem do menu do bot',
   wppconnect_base_url: 'URL do servidor WPPConnect',
   wppconnect_session: 'Nome da sessão WPPConnect',

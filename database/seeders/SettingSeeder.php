@@ -44,6 +44,11 @@ class SettingSeeder extends Seeder
         Settings::setDefault('whatsapp_sid_phone', '5574988230151', 'string', 'whatsapp');
 
         Settings::setDefault('whatsapp_bot_enabled', '1', 'boolean', 'whatsapp');
+        // Desligado por padrão: dispara mensagem pedindo CPF/telefone pra
+        // QUALQUER contato não identificado (inclusive pessoais, não só
+        // clientes). Só ativar se o número conectado for de uso exclusivo
+        // para atendimento — ver ProcessWhatsappBotMessageAction::promptForIdentification().
+        Settings::setDefault('whatsapp_unknown_contact_prompt_enabled', '0', 'boolean', 'whatsapp');
         Settings::setDefault('whatsapp_bot_menu_message',
             "Olá, *{nome}*! Sou o assistente *Sid360*.\n\nDigite um comando:\n\n*2ª via* — receber PIX ou boleto\n*saldo* — parcelas pendentes\n*extrato* — histórico de pagamentos\n*contrato* — PDF do contrato\n*atendimento* — falar com o corretor\n\nPortal: {portal_url}",
             'string', 'whatsapp'
