@@ -1,117 +1,42 @@
-name: Deploy Sid360
+name: Deploy SID360 to LeoonTech VPS
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
+
+concurrency:
+  group: sid360-production
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    name: Deploy to Branix
+    name: Deploy production
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
-      - name: Checkout repositório
-        uses: actions/checkout@v2
-
-      - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.5.3
-        with:
-          ssh-private-key: ${{ secrets.SSH_KEY_BRANIX }}
-
-      - name: Testar conexão SSH
+      - name: Configure SSH
         env:
-          HOST: ${{ secrets.HOST_BRANIX }}
-          SSH_PORT: ${{ secrets.SSH_PORT_BRANIX }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
         run: |
-          ssh -p $SSH_PORT -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${{ secrets.USERNAME_BRANIX }}@$HOST "echo Conexão SSH OK"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/sid360_deploy
+          chmod 600 ~/.ssh/sid360_deploy
+          ssh-keyscan -p "$VPS_PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Instalar dependências npm
-        run: npm ci
-
-      - name: Build frontend (Vue)
+      - name: Deploy on VPS
         env:
-          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
-        run: npm run build
-
-      - name: Remover node_modules
-        run: rm -rf node_modules
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
-          tools: composer
-
-      - name: Instalar dependências Composer
-        run: composer install --no-dev --optimize-autoloader --no-interaction
-
-      - name: Preparar pacote de deploy
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
         run: |
-          echo "Empacotando para deploy..."
-          zip -r deployment.zip . \
-            -x "*.git*" \
-            -x "deployment*.zip" \
-            -x "node_modules/*" \
-            -x "tests/*" \
-            -x ".env*" \
-            -x "*.md"
-          echo "Pacote criado:"
-          ls -lh deployment.zip
-
-      - name: Upload para Branix
-        env:
-          HOST: ${{ secrets.HOST_BRANIX }}
-          USERNAME: ${{ secrets.USERNAME_BRANIX }}
-          SSH_PORT: ${{ secrets.SSH_PORT_BRANIX }}
-        run: |
-          scp -P $SSH_PORT -o StrictHostKeyChecking=no deployment.zip $USERNAME@$HOST:~/
-
-      - name: Extrair e ativar no servidor
-        env:
-          HOST: ${{ secrets.HOST_BRANIX }}
-          USERNAME: ${{ secrets.USERNAME_BRANIX }}
-          SSH_PORT: ${{ secrets.SSH_PORT_BRANIX }}
-          DEPLOY_DIR: ${{ secrets.DEPLOY_DIRECTORY_BRANIX }}
-        run: |
-          ssh -p "$SSH_PORT" -o StrictHostKeyChecking=no "$USERNAME@$HOST" bash -s << ENDSSH
-            set -e
-
-            DEPLOY_DIR="$DEPLOY_DIR"
-
-            echo "Iniciando deploy em \$DEPLOY_DIR..."
-            mkdir -p "\$DEPLOY_DIR"
-
-            mv ~/deployment.zip "\$DEPLOY_DIR/"
-            cd "\$DEPLOY_DIR"
-
-            if [ -f .env ]; then
-              cp .env /tmp/.env.backup
-            fi
-
-            unzip -o deployment.zip
-            rm deployment.zip
-
-            if [ -f /tmp/.env.backup ]; then
-              cp /tmp/.env.backup .env
-              rm /tmp/.env.backup
-            fi
-
-            php artisan optimize:clear
-            php artisan view:clear
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
-            php artisan migrate --force
-
-            echo "Deploy concluído com sucesso."
-          ENDSSH
-
-      - name: Notificar conclusão
-        run: echo "Deploy para sid360.com.br concluído."
+          ssh \
+            -i ~/.ssh/sid360_deploy \
+            -p "$VPS_PORT" \
+            -o BatchMode=yes \
+            "$VPS_USER@$VPS_HOST" \
+            'sudo /opt/stacks/sid360/deploy.sh'
