@@ -12,6 +12,7 @@ use App\Models\WhatsappConversationState;
 use App\Services\WhatsappBotService;
 use App\Services\WhatsappConversationStateService;
 use App\Services\WhatsappService;
+use App\Support\DocumentHelper;
 use App\Support\WhatsappCommandParser;
 use Illuminate\Support\Facades\Log;
 
@@ -35,6 +36,23 @@ class ProcessWhatsappBotMessageAction
         }
 
         $client = $this->findClient->execute($from, $phoneHint);
+
+        // O WhatsApp pode esconder o telefone real (@lid) sem deixar
+        // nenhum jeito automático de recuperá-lo (confirmado: o endpoint
+        // de resolução do WPPConnect só ecoa o próprio LID quando não tem
+        // mapeamento cacheado). Se o contato respondeu com CPF ou telefone
+        // — por exemplo depois do pedido de identificação em
+        // recordUnknownContact() — tentamos casar aqui antes de desistir.
+        if ($client === null) {
+            $client = $this->findClientByIdentification($body);
+
+            if ($client !== null) {
+                Log::info('WhatsApp bot: contato desconhecido identificado por CPF/telefone informado', [
+                    'from' => $from,
+                    'client_id' => $client->id,
+                ]);
+            }
+        }
 
         if ($client === null) {
             $this->recordUnknownContact($from, $body, $payload, $phoneHint);
@@ -208,6 +226,70 @@ class ProcessWhatsappBotMessageAction
                 'phone_hint' => $phoneHint,
             ],
         ]);
+
+        $this->promptForIdentification($from);
+    }
+
+    /**
+     * Tenta casar um CPF ou telefone informado em texto livre com um
+     * Client cadastrado. Usado quando o contato não bateu com nenhum
+     * Client automaticamente (ex.: @lid sem telefone real disponível) e
+     * respondeu ao pedido de identificação feito em promptForIdentification().
+     */
+    private function findClientByIdentification(string $body): ?Client
+    {
+        $digits = preg_replace('/\D/', '', $body) ?? '';
+
+        if ($digits === '') {
+            return null;
+        }
+
+        if (strlen($digits) >= 10 && strlen($digits) <= 13) {
+            $client = Client::query()
+                ->whereNotNull('phone')
+                ->where('phone', '!=', '')
+                ->get()
+                ->first(fn (Client $c): bool => DocumentHelper::phoneMatches($c->phone, $digits));
+
+            if ($client !== null) {
+                return $client;
+            }
+        }
+
+        if (strlen($digits) === 11) {
+            return Client::query()->where('cpf', $digits)->first();
+        }
+
+        return null;
+    }
+
+    /**
+     * Antes, contato desconhecido era só ignorado em silêncio — e era
+     * exatamente isso que parecia "o bot não responde" pros casos de @lid
+     * (sem telefone recuperável) ou número não cadastrado. Pedimos CPF ou
+     * telefone uma vez por janela de 24h pra esse "from", pra dar uma
+     * chance de identificação manual sem floodar o contato a cada
+     * mensagem nova.
+     */
+    private function promptForIdentification(string $from): void
+    {
+        $alreadyPrompted = InstallmentInteraction::query()
+            ->where('direction', InstallmentInteraction::DIR_OUTBOUND)
+            ->where('type', InstallmentInteraction::TYPE_BOT_UNKNOWN_CONTACT)
+            ->where('meta->from', $from)
+            ->where('created_at', '>=', now()->subHours(24))
+            ->exists();
+
+        if ($alreadyPrompted) {
+            return;
+        }
+
+        $this->whatsapp->sendAndRecord(
+            phone: $from,
+            message: "Olá! Não conseguimos localizar automaticamente seu contrato a partir deste número.\n\nPara te ajudar, responda com seu *CPF* ou o *telefone* cadastrado.",
+            type: InstallmentInteraction::TYPE_BOT_UNKNOWN_CONTACT,
+            meta: ['from' => $from],
+        );
     }
 
     /**

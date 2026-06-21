@@ -864,16 +864,23 @@ class WhatsappService
 
             $data = $response->json();
 
-            // O formato exato de resposta desse endpoint não está
-            // documentado em detalhe — logamos o payload bruto na primeira
-            // tentativa pra calibrar os campos candidatos abaixo com base no
-            // que o servidor realmente devolve.
             Log::info('WhatsappService::resolvePhoneFromLid: resposta recebida', [
                 'lid' => $pnLid,
                 'response' => $data,
             ]);
 
+            // Formato real confirmado em produção:
+            // {"response":{"phoneNumber":{"id":"<lid>","server":"c.us","_serialized":"<lid>@c.us"}}}
+            // Quando a sessão NÃO tem o mapeamento real cacheado, o WPPConnect
+            // devolve 200 só ecoando o próprio LID disfarçado de "@c.us" — ou
+            // seja, presença de resposta não significa resolução de verdade.
+            // Por isso comparamos o resultado com o LID original e descartamos
+            // se forem iguais.
             foreach ([
+                data_get($data, 'response.phoneNumber._serialized'),
+                data_get($data, 'response.phoneNumber.id'),
+                data_get($data, 'phoneNumber._serialized'),
+                data_get($data, 'phoneNumber.id'),
                 data_get($data, 'response.id._serialized'),
                 data_get($data, 'id._serialized'),
                 data_get($data, 'response.id.user'),
@@ -890,6 +897,10 @@ class WhatsappService
                 }
 
                 $digits = preg_replace('/\D/', '', (string) $candidate) ?? '';
+
+                if ($digits === '' || $digits === $pnLid) {
+                    continue;
+                }
 
                 if (strlen($digits) >= 10 && strlen($digits) <= 13) {
                     return $digits;
