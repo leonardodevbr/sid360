@@ -11,6 +11,7 @@ use App\Actions\Sale\GenerateSaleContractPdfAction;
 use App\Actions\Sale\ListSaleDocumentsAction;
 use App\Actions\Sale\ListSalesAction;
 use App\Actions\Sale\SendOverdueWhatsappAction;
+use App\Actions\Sale\SendWelcomeWhatsappAction;
 use App\Actions\Sale\SnapshotSaleDocumentsAction;
 use App\Actions\Sale\StoreSaleAction;
 use App\Actions\Sale\UpdateSaleAction;
@@ -158,6 +159,21 @@ class SaleController extends Controller
             forceResend: true,
             sendEmail: false,
         );
+
+        if (! $result['ok']) {
+            return response()->json($result, 422);
+        }
+
+        return response()->json($result);
+    }
+
+    public function resendWelcomeWhatsapp(string|int $id, SendWelcomeWhatsappAction $action): JsonResponse
+    {
+        $this->authorize('sales.edit');
+
+        $sale = Sale::query()->findOrFail((int) $id);
+
+        $result = $action->execute($sale, forceResend: true);
 
         if (! $result['ok']) {
             return response()->json($result, 422);

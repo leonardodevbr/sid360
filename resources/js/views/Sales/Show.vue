@@ -249,23 +249,35 @@
         <div class="mt-5 border-t border-slate-100 pt-5">
           <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <p class="text-sm font-medium text-slate-700">Notificações WhatsApp</p>
-            <Button
-              v-if="financingOverdueCount > 0"
-              type="button"
-              variant="outline"
-              :loading="sendingOverdueWhatsapp"
-              :disabled="!sale?.client?.phone"
-              @click="handleSendOverdueWhatsapp"
-            >
-              <ChatBubbleLeftRightIcon class="mr-2 h-4 w-4" />
-              Enviar cobrança de atraso
-            </Button>
+            <div class="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                :loading="sendingWelcomeWhatsapp"
+                :disabled="!sale?.client?.phone"
+                @click="handleResendWelcomeWhatsapp"
+              >
+                <ChatBubbleLeftRightIcon class="mr-2 h-4 w-4" />
+                Reenviar boas-vindas
+              </Button>
+              <Button
+                v-if="financingOverdueCount > 0"
+                type="button"
+                variant="outline"
+                :loading="sendingOverdueWhatsapp"
+                :disabled="!sale?.client?.phone"
+                @click="handleSendOverdueWhatsapp"
+              >
+                <ChatBubbleLeftRightIcon class="mr-2 h-4 w-4" />
+                Enviar cobrança de atraso
+              </Button>
+            </div>
           </div>
           <p
-            v-if="financingOverdueCount > 0 && !sale?.client?.phone"
+            v-if="!sale?.client?.phone"
             class="mb-3 text-xs text-amber-700"
           >
-            Cadastre o WhatsApp do cliente para enviar a cobrança automática.
+            Cadastre o WhatsApp do cliente para enviar notificações.
           </p>
           <dl class="grid gap-3 sm:grid-cols-2">
             <div>
@@ -815,6 +827,7 @@ const generatingCarne = ref(false);
 const carneModalOpen = ref(false);
 const carneFirstDueDate = ref('');
 const sendingOverdueWhatsapp = ref(false);
+const sendingWelcomeWhatsapp = ref(false);
 const cancellingSale = ref(false);
 const chargeModal = ref(null);
 const downloadingReciboId = ref(null);
@@ -923,6 +936,50 @@ async function handleSendOverdueWhatsapp() {
     toast.error(getApiErrorMessage(err, 'Não foi possível enviar a cobrança.'));
   } finally {
     sendingOverdueWhatsapp.value = false;
+  }
+}
+
+async function handleResendWelcomeWhatsapp() {
+  if (!sale.value?.client?.phone) {
+    toast.warning('Cliente sem telefone/WhatsApp cadastrado.');
+    return;
+  }
+
+  const phone = sale.value.client.phone;
+  const result = await Swal.fire({
+    ...swalDefaultConfig,
+    title: 'Reenviar boas-vindas?',
+    html: `
+      <div class="text-left text-sm text-slate-600 space-y-2">
+        <p>Será enviada a <strong>mesma mensagem de boas-vindas</strong> da venda, para:</p>
+        <p class="font-medium text-slate-800">${phone}</p>
+        <p class="text-xs text-slate-500 pt-2 border-t border-slate-100">
+          Pode reenviar mesmo se já tiver sido enviada antes — útil depois de corrigir o número do cliente.
+        </p>
+      </div>
+    `,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Enviar agora',
+    cancelButtonText: 'Cancelar',
+    reverseButtons: true,
+    focusCancel: true,
+  });
+
+  if (!result.isConfirmed) {
+    return;
+  }
+
+  sendingWelcomeWhatsapp.value = true;
+  try {
+    const { data } = await api.post(`/sales/${sale.value.id}/whatsapp/welcome`);
+    toast.success(data.message || 'Mensagem de boas-vindas reenviada com sucesso.');
+    await loadSale();
+    await loadInteractions();
+  } catch (err) {
+    toast.error(getApiErrorMessage(err, 'Não foi possível reenviar a mensagem de boas-vindas.'));
+  } finally {
+    sendingWelcomeWhatsapp.value = false;
   }
 }
 
