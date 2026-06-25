@@ -43,16 +43,23 @@
           {{ sale.lot.full_address }}
         </p>
       </div>
-      <Button
-        v-if="sale && sale.status !== 'cancelled'"
-        type="button"
-        variant="danger"
-        class="shrink-0"
-        :loading="cancellingSale"
-        @click="handleCancelSale"
-      >
-        Cancelar venda
-      </Button>
+      <div v-if="sale && sale.status !== 'cancelled'" class="flex shrink-0 gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          @click="openChangeLotModal"
+        >
+          Trocar lote
+        </Button>
+        <Button
+          type="button"
+          variant="danger"
+          :loading="cancellingSale"
+          @click="handleCancelSale"
+        >
+          Cancelar venda
+        </Button>
+      </div>
     </div>
 
     <div v-if="loading" class="card p-12 text-center text-slate-400">Carregando...</div>
@@ -603,6 +610,55 @@
         </Button>
       </div>
     </Modal>
+
+    <Modal
+      :is-open="changeLotModalOpen"
+      title="Trocar lote da venda"
+      @close="closeChangeLotModal"
+    >
+      <p class="mb-3 text-xs text-slate-500">
+        Selecione o(s) novo(s) lote(s) no mapa ou na lista abaixo. O valor total e as parcelas
+        <strong>ainda pendentes</strong> serão recalculados com base no novo lote — parcelas já pagas não são alteradas.
+      </p>
+
+      <div v-if="loadingChangeLotLots" class="py-10 text-center text-xs text-slate-400">
+        Carregando lotes do empreendimento...
+      </div>
+
+      <template v-else>
+        <LotPickerMap
+          v-model="changeLotSelectedIds"
+          :lots="changeLotDevelopmentLots"
+          height="380px"
+        />
+
+        <SelectInput
+          v-if="changeLotDevelopmentLots.length"
+          class="mt-4"
+          label="Lote(s) selecionado(s)"
+          mode="multiple"
+          :model-value="changeLotSelectedIds"
+          :options="changeLotLotOptions"
+          placeholder="Selecione um ou mais lotes…"
+          @update:model-value="changeLotSelectedIds = $event"
+        />
+      </template>
+
+      <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <Button type="button" variant="outline" @click="closeChangeLotModal">
+          Cancelar
+        </Button>
+        <Button
+          type="button"
+          variant="primary"
+          :loading="changingLot"
+          :disabled="loadingChangeLotLots || !changeLotSelectedIds.length"
+          @click="handleChangeLot"
+        >
+          Confirmar troca
+        </Button>
+      </div>
+    </Modal>
   </div>
 </template>
 
@@ -634,6 +690,8 @@ import {
 import Button from '@/components/Common/Button.vue';
 import Modal from '@/components/Common/Modal.vue';
 import Flatpickr from '@/components/Common/Flatpickr.vue';
+import SelectInput from '@/components/Common/SelectInput.vue';
+import LotPickerMap from '@/components/Common/LotPickerMap.vue';
 import DocumentManager from '@/components/Common/DocumentManager.vue';
 import InstallmentWhatsappCell from '@/components/Sales/InstallmentWhatsappCell.vue';
 import InstallmentEfiActions from '@/components/Sales/InstallmentEfiActions.vue';
@@ -765,6 +823,25 @@ const paymentModal = ref(null);
 const dueDateModal = ref(null);
 const carneData = ref(null);
 
+const changeLotModalOpen = ref(false);
+const changeLotDevelopmentLots = ref([]);
+const changeLotSelectedIds = ref([]);
+const loadingChangeLotLots = ref(false);
+const changingLot = ref(false);
+
+const changeLotLotOptions = computed(() => {
+  const selected = changeLotSelectedIds.value.map(String);
+
+  return changeLotDevelopmentLots.value
+    .filter((l) => l.status === 'available' || selected.includes(String(l.id)))
+    .slice()
+    .sort((a, b) => String(a.block ?? '').localeCompare(String(b.block ?? '')) || String(a.number).localeCompare(String(b.number)))
+    .map((l) => ({
+      value: String(l.id),
+      label: `Q${l.block ?? '?'} · L${l.number}${l.area ? ' · ' + l.area + 'm²' : ''}`,
+    }));
+});
+
 const showRegistrationSuccess = computed(() => route.query.registered === '1');
 
 const formatDate = (d) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString('pt-BR') : '—');
@@ -893,6 +970,79 @@ async function handleCancelSale() {
     toast.error(getApiErrorMessage(err, 'Não foi possível cancelar a venda.'));
   } finally {
     cancellingSale.value = false;
+  }
+}
+
+async function openChangeLotModal() {
+  const developmentId = sale.value?.lot?.development?.id ?? sale.value?.lot?.development_id;
+
+  if (!developmentId) {
+    toast.error('Não foi possível identificar o empreendimento desta venda.');
+    return;
+  }
+
+  const currentLots = sale.value?.lots?.length ? sale.value.lots : [sale.value?.lot].filter(Boolean);
+  changeLotSelectedIds.value = currentLots.map((l) => String(l.id));
+  changeLotDevelopmentLots.value = [];
+  changeLotModalOpen.value = true;
+  loadingChangeLotLots.value = true;
+
+  try {
+    const { data } = await api.get(`/developments/${developmentId}/lots`, { params: { all: 1 } });
+    changeLotDevelopmentLots.value = data.data ?? data;
+  } catch {
+    toast.error('Erro ao carregar lotes do empreendimento.');
+    changeLotModalOpen.value = false;
+  } finally {
+    loadingChangeLotLots.value = false;
+  }
+}
+
+function closeChangeLotModal() {
+  changeLotModalOpen.value = false;
+}
+
+async function handleChangeLot() {
+  if (!changeLotSelectedIds.value.length) {
+    toast.warning('Selecione ao menos um lote.');
+    return;
+  }
+
+  const result = await Swal.fire({
+    ...swalDefaultConfig,
+    title: 'Confirmar troca de lote?',
+    html: `
+      <div class="text-left text-sm text-slate-600 space-y-2">
+        <p>${temMultiplosLotes.value ? 'Os lotes anteriores serão liberados' : 'O lote anterior será liberado'} e o(s) novo(s) será(ão) marcado(s) como <strong>Vendido</strong>.</p>
+        <p>O valor total e as parcelas <strong>ainda pendentes</strong> serão recalculados com base no novo lote.</p>
+        <p class="text-xs text-slate-500 pt-2 border-t border-slate-100">Parcelas já pagas não são alteradas.</p>
+      </div>
+    `,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Confirmar troca',
+    cancelButtonText: 'Voltar',
+    reverseButtons: true,
+    focusCancel: true,
+  });
+
+  if (!result.isConfirmed) {
+    return;
+  }
+
+  changingLot.value = true;
+  try {
+    const { data } = await api.post(`/sales/${sale.value.id}/change-lot`, {
+      lot_ids: changeLotSelectedIds.value.map((id) => Number(id)),
+    });
+    sale.value = data.data ?? data;
+    toast.success('Lote da venda atualizado com sucesso.');
+    changeLotModalOpen.value = false;
+    await loadInteractions();
+  } catch (err) {
+    toast.error(getApiErrorMessage(err, 'Não foi possível trocar o lote desta venda.'));
+  } finally {
+    changingLot.value = false;
   }
 }
 

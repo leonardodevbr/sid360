@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Actions\Sale\CancelSaleAction;
+use App\Actions\Sale\ChangeSaleLotAction;
 use App\Actions\Sale\DeleteSaleAction;
 use App\Actions\Sale\GenerateSaleContractPdfAction;
 use App\Actions\Sale\ListSaleDocumentsAction;
@@ -16,6 +17,7 @@ use App\Actions\Sale\UpdateSaleAction;
 use App\Actions\Sale\UploadSaleDocumentAction;
 use App\Actions\Sale\UploadSignedContractAction;
 use App\Http\Requests\CancelSaleRequest;
+use App\Http\Requests\ChangeSaleLotRequest;
 use App\Http\Requests\StoreSaleRequest;
 use App\Http\Requests\UploadSaleDocumentRequest;
 use App\Http\Requests\UploadSignedContractRequest;
@@ -124,6 +126,23 @@ class SaleController extends Controller
         }
 
         $sale->load(['client', 'lot.development', 'lots.development', 'installments', 'buyers']);
+
+        return response()->json(new SaleResource($sale));
+    }
+
+    public function changeLot(ChangeSaleLotRequest $request, string|int $id, ChangeSaleLotAction $action): JsonResponse
+    {
+        $this->authorize('sales.edit');
+
+        $sale = Sale::query()->findOrFail((int) $id);
+
+        try {
+            $sale = $action->execute($sale, (array) $request->validated('lot_ids'));
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $sale->load(['client', 'lot.development', 'lot.street', 'lot.zone.parent', 'lots.development', 'lots.street', 'lots.zone.parent', 'installments', 'buyers']);
 
         return response()->json(new SaleResource($sale));
     }

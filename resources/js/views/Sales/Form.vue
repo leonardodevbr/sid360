@@ -542,13 +542,29 @@
 
     <!-- ETAPA 2 — LOTE -->
     <div class="card p-5" :class="{ 'pointer-events-none opacity-40': !clienteSelecionado }">
-      <p class="mb-4 text-xs font-semibold uppercase tracking-widest text-slate-400">
-        <span
-          class="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold"
-          :class="clienteSelecionado ? 'bg-[#c23028] text-white' : 'bg-slate-200 text-slate-400'"
-        >2</span>
-        Lote
-      </p>
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <p class="text-xs font-semibold uppercase tracking-widest text-slate-400">
+          <span
+            class="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold"
+            :class="clienteSelecionado ? 'bg-[#c23028] text-white' : 'bg-slate-200 text-slate-400'"
+          >2</span>
+          Lote
+        </p>
+        <div v-if="form.development_id" class="inline-flex overflow-hidden rounded-lg border border-slate-200 text-xs font-medium">
+          <button
+            type="button"
+            class="px-2.5 py-1 transition-colors"
+            :class="lotViewMode === 'list' ? 'bg-[#c23028] text-white' : 'bg-white text-slate-500 hover:bg-slate-50'"
+            @click="lotViewMode = 'list'"
+          >Lista</button>
+          <button
+            type="button"
+            class="px-2.5 py-1 transition-colors"
+            :class="lotViewMode === 'map' ? 'bg-[#c23028] text-white' : 'bg-white text-slate-500 hover:bg-slate-50'"
+            @click="lotViewMode = 'map'"
+          >Mapa</button>
+        </div>
+      </div>
       <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <SelectInput
           v-model="form.development_id"
@@ -559,6 +575,7 @@
           @update:model-value="onDevelopmentChange"
         />
         <SelectInput
+          v-if="lotViewMode === 'list'"
           v-model="form.lot_ids"
           mode="multiple"
           label="Lote(s) disponível(eis)"
@@ -588,6 +605,10 @@
             </span>
           </div>
         </div>
+      </div>
+
+      <div v-if="lotViewMode === 'map' && form.development_id" class="mt-4">
+        <LotPickerMap v-model="form.lot_ids" :lots="lots" height="420px" />
       </div>
     </div>
 
@@ -787,6 +808,7 @@ import { getCpfValidationMessage } from '@/utils/validation';
 import Flatpickr from '@/components/Common/Flatpickr.vue';
 import CurrencyInput from '@/components/Common/CurrencyInput.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
+import LotPickerMap from '@/components/Common/LotPickerMap.vue';
 import { maritalStatusOptions } from '@/constants/maritalStatus';
 import { formatCpf, formatCurrency, formatPhone } from '@/utils/format';
 import { badgeColors, confirmationBadgeClass } from '@/utils/status';
@@ -1270,6 +1292,7 @@ async function salvarNovoCliente() {
 
 const developments = ref([]);
 const lots = ref([]);
+const lotViewMode = ref('list');
 
 const developmentOptions = computed(() =>
   developments.value.map((d) => ({

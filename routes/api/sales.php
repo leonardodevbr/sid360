@@ -19,6 +19,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/sales/{id}/update', [SaleController::class, 'update']);
     Route::post('/sales/{id}/delete', [SaleController::class, 'destroy']);
     Route::post('/sales/{id}/cancel', [SaleController::class, 'cancel']);
+    Route::post('/sales/{id}/change-lot', [SaleController::class, 'changeLot']);
     Route::post('/sales/{id}/whatsapp/overdue', [SaleController::class, 'sendOverdueWhatsapp']);
     Route::get('/sales/{id}/contract', [SaleController::class, 'contract']);
     Route::get('/sales/{id}/contract/preview', [SaleController::class, 'contractPreview']);
