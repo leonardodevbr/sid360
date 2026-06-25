@@ -1292,7 +1292,9 @@ async function salvarNovoCliente() {
 
 const developments = ref([]);
 const lots = ref([]);
-const lotViewMode = ref('list');
+// Mapa é o padrão (mais fácil visualmente); lista fica disponível pra quem
+// prefere buscar/selecionar por número direto.
+const lotViewMode = ref('map');
 
 const developmentOptions = computed(() =>
   developments.value.map((d) => ({

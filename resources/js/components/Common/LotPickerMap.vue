@@ -20,6 +20,39 @@
       </div>
     </div>
 
+    <div v-if="lotsWithCoordinates.length" class="flex flex-wrap items-end gap-2">
+      <div class="min-w-[140px]">
+        <label class="mb-1 block text-xs font-medium text-slate-600">Quadra</label>
+        <select
+          v-model="blockFilter"
+          class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-[#c23028] focus:outline-none focus:ring-2 focus:ring-[#c23028]/20"
+        >
+          <option value="">Todas</option>
+          <option v-for="b in blockOptions" :key="b" :value="b">Quadra {{ b }}</option>
+        </select>
+      </div>
+      <div class="min-w-[140px] flex-1 max-w-[220px]">
+        <label class="mb-1 block text-xs font-medium text-slate-600">Buscar lote nº</label>
+        <input
+          v-model="numberFilter"
+          type="text"
+          placeholder="Ex.: 12"
+          class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:border-[#c23028] focus:outline-none focus:ring-2 focus:ring-[#c23028]/20"
+        />
+      </div>
+      <button
+        v-if="hasActiveFilter"
+        type="button"
+        class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50"
+        @click="clearFilters"
+      >
+        Limpar filtros
+      </button>
+      <span v-if="hasActiveFilter" class="text-xs text-slate-400">
+        {{ matchCount }} lote(s) encontrado(s)
+      </span>
+    </div>
+
     <div
       ref="mapContainer"
       class="w-full rounded-lg border border-slate-300 overflow-hidden"
@@ -28,6 +61,9 @@
 
     <p v-if="!loading && !lotsWithCoordinates.length" class="text-xs text-amber-600">
       Nenhum lote deste empreendimento tem desenho no mapa ainda. Use a lista abaixo para selecionar.
+    </p>
+    <p v-else-if="hasActiveFilter && matchCount === 0" class="text-xs text-amber-600">
+      Nenhum lote encontrado com esse filtro.
     </p>
   </div>
 </template>
@@ -68,11 +104,46 @@ let map = null
 let lotsLayer = null
 let polygonsByLotId = new Map()
 
+const blockFilter = ref('')
+const numberFilter = ref('')
+
 const selectedIds = computed(() => new Set((props.modelValue || []).map((id) => String(id))))
 
 const lotsWithCoordinates = computed(() =>
   (props.lots || []).filter((lot) => Array.isArray(lot.coordinates) && lot.coordinates.length >= 3),
 )
+
+const blockOptions = computed(() => {
+  const blocks = new Set()
+  lotsWithCoordinates.value.forEach((lot) => {
+    if (lot.block !== null && lot.block !== undefined && String(lot.block).trim() !== '') {
+      blocks.add(String(lot.block))
+    }
+  })
+  return Array.from(blocks).sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }))
+})
+
+const hasActiveFilter = computed(() => Boolean(blockFilter.value || numberFilter.value.trim()))
+
+function matchesFilter(lot) {
+  if (blockFilter.value && String(lot.block ?? '') !== blockFilter.value) {
+    return false
+  }
+
+  const term = numberFilter.value.trim().toLowerCase()
+  if (term && !String(lot.number ?? '').toLowerCase().includes(term)) {
+    return false
+  }
+
+  return true
+}
+
+const matchCount = computed(() => lotsWithCoordinates.value.filter((lot) => matchesFilter(lot)).length)
+
+function clearFilters() {
+  blockFilter.value = ''
+  numberFilter.value = ''
+}
 
 function statusLabel(status) {
   return { available: 'Disponível', reserved: 'Reservado', sold: 'Vendido', inactive: 'Inativo' }[status] ?? status
@@ -111,6 +182,10 @@ onUnmounted(() => {
 
 watch(() => props.lots, () => renderLots(), { deep: true })
 watch(() => props.modelValue, () => renderLots(), { deep: true })
+watch([blockFilter, numberFilter], async () => {
+  await renderLots()
+  await focusOnFilterMatches()
+})
 
 async function initMap() {
   const L = await import('leaflet')
@@ -141,14 +216,18 @@ async function renderLots() {
   lotsWithCoordinates.value.forEach((lot) => {
     const selected = selectedIds.value.has(String(lot.id))
     const selectable = isSelectable(lot)
+    // Lote fora do filtro ativo (quadra/número) fica esmaecido, mas nunca some
+    // do mapa — preserva o contexto espacial e não esconde a seleção atual.
+    const muted = hasActiveFilter.value && !matchesFilter(lot) && !selected
     const style = selected ? SELECTED_STYLE : getLotMapStyle(lot.status)
+    const baseWeight = selected ? 3 : muted ? 1 : 1.5
 
     const polygon = L.polygon(lot.coordinates, {
-      color: style.color,
-      fillColor: style.fill,
-      fillOpacity: selected ? 0.55 : lot.status === 'available' ? 0.38 : 0.28,
-      weight: selected ? 3 : 1.5,
-      dashArray: selectable ? null : '4 4',
+      color: muted ? '#cbd5e1' : style.color,
+      fillColor: muted ? '#e2e8f0' : style.fill,
+      fillOpacity: muted ? 0.08 : (selected ? 0.55 : lot.status === 'available' ? 0.38 : 0.28),
+      weight: baseWeight,
+      dashArray: muted ? '2 6' : (selectable ? null : '4 4'),
     })
 
     const meta = buildLotMapMetaText(lot, statusLabel(lot.status))
@@ -167,12 +246,41 @@ async function renderLots() {
     if (selectable) {
       polygon.on('click', () => toggleLot(lot))
       polygon.on('mouseover', () => polygon.setStyle({ weight: 3 }))
-      polygon.on('mouseout', () => polygon.setStyle({ weight: selected ? 3 : 1.5 }))
+      polygon.on('mouseout', () => polygon.setStyle({ weight: baseWeight }))
     }
 
     polygonsByLotId.set(String(lot.id), polygon)
     lotsLayer.addLayer(polygon)
   })
+}
+
+/** Enquadra o mapa nos lotes que casam com o filtro ativo (quadra/número). */
+async function focusOnFilterMatches() {
+  if (!map) return
+
+  if (!hasActiveFilter.value) {
+    fitBounds()
+    return
+  }
+
+  const matched = lotsWithCoordinates.value.filter((lot) => matchesFilter(lot))
+  if (!matched.length) return
+
+  const L = await import('leaflet')
+  const polygons = matched
+    .map((lot) => polygonsByLotId.get(String(lot.id)))
+    .filter(Boolean)
+
+  if (!polygons.length) return
+
+  try {
+    const bounds = L.featureGroup(polygons).getBounds()
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 20 })
+    }
+  } catch {
+    /* bounds inválido */
+  }
 }
 
 function fitBounds() {
