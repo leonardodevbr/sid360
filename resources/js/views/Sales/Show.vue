@@ -101,7 +101,7 @@
             class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800"
           >
             <span class="font-semibold">Q{{ lote.block ?? '–' }} · L{{ lote.number }}</span>
-            <span v-if="lote.area" class="ml-1 text-slate-500">{{ lote.area }}m²</span>
+            <span v-if="resolveLotArea(lote)" class="ml-1 text-slate-500">{{ resolveLotArea(lote) }}m²</span>
           </div>
         </div>
         <p class="mt-3 text-xs text-slate-500">
@@ -114,6 +114,50 @@
         <p class="mb-4 text-xs text-slate-500">
           Pré-visualize a minuta com marca d'água antes de fechar, ou baixe o contrato oficial para assinatura.
         </p>
+
+        <div class="mb-4 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <div>
+            <p class="text-sm font-medium text-slate-800">Texto das medidas no contrato</p>
+            <p class="mt-0.5 text-xs text-slate-500">
+              Ajuste o trecho que descreve área e medidas de cada lote. Se deixar vazio, usa o texto padrão do lote (ou o gerado automaticamente).
+            </p>
+          </div>
+
+          <div
+            v-for="lot in contractLots"
+            :key="lot.id"
+            class="space-y-1"
+          >
+            <label class="block text-xs font-medium text-slate-600">
+              {{ lotContractLabel(lot) }}
+            </label>
+            <textarea
+              v-model="contractMeasuresDraft[String(lot.id)]"
+              rows="2"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-[#2d6a45] focus:outline-none focus:ring-2 focus:ring-[#2d6a45]/20"
+              :placeholder="lotContractMeasuresPlaceholder(lot)"
+            />
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              :loading="savingContractMeasures"
+              @click="handleSaveContractMeasures"
+            >
+              Salvar texto das medidas
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              :disabled="savingContractMeasures"
+              @click="resetContractMeasuresDraft"
+            >
+              Restaurar padrão
+            </Button>
+          </div>
+        </div>
 
         <div class="flex flex-wrap gap-2">
           <Button
@@ -675,7 +719,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'vue-toastification';
 import Swal from 'sweetalert2';
@@ -687,8 +731,14 @@ import {
   downloadInstallmentRecibo,
   previewContract,
   uploadSignedContract,
+  updateContractLotMeasures,
 } from '@/services/sale.service';
 import { getApiErrorMessage } from '@/utils/apiError';
+import {
+  resolveLotArea,
+  resolveLotContractMeasuresText,
+  buildAutoContractMeasuresText,
+} from '@/utils/lotMeasures';
 import { swalDefaultConfig } from '@/composables/useAlert';
 import { formatCpf, formatCurrency, formatPhone } from '@/utils/format';
 import {
@@ -803,10 +853,6 @@ const clientWhatsAppUrl = computed(() => {
 // lote "primário" (`sale.lot`).
 const temMultiplosLotes = computed(() => (sale.value?.lots?.length ?? 0) > 1);
 
-const lotesAreaTotal = computed(() =>
-  (sale.value?.lots ?? []).reduce((sum, lote) => sum + (Number(lote.area) || 0), 0),
-);
-
 const installmentsExpanded = ref(false);
 
 const route = useRoute();
@@ -817,6 +863,104 @@ const interactions = ref([]);
 const loading = ref(false);
 const previewingContract = ref(false);
 const downloadingContract = ref(false);
+const savingContractMeasures = ref(false);
+const contractMeasuresDraft = ref({});
+
+const contractLots = computed(() => {
+  if (sale.value?.lots?.length) {
+    return sale.value.lots;
+  }
+
+  return sale.value?.lot ? [sale.value.lot] : [];
+});
+
+const lotesAreaTotal = computed(() =>
+  contractLots.value.reduce((sum, lote) => sum + (resolveLotArea(lote) || 0), 0),
+);
+
+function lotContractLabel(lot) {
+  const block = lot.block || lot.zone?.name;
+  return block ? `${block} · Lote ${lot.number}` : `Lote ${lot.number}`;
+}
+
+function lotContractMeasuresPlaceholder(lot) {
+  return buildAutoContractMeasuresText(lot)
+    || 'Ex.: com área total de 622m², medindo Frente de 16m…';
+}
+
+function syncContractMeasuresDraft() {
+  const overrides = sale.value?.contract_lot_measures ?? {};
+  const draft = {};
+
+  for (const lot of contractLots.value) {
+    const key = String(lot.id);
+    const override = overrides[key] ?? overrides[lot.id] ?? null;
+    draft[key] = resolveLotContractMeasuresText(lot, override) ?? '';
+  }
+
+  contractMeasuresDraft.value = draft;
+}
+
+function resetContractMeasuresDraft() {
+  const draft = {};
+
+  for (const lot of contractLots.value) {
+    draft[String(lot.id)] = lot.contract_measures_text?.trim()
+      || buildAutoContractMeasuresText(lot)
+      || '';
+  }
+
+  contractMeasuresDraft.value = draft;
+}
+
+async function persistContractMeasuresIfNeeded() {
+  const payload = {};
+
+  for (const lot of contractLots.value) {
+    const key = String(lot.id);
+    const text = String(contractMeasuresDraft.value[key] ?? '').trim();
+    const auto = resolveLotContractMeasuresText(lot, null) ?? '';
+
+    if (text && text !== auto) {
+      payload[key] = text;
+    }
+  }
+
+  const current = sale.value?.contract_lot_measures ?? {};
+  const currentKeys = Object.keys(current);
+  const nextKeys = Object.keys(payload);
+  const unchanged = currentKeys.length === nextKeys.length
+    && nextKeys.every((key) => current[key] === payload[key]);
+
+  if (unchanged) {
+    return;
+  }
+
+  const updated = await updateContractLotMeasures(sale.value.id, payload);
+  sale.value = { ...sale.value, ...updated };
+}
+
+async function handleSaveContractMeasures() {
+  savingContractMeasures.value = true;
+  try {
+    await persistContractMeasuresIfNeeded();
+    toast.success('Texto das medidas salvo.');
+  } catch (err) {
+    toast.error(getApiErrorMessage(err, 'Erro ao salvar texto das medidas.'));
+  } finally {
+    savingContractMeasures.value = false;
+  }
+}
+
+watch(
+  () => sale.value?.id,
+  () => {
+    if (sale.value) {
+      syncContractMeasuresDraft();
+    }
+  },
+);
+
 const downloadingCarne = ref(false);
 const downloadingSigned = ref(false);
 const uploadingSigned = ref(false);
@@ -1106,12 +1250,13 @@ async function handleChangeLot() {
 async function handlePreviewContract() {
   previewingContract.value = true;
   try {
+    await persistContractMeasuresIfNeeded();
     await previewContract(sale.value.id);
   } catch (err) {
     if (err?.code === 'popup_blocked') {
       toast.warning('Permita pop-ups para visualizar ou use "Baixar contrato".');
     } else {
-      toast.error('Erro ao abrir pré-visualização do contrato.');
+      toast.error(getApiErrorMessage(err, 'Erro ao abrir pré-visualização do contrato.'));
     }
   } finally {
     previewingContract.value = false;
@@ -1121,9 +1266,10 @@ async function handlePreviewContract() {
 async function handleDownloadContract() {
   downloadingContract.value = true;
   try {
+    await persistContractMeasuresIfNeeded();
     await downloadContract(sale.value.id);
-  } catch {
-    toast.error('Erro ao baixar contrato.');
+  } catch (err) {
+    toast.error(getApiErrorMessage(err, 'Erro ao baixar contrato.'));
   } finally {
     downloadingContract.value = false;
   }

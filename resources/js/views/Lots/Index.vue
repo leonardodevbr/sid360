@@ -95,7 +95,7 @@
           />
           <Input
             v-model="sizeLabelFilter"
-            label="Medidas (frente × fundo)"
+            label="Medidas"
             placeholder="Ex: 10×25"
             @update:model-value="debouncedAdvancedFilter"
           />
@@ -335,10 +335,40 @@
         <div class="rounded-lg border border-slate-200 p-3">
           <label class="flex cursor-pointer items-start gap-2">
             <input v-model="bulkEditFields.sizeLabel.enabled" type="checkbox" class="mt-1 h-4 w-4 rounded border-slate-300 accent-emerald-700">
-            <span class="block text-sm font-medium text-slate-800">Medidas (frente × fundo)</span>
+            <span class="block text-sm font-medium text-slate-800">Texto de exibição das medidas</span>
           </label>
           <div v-if="bulkEditFields.sizeLabel.enabled" class="mt-3">
             <Input v-model="bulkEditFields.sizeLabel.value" placeholder="Ex: 10×25" />
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-slate-200 p-3">
+          <label class="flex cursor-pointer items-start gap-2">
+            <input v-model="bulkEditFields.faces.enabled" type="checkbox" class="mt-1 h-4 w-4 rounded border-slate-300 accent-emerald-700">
+            <span class="block text-sm font-medium text-slate-800">Faces (medidas)</span>
+          </label>
+          <div v-if="bulkEditFields.faces.enabled" class="mt-3 space-y-2">
+            <p class="text-xs text-slate-500">O mesmo conjunto de faces será aplicado a todos os lotes selecionados.</p>
+            <div
+              v-for="(face, index) in bulkEditFields.faces.value"
+              :key="index"
+              class="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_7rem_auto]"
+            >
+              <Input v-model="face.name" placeholder="Nome (ex: Frente)" />
+              <Input v-model="face.meters" type="number" min="0.01" step="0.01" placeholder="m" />
+              <button
+                type="button"
+                class="rounded p-2 text-slate-400 hover:bg-slate-100 hover:text-red-600"
+                title="Remover"
+                :disabled="bulkEditFields.faces.value.length <= 1"
+                @click="removeBulkFace(index)"
+              >
+                <TrashIcon class="h-5 w-5" />
+              </button>
+            </div>
+            <Button type="button" variant="outline" @click="addBulkFace">
+              Adicionar face
+            </Button>
           </div>
         </div>
 
@@ -391,6 +421,7 @@ import { lotStatusLabels, lotStatusOptions, lotStatusFormOptions } from '@/utils
 import { buildZoneTitleLabel, compareZonesByName } from '@/utils/zone';
 import { lotStatusClass } from '@/utils/status';
 import { buildLotDeleteConfirmMessage, formatLotDimensionsLabel } from '@/utils/mapLots';
+import { DEFAULT_LOT_FACES, normalizeLotFaces } from '@/utils/lotMeasures';
 import { getApiErrorMessage } from '@/utils/apiError';
 import Button from '@/components/Common/Button.vue';
 import Input from '@/components/Common/Input.vue';
@@ -441,6 +472,7 @@ const bulkEditFields = reactive({
   block: { enabled: false, value: '' },
   area: { enabled: false, value: '' },
   sizeLabel: { enabled: false, value: '' },
+  faces: { enabled: false, value: DEFAULT_LOT_FACES.map((face) => ({ ...face })) },
   totalValue: { enabled: false, value: 0 },
   status: { enabled: false, value: 'available' },
 });
@@ -563,10 +595,24 @@ function resetBulkEditFields() {
   bulkEditFields.area.value = '';
   bulkEditFields.sizeLabel.enabled = false;
   bulkEditFields.sizeLabel.value = '';
+  bulkEditFields.faces.enabled = false;
+  bulkEditFields.faces.value = DEFAULT_LOT_FACES.map((face) => ({ ...face }));
   bulkEditFields.totalValue.enabled = false;
   bulkEditFields.totalValue.value = 0;
   bulkEditFields.status.enabled = false;
   bulkEditFields.status.value = 'available';
+}
+
+function addBulkFace() {
+  bulkEditFields.faces.value.push({ name: '', meters: '' });
+}
+
+function removeBulkFace(index) {
+  if (bulkEditFields.faces.value.length <= 1) {
+    return;
+  }
+
+  bulkEditFields.faces.value.splice(index, 1);
 }
 
 function openBulkEditModal() {
@@ -598,6 +644,11 @@ function buildBulkEditPayload() {
 
   if (bulkEditFields.sizeLabel.enabled) {
     payload.size_label = bulkEditFields.sizeLabel.value?.trim() || null;
+  }
+
+  if (bulkEditFields.faces.enabled) {
+    const faces = normalizeLotFaces(bulkEditFields.faces.value);
+    payload.faces = faces.length ? faces : null;
   }
 
   if (bulkEditFields.totalValue.enabled) {

@@ -20,6 +20,7 @@ use App\Actions\Sale\UploadSignedContractAction;
 use App\Http\Requests\CancelSaleRequest;
 use App\Http\Requests\ChangeSaleLotRequest;
 use App\Http\Requests\StoreSaleRequest;
+use App\Http\Requests\UpdateSaleContractMeasuresRequest;
 use App\Http\Requests\UploadSaleDocumentRequest;
 use App\Http\Requests\UploadSignedContractRequest;
 use App\Http\Resources\SaleDocumentResource;
@@ -99,7 +100,38 @@ class SaleController extends Controller
         $this->authorize('sales.edit');
 
         $sale = Sale::query()->findOrFail((int) $id);
-        $sale = $action->execute($sale, $request->only(['status', 'notes']));
+        $sale = $action->execute($sale, $request->only(['status', 'notes', 'contract_lot_measures']));
+
+        return response()->json(new SaleResource($sale));
+    }
+
+    public function updateContractMeasures(
+        UpdateSaleContractMeasuresRequest $request,
+        string|int $id,
+        UpdateSaleAction $action,
+    ): JsonResponse {
+        $this->authorize('sales.edit');
+
+        $sale = Sale::query()->findOrFail((int) $id);
+        $measures = $request->validated('contract_lot_measures');
+
+        if (is_array($measures)) {
+            $normalized = [];
+
+            foreach ($measures as $lotId => $text) {
+                $key = (string) $lotId;
+                $trimmed = is_string($text) ? trim($text) : '';
+
+                if ($trimmed !== '') {
+                    $normalized[$key] = $trimmed;
+                }
+            }
+
+            $measures = $normalized === [] ? null : $normalized;
+        }
+
+        $sale = $action->execute($sale, ['contract_lot_measures' => $measures]);
+        $sale->load(['client', 'lot.development', 'lots.development', 'lots.street', 'lots.zone.parent', 'buyers']);
 
         return response()->json(new SaleResource($sale));
     }

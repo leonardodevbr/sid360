@@ -210,10 +210,10 @@ class DevelopmentZoneController extends Controller
                 $num = $lotNumbers[$i];
                 $number = $this->formatLotNumber($num, $pattern, $zone);
 
-                $sizeLabel = $this->buildLotSizeLabel(
-                    $lotData['width_meters'] ?? $data['lot_width'] ?? null,
-                    $lotData['depth_meters'] ?? $data['lot_depth'] ?? null,
-                );
+                $width = $lotData['width_meters'] ?? $data['lot_width'] ?? null;
+                $depth = $lotData['depth_meters'] ?? $data['lot_depth'] ?? null;
+                $sizeLabel = $this->buildLotSizeLabel($width, $depth);
+                $faces = \App\Support\LotMeasures::rectangularFaces($width, $depth);
 
                 $lotTotalValue = $this->resolveLotTotalValue(
                     $development,
@@ -232,6 +232,7 @@ class DevelopmentZoneController extends Controller
                     'area' => $lotData['area_computed'] ?? null,
                     'area_computed' => $lotData['area_computed'] ?? null,
                     'size_label' => $sizeLabel,
+                    'faces' => $faces,
                     'total_value' => $lotTotalValue,
                     'down_payment_percent' => null,
                     'status' => Lot::STATUS_AVAILABLE,

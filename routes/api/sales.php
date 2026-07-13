@@ -17,6 +17,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/sales', [SaleController::class, 'store']);
     Route::get('/sales/{id}', [SaleController::class, 'show']);
     Route::post('/sales/{id}/update', [SaleController::class, 'update']);
+    Route::post('/sales/{id}/contract-measures', [SaleController::class, 'updateContractMeasures']);
     Route::post('/sales/{id}/delete', [SaleController::class, 'destroy']);
     Route::post('/sales/{id}/cancel', [SaleController::class, 'cancel']);
     Route::post('/sales/{id}/change-lot', [SaleController::class, 'changeLot']);

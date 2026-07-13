@@ -223,7 +223,8 @@
   // se a view for chamada diretamente sem essa variável, cai para o lote único.
   $contractLots = ($contractLots ?? collect([$sale->lot]))->filter()->values();
   $isMultiLot = $contractLots->count() > 1;
-  $totalLotsArea = $contractLots->sum(fn ($lot) => (float) ($lot->area ?? 0));
+  $totalLotsArea = $contractLots->sum(fn ($lot) => (float) (\App\Support\LotMeasures::resolveArea($lot) ?? 0));
+  $saleMeasureOverrides = is_array($sale->contract_lot_measures) ? $sale->contract_lot_measures : [];
 @endphp
 
 <div class="doc-header">
@@ -313,6 +314,10 @@
 </p>
 
 @foreach($contractLots as $i => $lot)
+@php
+  $lotMeasuresOverride = $saleMeasureOverrides[(string) $lot->id] ?? $saleMeasureOverrides[$lot->id] ?? null;
+  $lotMeasuresText = \App\Support\LotMeasures::resolveContractMeasuresText($lot, is_string($lotMeasuresOverride) ? $lotMeasuresOverride : null);
+@endphp
 <p class="indent">
   <strong>{{ chr(97 + $i) }})</strong>
   @if($lot->street)
@@ -327,10 +332,8 @@
     Quadra <strong>{{ $lot->block }}</strong>,
   @endif
   Lote <strong>{{ $lot->number }}</strong>
-  @if($lot->area)
-    , com área total de
-    <strong>{{ number_format((float) $lot->area, 0, ',', '.') }}m²
-    ({{ number_format((float) $lot->area, 0, ',', '.') }} metros quadrados)</strong>
+  @if($lotMeasuresText)
+    , <strong>{{ $lotMeasuresText }}</strong>
   @endif
   ;
 </p>
@@ -349,6 +352,14 @@
   para a devida transferência do domínio.
 </p>
 @else
+@php
+  $singleLot = $sale->lot;
+  $singleOverride = $saleMeasureOverrides[(string) $singleLot->id] ?? $saleMeasureOverrides[$singleLot->id] ?? null;
+  $singleMeasuresText = \App\Support\LotMeasures::resolveContractMeasuresText(
+    $singleLot,
+    is_string($singleOverride) ? $singleOverride : null,
+  );
+@endphp
 <p class="indent">
   O <strong>OUTORGANTE VENDEDOR</strong> é legítimo proprietário de um
   <strong>TERRENO (LOTE)</strong>, localizado no Loteamento
@@ -366,10 +377,8 @@
     Quadra <strong>{{ $sale->lot->block }}</strong>,
   @endif
   Lote <strong>{{ $sale->lot->number }}</strong>
-  @if($sale->lot->area)
-    , com área total de
-    <strong>{{ number_format((float) $sale->lot->area, 0, ',', '.') }}m²
-    ({{ number_format((float) $sale->lot->area, 0, ',', '.') }} metros quadrados)</strong>
+  @if($singleMeasuresText)
+    , <strong>{{ $singleMeasuresText }}</strong>
   @endif
   , com seus limites, confrontações e características constantes da matrícula
   no Cartório de Registro de Imóveis competente. Pelo presente instrumento,

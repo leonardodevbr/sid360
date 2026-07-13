@@ -40,6 +40,8 @@ class LotResource extends JsonResource
             'area' => $this->area !== null ? (float) $this->area : null,
             'area_computed' => $this->area_computed !== null ? (float) $this->area_computed : null,
             'size_label' => $this->size_label,
+            'faces' => $this->faces,
+            'contract_measures_text' => $this->contract_measures_text,
             'coordinates' => $this->normalizedCoordinates(),
             'total_value' => $this->total_value !== null ? (int) $this->total_value : null,
             'down_payment_percent' => $this->down_payment_percent !== null

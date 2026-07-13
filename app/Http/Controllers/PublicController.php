@@ -290,6 +290,7 @@ class PublicController extends Controller
             'area' => $lot->area !== null ? (float) $lot->area : null,
             'area_computed' => $lot->area_computed !== null ? (float) $lot->area_computed : null,
             'size_label' => $lot->size_label,
+            'faces' => $lot->faces,
             'total_value' => (int) ($lot->total_value ?? 0),
             'status' => $lot->status,
             'coordinates' => $lot->coordinates,
@@ -375,8 +376,8 @@ class PublicController extends Controller
 
     private function lotGroupKey(Lot $lot): string
     {
-        $label = trim((string) ($lot->size_label ?? ''));
-        if ($label !== '') {
+        $label = \App\Support\LotMeasures::resolveDimensionsLabel($lot, false);
+        if ($label !== null && $label !== '') {
             return 'label:' . strtolower(preg_replace('/\s+/', '', $label) ?? $label);
         }
 
@@ -390,22 +391,14 @@ class PublicController extends Controller
 
     private function lotEffectiveArea(Lot $lot): ?float
     {
-        if ($lot->area !== null) {
-            return (float) $lot->area;
-        }
-
-        if ($lot->area_computed !== null) {
-            return (float) $lot->area_computed;
-        }
-
-        return null;
+        return \App\Support\LotMeasures::resolveArea($lot);
     }
 
     private function lotGroupLabel(Lot $lot): string
     {
-        $label = trim((string) ($lot->size_label ?? ''));
-        if ($label !== '') {
-            return str_replace(['x', 'X'], '×', $label);
+        $label = \App\Support\LotMeasures::resolveDimensionsLabel($lot, true);
+        if ($label !== null && $label !== '') {
+            return $label;
         }
 
         $area = $this->lotEffectiveArea($lot);

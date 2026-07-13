@@ -46,6 +46,7 @@ class SaleResource extends JsonResource
             'whatsapp_welcome_sent_at' => $this->whatsapp_welcome_sent_at?->toIso8601String(),
             'whatsapp_last_notification_at' => $this->lastWhatsappNotificationAt()?->toIso8601String(),
             'notes' => $this->notes,
+            'contract_lot_measures' => $this->contract_lot_measures,
             'has_signed_contract' => $this->signed_contract_path !== null,
             'signed_contract_original_name' => $this->signed_contract_original_name,
             'created_at' => $this->created_at?->toIso8601String(),

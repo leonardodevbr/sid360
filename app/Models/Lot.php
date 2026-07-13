@@ -45,6 +45,8 @@ class Lot extends Model
         'area',
         'area_computed',
         'size_label',
+        'faces',
+        'contract_measures_text',
         'total_value',
         'down_payment_percent',
         'status',
@@ -59,6 +61,7 @@ class Lot extends Model
         return [
             'area' => 'decimal:2',
             'area_computed' => 'decimal:2',
+            'faces' => 'array',
             'total_value' => 'integer',
             'down_payment_percent' => 'decimal:2',
             'coordinates' => 'array',

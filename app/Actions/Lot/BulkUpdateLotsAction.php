@@ -103,6 +103,16 @@ class BulkUpdateLotsAction
                 : null;
         }
 
+        if (array_key_exists('faces', $fields)) {
+            $faces = $fields['faces'];
+
+            if ($faces === null || $faces === []) {
+                $payload['faces'] = null;
+            } else {
+                $payload['faces'] = \App\Support\LotMeasures::normalizeFaces($faces);
+            }
+        }
+
         if (array_key_exists('total_value', $fields)) {
             $payload['total_value'] = $fields['total_value'];
         }

@@ -46,6 +46,7 @@ class Sale extends Model
         'payment_day',
         'status',
         'notes',
+        'contract_lot_measures',
         'efi_carnet_id',
         'efi_carnet_pdf',
         'efi_carnet_link',
@@ -71,6 +72,7 @@ class Sale extends Model
             'down_payment' => 'integer',
             'financed_value' => 'integer',
             'installment_value' => 'integer',
+            'contract_lot_measures' => 'array',
             'whatsapp_welcome_sent_at' => 'datetime',
             'cancelled_at' => 'datetime',
         ];

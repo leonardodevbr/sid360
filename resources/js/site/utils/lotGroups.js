@@ -1,11 +1,7 @@
+import { resolveLotArea, resolveLotDimensionsLabel } from '@/utils/lotMeasures';
+
 function lotEffectiveArea(lot) {
-  if (lot.area != null && lot.area !== '') {
-    return Number(lot.area);
-  }
-  if (lot.area_computed != null && lot.area_computed !== '') {
-    return Number(lot.area_computed);
-  }
-  return null;
+  return resolveLotArea(lot);
 }
 
 function normalizeSizeLabel(label) {
@@ -16,7 +12,7 @@ function normalizeSizeLabel(label) {
 }
 
 export function lotGroupKey(lot) {
-  const label = String(lot.size_label ?? '').trim();
+  const label = resolveLotDimensionsLabel(lot, { useTimes: false });
   if (label) {
     return `label:${normalizeSizeLabel(label)}`;
   }
@@ -30,9 +26,9 @@ export function lotGroupKey(lot) {
 }
 
 export function lotGroupLabel(lot) {
-  const label = String(lot.size_label ?? '').trim();
+  const label = resolveLotDimensionsLabel(lot, { useTimes: true });
   if (label) {
-    return label.replace(/x/gi, '×');
+    return label;
   }
 
   const area = lotEffectiveArea(lot);

@@ -1,4 +1,5 @@
 import { formatAreaM2, formatPolygonAreaM2 } from '@/utils/mapGeometry';
+import { resolveLotArea, resolveLotDimensionsLabel } from '@/utils/lotMeasures';
 
 export const LOT_MAP_DIMENSION_LABEL_MIN_ZOOM = 17;
 
@@ -20,17 +21,11 @@ export function buildLotMapLabel(lot) {
 }
 
 export function formatLotDimensionsLabel(lot) {
-  return formatLotDimensionsDisplay(lot)?.replace(/x/g, '×') ?? null;
+  return resolveLotDimensionsLabel(lot, { useTimes: true });
 }
 
 export function formatLotDimensionsDisplay(lot) {
-  const raw = String(lot?.size_label ?? '').trim();
-
-  if (!raw) {
-    return null;
-  }
-
-  return raw.replace(/m$/i, '').replace(/×/gi, 'x').replace(/X/g, 'x');
+  return resolveLotDimensionsLabel(lot, { useTimes: false });
 }
 
 export function hasLotDimensionsLabel(lot) {
@@ -74,9 +69,9 @@ export function buildMapFixedLabelIconHtml(text, labelClass = 'map-lot-context-d
 }
 
 export function buildLotAreaLabel(lot) {
-  const storedArea = lot?.area_computed ?? lot?.area;
+  const storedArea = resolveLotArea(lot);
 
-  if (storedArea != null && storedArea !== '') {
+  if (storedArea != null && !Number.isNaN(storedArea)) {
     return formatAreaM2(storedArea, { approximate: false });
   }
 

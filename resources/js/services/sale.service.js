@@ -87,3 +87,10 @@ export async function downloadInstallmentRecibo(installmentId, filename) {
   link.click();
   window.URL.revokeObjectURL(url);
 }
+
+export async function updateContractLotMeasures(saleId, contractLotMeasures) {
+  const { data } = await api.post(`/sales/${saleId}/contract-measures`, {
+    contract_lot_measures: contractLotMeasures,
+  });
+  return data.data ?? data;
+}

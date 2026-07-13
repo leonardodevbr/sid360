@@ -83,13 +83,70 @@
             <Input v-model="form.area" label="Área (m²)" type="number" step="0.01" min="0" />
             <p v-if="computedArea" class="mt-1 text-xs text-emerald-600">
               Área calculada pelo polígono: <strong>{{ computedArea }} m²</strong>
+              <span class="text-slate-500"> — use o campo acima para gravar a área oficial</span>
             </p>
           </div>
           <Input
             v-model="form.size_label"
-            label="Medidas do lote"
-            placeholder="Ex: 20×30"
+            label="Texto de exibição (opcional)"
+            :placeholder="facesDisplayPlaceholder"
           />
+        </div>
+
+        <div class="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p class="text-sm font-medium text-slate-700">Medidas das faces</p>
+              <p class="text-xs text-slate-500">Informe cada face do lote (lotes irregulares podem ter mais de 4).</p>
+            </div>
+            <Button type="button" variant="outline" @click="addFace">
+              Adicionar face
+            </Button>
+          </div>
+
+          <div
+            v-for="(face, index) in form.faces"
+            :key="index"
+            class="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_8rem_auto]"
+          >
+            <Input
+              v-model="face.name"
+              :label="index === 0 ? 'Nome da face' : undefined"
+              placeholder="Ex: Frente"
+            />
+            <Input
+              v-model="face.meters"
+              :label="index === 0 ? 'Metros' : undefined"
+              type="number"
+              min="0.01"
+              step="0.01"
+              placeholder="0"
+            />
+            <div :class="index === 0 ? 'flex items-end pb-0.5' : 'flex items-center'">
+              <button
+                type="button"
+                class="rounded p-2 text-slate-400 hover:bg-white hover:text-red-600"
+                title="Remover face"
+                :disabled="form.faces.length <= 1"
+                @click="removeFace(index)"
+              >
+                <TrashIcon class="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="mb-1 block text-sm font-medium text-slate-700">Texto das medidas no contrato (opcional)</label>
+          <textarea
+            v-model="form.contract_measures_text"
+            rows="3"
+            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-[#2d6a45] focus:outline-none focus:ring-2 focus:ring-[#2d6a45]/20"
+            :placeholder="contractMeasuresPlaceholder"
+          />
+          <p class="mt-1 text-xs text-slate-500">
+            Se vazio, o contrato monta o texto automaticamente a partir da área e das faces.
+          </p>
         </div>
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -220,6 +277,13 @@ import { buildZoneTitleLabel, compareZonesByName, isLotSelectableZone } from '@/
 import { getPolygonCentroid, normalizePolygonCoordinates } from '@/utils/mapGeometry';
 import { getMappedStreets } from '@/utils/mapStreets';
 import { buildLotMapLabel, buildLotDimensionLabelTitle, formatLotDimensionsDisplay } from '@/utils/mapLots';
+import {
+  DEFAULT_LOT_FACES,
+  facesForForm,
+  formatFacesAsDimensions,
+  normalizeLotFaces,
+  buildAutoContractMeasuresText,
+} from '@/utils/lotMeasures';
 import { getApiErrorMessage } from '@/utils/apiError';
 import Input from '@/components/Common/Input.vue';
 import SelectInput from '@/components/Common/SelectInput.vue';
@@ -231,6 +295,7 @@ import {
   ArrowLeftIcon,
   ArrowPathIcon,
   SignalSlashIcon,
+  TrashIcon,
 } from '@heroicons/vue/24/outline';
 
 const route = useRoute();
@@ -252,6 +317,8 @@ const form = ref({
   number: '',
   area: '',
   size_label: '',
+  faces: DEFAULT_LOT_FACES.map((face) => ({ ...face })),
+  contract_measures_text: '',
   total_value: 0,
   down_payment_percent: '',
   status: 'available',
@@ -435,7 +502,10 @@ function getSelectedZone() {
 }
 
 const activeLotMapLabel = computed(() => {
-  const size = formatLotDimensionsDisplay({ size_label: form.value.size_label });
+  const size = formatLotDimensionsDisplay({
+    size_label: form.value.size_label,
+    faces: form.value.faces,
+  });
   const title = buildLotDimensionLabelTitle({ number: form.value.number });
 
   if (size) {
@@ -454,6 +524,34 @@ const activeLotMapLabel = computed(() => {
     block: selectedZone?.name ?? form.value.block?.trim() ?? null,
   });
 });
+
+const facesDisplayPlaceholder = computed(() => {
+  const fromFaces = formatFacesAsDimensions(form.value.faces, { useTimes: true });
+  return fromFaces ? `Ex.: ${fromFaces}` : 'Ex: 20×30';
+});
+
+const contractMeasuresPlaceholder = computed(() => {
+  const auto = buildAutoContractMeasuresText({
+    area: form.value.area === '' ? null : Number(form.value.area),
+    area_computed: form.value.area_computed,
+    size_label: form.value.size_label,
+    faces: form.value.faces,
+  });
+
+  return auto || 'Ex.: com área total de 622m², medindo Frente de 16m, Lado esquerdo de 40m…';
+});
+
+function addFace() {
+  form.value.faces.push({ name: '', meters: '' });
+}
+
+function removeFace(index) {
+  if (form.value.faces.length <= 1) {
+    return;
+  }
+
+  form.value.faces.splice(index, 1);
+}
 
 const lotBoundaryPolygon = computed(() => {
   const selectedZone = getSelectedZone();
@@ -716,6 +814,8 @@ async function loadItem() {
       number: item.number ?? '',
       area: item.area ?? '',
       size_label: item.size_label ?? '',
+      faces: facesForForm(item.faces),
+      contract_measures_text: item.contract_measures_text ?? '',
       total_value: item.total_value ?? 0,
       down_payment_percent: item.down_payment_percent != null ? String(item.down_payment_percent) : '',
       status: item.status ?? 'available',
@@ -753,6 +853,11 @@ function buildLotPayload() {
     area: form.value.area === '' ? null : Number(form.value.area),
     area_computed: form.value.area_computed ?? null,
     size_label: form.value.size_label?.trim() || null,
+    faces: (() => {
+      const faces = normalizeLotFaces(form.value.faces);
+      return faces.length ? faces : null;
+    })(),
+    contract_measures_text: form.value.contract_measures_text?.trim() || null,
     total_value: form.value.total_value > 0 ? Number(form.value.total_value) : null,
     down_payment_percent: useDevelopmentPaymentTerms.value
       ? null

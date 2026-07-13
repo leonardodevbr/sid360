@@ -27,7 +27,10 @@ class BulkUpdateLotsRequest extends FormRequest
             'zone_id' => ['sometimes', 'nullable', 'integer', 'exists:development_zones,id'],
             'block' => ['sometimes', 'nullable', 'string', 'max:50'],
             'area' => ['sometimes', 'nullable', 'numeric', 'min:0'],
-            'size_label' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'size_label' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'faces' => ['sometimes', 'nullable', 'array'],
+            'faces.*.name' => ['required_with:faces', 'string', 'max:100'],
+            'faces.*.meters' => ['required_with:faces', 'numeric', 'min:0.01'],
             'total_value' => ['sometimes', 'nullable', 'integer', 'min:0'],
             'status' => ['sometimes', 'string', Rule::in(Lot::STATUSES)],
         ];
@@ -36,7 +39,7 @@ class BulkUpdateLotsRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
-            $updateKeys = ['zone_id', 'block', 'area', 'size_label', 'total_value', 'status'];
+            $updateKeys = ['zone_id', 'block', 'area', 'size_label', 'faces', 'total_value', 'status'];
             $hasField = false;
 
             foreach ($updateKeys as $key) {
